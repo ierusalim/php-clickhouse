@@ -32,5 +32,5 @@ before_script:
 
 # omitting "script:" will default to phpunit
 script:
-  - php -q src/run.php
+  - php -q run.php
 
