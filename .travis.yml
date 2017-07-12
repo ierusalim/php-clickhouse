@@ -1,0 +1,34 @@
+# see http://about.travis-ci.org/docs/user/languages/php/ for more hints
+language: php
+
+# list any PHP version you want to test against
+php:
+  # using major version aliases
+
+  # aliased to a recent 5.5.x version
+  - 5.5
+  # aliased to a recent 5.6.x version
+  - 5.6
+  # aliased to a recent 7.x version
+  - 7.0
+
+# execute any number of scripts before the test run, custom env's are available as variables
+before_script:
+  - sudo apt-key adv --keyserver keyserver.ubuntu.com --recv E0C56BD4
+  - echo "deb http://repo.yandex.ru/clickhouse/precise stable main" | sudo tee -a /etc/apt/sources.list
+  - sudo apt-get update -qq
+  - sudo apt-get install clickhouse-server-common clickhouse-client -y
+  - sudo sed -i -- 's/listen_host>::/listen_host>0.0.0.0/g' /etc/clickhouse-server/config.xml
+  - sudo service clickhouse-server start
+  - sudo netstat -ltn
+  - (tail -n 100 /var/log/clickhouse-server/clickhouse-server.err.log || exit 0)
+  - (tail -n 100 /var/log/clickhouse-server/clickhouse-server.log || exit 0)
+  - (id metrika || exit 0)
+  - (ls -la /opt/clickhouse/data/default/ || exit 0)
+  - (ls -la /opt/clickhouse/metadata/default/ || exit 0)
+  - curl -v "http://127.0.0.1:8123/"
+
+# omitting "script:" will default to phpunit
+script:
+  - php -q src/run.php
+
