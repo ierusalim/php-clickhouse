@@ -2,9 +2,9 @@
 
 namespace Ierusalim\ClickHouse;
 
-require_once "src/ClickHouseHost.php";
+require_once "src/ClickHouseAPI.php";
 
-$ch = new ClickHouseHost();
+$ch = new ClickHouseAPI();
 
 $response = $ch->getQuery("SELECT 1");
 

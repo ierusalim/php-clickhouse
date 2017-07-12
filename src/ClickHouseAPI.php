@@ -12,7 +12,7 @@ namespace Ierusalim\ClickHouse;
  * @copyright  2017, Ierusalim
  * @license    https://opensource.org/licenses/Apache-2.0 Apache-2.0
  */
-class ClickHouseHost
+class ClickHouseAPI
 {
     private $scheme = 'http';
     private $host = '127.0.0.1';
