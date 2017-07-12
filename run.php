@@ -8,6 +8,8 @@ $ch = new ClickHouseHost();
 
 $response = $ch->getQuery("SELECT 1");
 
-echo "Server response: $response\n";
+echo "Server response:";
+print_r($response);
+echo "\n";
 
 return 0;

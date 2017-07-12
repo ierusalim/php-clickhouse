@@ -112,6 +112,8 @@ class ClickHouseHost
             $is_post,
             $post_fields
         );
+        
+        return $response_data;
     }
     
     public function doApiCall(
@@ -123,6 +125,8 @@ class ClickHouseHost
     ) {
         $api_url .= "?" . \http_build_query($get_params);
 
+        echo "Send api request: $api_url\n";
+        
         $ch = curl_init($api_url);
 
         if (!is_array($post_fields)) {
