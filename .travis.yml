@@ -5,12 +5,11 @@ sudo: required
 # list any PHP version you want to test against
 php:
   # using major version aliases
-  - 5.2
-  - 5.3
   - 5.4
   - 5.5
   - 5.6
   - 7.0
+  - 7.1
 
 # execute any number of scripts before the test run, custom env's are available as variables
 before_script:
