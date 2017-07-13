@@ -104,6 +104,20 @@ class ClickHouseAPI
      * @var string
      */
     public $query = 'SELECT 1';
+    
+    /**
+     * Hook on doApiCall executing, before send request.
+     *
+     * @var callable|boolean
+     */
+    public $hook_before_api_call = false;
+    
+    /**
+     * Auto-create session_id and send it with each request
+     *
+     * @var boolean
+     */
+    public $session_autocreate = true;
 
     /**
      * Two formats supported for set server parameters when creating object:
@@ -179,7 +193,7 @@ class ClickHouseAPI
      * @param array|null $post_data
      * @return array
      */
-    public function query($get_query, $post_data = null)
+    public function anyQuery($get_query, $post_data = null)
     {
         return
             empty($post_data) ?
@@ -229,6 +243,10 @@ class ClickHouseAPI
 
         $user = $this->user;
         $password = $this->pass;
+        
+        if ($this->session_autocreate && !$this->getSession()) {
+            $this->setSession();
+        }
 
         $get_parameters = \array_merge(
             \compact('user', 'password', 'query'),
@@ -259,13 +277,16 @@ class ClickHouseAPI
         $api_url,
         $get_params,
         $post_mode = false,
-        $post_fields = null,
-        $file = null
+        $post_fields = null
     ) {
         $api_url .= "?" . \http_build_query($get_params);
 
         if ($this->debug) {
             echo "Send api request: $api_url\n";
+        }
+        
+        if ($this->hook_before_api_call) {
+            $api_url = call_user_func($this->hook_before_api_call, $api_url);
         }
         
         $ch = curl_init($api_url);
@@ -275,15 +296,6 @@ class ClickHouseAPI
         }
 
         if ($post_mode) {
-            if (!empty($file) && file_exists($file)) {
-                if (function_exists('\curl_file_create')) {
-                    $post_fields['file'] = \curl_file_create($file);
-                } else {
-                    $post_fields['file'] = "@$filename;filename="
-                        . basename($filename);
-                }
-            }
-
             \curl_setopt($ch, \CURLOPT_POST, true);
             \curl_setopt($ch, \CURLOPT_POSTFIELDS, $post_fields);
         }
@@ -308,5 +320,72 @@ class ClickHouseAPI
             print_r(compact('code', 'curl_error', 'response'));
         }
         return compact('code', 'curl_error', 'response');
+    }
+
+    /**
+     * Set addition http-request parameter.
+     *
+     * @param string $key
+     * @param string|null $value
+     * @param boolean $overwrite
+     * @return string|null
+     */
+    public function setOption($key, $value, $overwrite = true)
+    {
+        $old_value = isset($this->options[$key]) ? $this->options[$key] : null;
+        if (is_null($old_value) || $overwrite) {
+            $this->options[$key]=$value;
+        }
+        return $old_value;
+    }
+    
+    /**
+     * Get http-request parameter that was set via setOption
+     *
+     * @param string $key
+     * @return string|null
+     */
+    public function getOption($key)
+    {
+        return isset($this->options[$key]) ? $this->options[$key] : null;
+    }
+    
+    /**
+     * Set session_id into http-request options
+     * if session_id not specified (or specified as null) create and set random.
+     *
+     * @param type $session_id
+     * @param type $overwrite
+     * @return type
+     */
+    public function setSession($session_id = null, $overwrite = true)
+    {
+        if (is_null($session_id)) {
+            $session_id = md5(microtime());
+        }
+        return $this->setOption('session_id', $session_id, $overwrite);
+    }
+    
+    /**
+     * Return current session_id from http-req options (or null if not exists)
+     *
+     * @return string|null
+     */
+    public function getSession()
+    {
+        return $this->getOption('session_id');
+    }
+    
+    /**
+     * Delete http-request option by specified key
+     *
+     * @param string $key
+     * @return string|null
+     */
+    public function delOption($key)
+    {
+        $old_value = $this->getOption($key);
+        unset($this->options[$key]);
+        return $old_value;
     }
 }
