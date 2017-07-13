@@ -1,11 +1,11 @@
 <?php
-namespace Ierusalim\ClickHouse;
+namespace ierusalim\ClickHouse;
 
 /**
  * This class coniains ClickHouseSimple
  *
  * PHP Version >= 5.4
- * 
+ *
  * @package    ierusalim\ClickHouseSimple
  * @author     Alexander Jer <alex@ierusalim.com>
  * @copyright  2017, Ierusalim
@@ -22,11 +22,56 @@ class ClickHouseReq extends ClickHouseAPI
     public $rows;
     public $extra;
     
-    public function queryFullArray($sql, $only_data = false)
+    /**
+     * String contained last error which returned by CURL or in server response
+     * 
+     * @var string
+     */
+    public $last_error_str = '';
+
+    /**
+     * Last response for plain requests like queryGood, queryValue
+     * 
+     * @var string|null
+     */
+    public $last_ans_str;
+    
+    public function setCurrentDatabase($db, $sess = null)
+    {
+        return $this->queryGood("USE $db", $sess);
+    }
+    public function getCurrentDatabase($sess = null) {
+        return $this->queryValue('SELECT currentDatabase()', null, $sess);
+    }
+    
+    public function queryGood($sql, $sess = null) {
+        $ans = $this->queryValue($sql, [], $sess);
+        return ($ans !== false);
+    }
+    public function queryValue($sql, $post_data = null, $sess = null) {
+
+        // Do query
+        $ans = $this->anyQuery($sql, $post_data, $sess);
+        
+        // Return string response or false if error
+        if (!empty($ans['curl_error'])) {
+            $this->last_error_str = $ans['curl_error'];
+            return false;
+        }
+        $this->last_ans_str = isset($ans['response']) ? $ans['response'] : null;
+        if ($ans['code'] == 200) {
+            return $ans['response'];
+        } else {
+            $this->last_error_str = $ans['response'];
+            return false;
+        }
+    }
+    public function queryFullArray($sql, $only_data = false, $sess = null)
     {
         $data = $this->getQuery($sql . ' FORMAT '. 
             (($this->json_compact || $only_data) ? 'JSONCompact' : 'JSON')
-        );
+            , $sess
+            );
         if($data['code'] != 200) {
             return $data['response'];
         }
@@ -79,21 +124,7 @@ class ClickHouseReq extends ClickHouseAPI
         $this->extra = $arr;
         return $data;
     }
-    
-    /**
-     * CREATE [TEMPORARY] TABLE [IF NOT EXISTS] [db.]name [ON CLUSTER cluster]
-     * (
-     *   name1 [type1] [DEFAULT|MATERIALIZED|ALIAS expr1],
-     *   name2 [type2] [DEFAULT|MATERIALIZED|ALIAS expr2],
-     *   ...
-     * ) ENGINE = engine
-     *
-     * @param type $table_name
-     */
-    public function createTable($table_name)
-    {
-        
-    }
+
     
     /**
      * For requests like SHOW DATABASES, SHOW PROCESSLIST, etc.

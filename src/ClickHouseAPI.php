@@ -1,6 +1,6 @@
 <?php
 
-namespace Ierusalim\ClickHouse;
+namespace ierusalim\ClickHouse;
 
 /**
  * This is a simple http/https connector for ClickHouse database server
@@ -40,7 +40,7 @@ class ClickHouseAPI
      *
      * @var string
      */
-    private $host = '127.0.0.1';
+    public $host = '127.0.0.1';
     
     /**
      * Server TCP/IP-port
@@ -83,6 +83,20 @@ class ClickHouseAPI
      * @var integer
      */
     public $ssl_verify_host = 0; //set 2 if server have valid ssl-sertificate
+    
+    /**
+     * Last error reported by CURL or empty string if none
+     *
+     * @var string
+     */
+    public $last_curl_error_str = '';
+    
+    /**
+     * HTTP-Code from last server response
+     *
+     * @var integer
+     */
+    public $last_code;
 
     /**
      * Options for http-request
@@ -189,16 +203,16 @@ class ClickHouseAPI
     /**
      * Send Get query if $post_data is empty, otherwise send Post query
      *
-     * @param string     $get_query
+     * @param string     $h_query
      * @param array|null $post_data
      * @return array
      */
-    public function anyQuery($get_query, $post_data = null)
+    public function anyQuery($h_query, $post_data = null, $sess = null)
     {
         return
-            empty($post_data) ?
-            $this->getQuery($get_query) :
-            $this->postQuery($get_query, $post_data)
+            \is_null($post_data) ?
+            $this->getQuery($h_query, $sess) :
+            $this->postQuery($h_query, $post_data, $sess)
         ;
     }
     
@@ -208,9 +222,9 @@ class ClickHouseAPI
      * @param string| null $h_query
      * @return array
      */
-    public function getQuery($h_query = null)
+    public function getQuery($h_query = null, $sess = null)
     {
-        return $this->doQuery($h_query, false);
+        return $this->doQuery($h_query, false, null, $sess);
     }
     
     /**
@@ -220,7 +234,7 @@ class ClickHouseAPI
      * @param string|null $post_fields
      * @return array
      */
-    public function postQuery($h_query = null, $post_fields = null)
+    public function postQuery($h_query = null, $post_fields = null, $sess = null)
     {
         return $this->doQuery($h_query, true, $post_fields);
     }
@@ -233,8 +247,12 @@ class ClickHouseAPI
      * @param stirng|null $post_fields
      * @return array
      */
-    public function doQuery($query = null, $is_post = false, $post_fields = null)
-    {
+    public function doQuery(
+        $query = null,
+        $is_post = false,
+        $post_fields = null,
+        $session_id = null
+    ) {
         if (is_null($query)) {
             $query = $this->query;
         } else {
@@ -244,22 +262,32 @@ class ClickHouseAPI
         $user = $this->user;
         $password = $this->pass;
         
-        if ($this->session_autocreate && !$this->getSession()) {
-            $this->setSession();
+        // Set session if need
+        if (!empty($session_id) && $this->getSession() != $session_id) {
+            $old_session = $this->setSession($session_id);
+        } else {
+            if ($this->session_autocreate && !$this->getSession()) {
+                $this->setSession();
+            }
         }
-
-        $get_parameters = \array_merge(
+        
+        $h_parameters = \array_merge(
             \compact('user', 'password', 'query'),
             $this->options
         );
         
         $response_data = $this->doApiCall(
             $this->server_url,
-            $get_parameters,
+            $h_parameters,
             $is_post,
             $post_fields
         );
-        
+
+        // Restore old session if need
+        if (!empty($old_session)) {
+            $this->setSession($old_session);
+        }
+                
         return $response_data;
     }
     
@@ -309,9 +337,9 @@ class ClickHouseAPI
 
         $response = \curl_exec($ch);
 
-        $curl_error = \curl_error($ch);
+        $this->last_curl_error_str = $curl_error = \curl_error($ch);
 
-        $code = \curl_getinfo($ch, \CURLINFO_HTTP_CODE);
+        $this->last_code = $code = \curl_getinfo($ch, \CURLINFO_HTTP_CODE);
 
         \curl_close($ch);
 

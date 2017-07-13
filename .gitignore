@@ -1,2 +1,5 @@
 /nbproject/
 /start.php
+/vendor/
+/localenv.php
+/composer.lock

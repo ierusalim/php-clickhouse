@@ -13,9 +13,9 @@ php:
 
 # execute any number of scripts before the test run, custom env's are available as variables
 before_script:
-#  - travis_retry composer self-update
-#  - composer config notify-on-install false
-#  - travis_retry composer update --no-interaction --prefer-source
+  - travis_retry composer self-update
+  - composer config notify-on-install false
+  - travis_retry composer update --no-interaction --prefer-source
   - sudo apt-key adv --keyserver keyserver.ubuntu.com --recv E0C56BD4
   - echo "deb http://repo.yandex.ru/clickhouse/precise stable main" | sudo tee -a /etc/apt/sources.list
   - sudo apt-get update -qq
@@ -32,5 +32,5 @@ before_script:
 
 # omitting "script:" will default to phpunit
 script:
-  - php -q run.php
-
+#  - php -q run.php
+  - vendor/bin/phpunit --configuration phpunit.xml
