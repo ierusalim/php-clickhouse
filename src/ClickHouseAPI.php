@@ -64,7 +64,7 @@ class ClickHouseAPI
     private $user;
     
     /**
-     * Password if need authorisation
+     * Password if need authorization
      *
      * @var string|null
      */
@@ -78,7 +78,7 @@ class ClickHouseAPI
     private $server_url;
     
     /**
-     * CURL option for do not verify hostname in SSL sertificate
+     * CURL option for do not verify hostname in SSL certificate
      *
      * @var integer
      */
@@ -175,8 +175,9 @@ class ClickHouseAPI
     }
     
     /**
-     * Set server connetion parameters from url, for example:
-     * set scheme=http, host=127.0.0.1, port=8123, user=default, pass=[empty]
+     * Set server connection parameters from url
+     * Example:
+     * Set scheme=http, host=127.0.0.1, port=8123, user=default, pass=[empty]
      *  $h->setServerUrl("http://default:@127.0.0.1:8123/");
      *
      * @param string|null $server_url
@@ -382,9 +383,9 @@ class ClickHouseAPI
      * Set session_id into http-request options
      * if session_id not specified (or specified as null) create and set random.
      *
-     * @param type $session_id
-     * @param type $overwrite
-     * @return type
+     * @param string|null $session_id
+     * @param boolean $overwrite
+     * @return string|null
      */
     public function setSession($session_id = null, $overwrite = true)
     {
