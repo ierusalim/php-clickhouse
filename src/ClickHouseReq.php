@@ -2,11 +2,11 @@
 namespace ierusalim\ClickHouse;
 
 /**
- * This class coniains ClickHouseSimple
+ * Class ClickHouseReq
  *
  * PHP Version >= 5.4
  *
- * @package    ierusalim\ClickHouseSimple
+ * @package    ierusalim/php-clickhouse
  * @author     Alexander Jer <alex@ierusalim.com>
  * @copyright  2017, Ierusalim
  * @license    https://opensource.org/licenses/Apache-2.0 Apache-2.0
