@@ -237,7 +237,7 @@ class ClickHouseAPI
      */
     public function postQuery($h_query = null, $post_fields = null, $sess = null)
     {
-        return $this->doQuery($h_query, true, $post_fields);
+        return $this->doQuery($h_query, true, $post_fields, $sess);
     }
     
     /**
@@ -390,7 +390,7 @@ class ClickHouseAPI
     public function setSession($session_id = null, $overwrite = true)
     {
         if (is_null($session_id)) {
-            $session_id = md5(microtime());
+            $session_id = \md5(\uniqid(\mt_rand(0, \PHP_INT_MAX), true));
         }
         return $this->setOption('session_id', $session_id, $overwrite);
     }

@@ -20,6 +20,7 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
     {
         $this->object = new ClickHouseAPI;
         $this->resetServerUrl();
+        $ch->session_autocreate = false;
     }
 
     protected function resetServerUrl()

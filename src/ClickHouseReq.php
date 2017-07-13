@@ -31,10 +31,11 @@ class ClickHouseReq extends ClickHouseAPI
 
     /**
      * Last response for plain requests like queryGood, queryValue
+     * without 'trim' executed
      * 
      * @var string|null
      */
-    public $last_ans_str;
+    public $last_raw_str;
     
     public function setCurrentDatabase($db, $sess = null)
     {
@@ -46,7 +47,11 @@ class ClickHouseReq extends ClickHouseAPI
     
     public function queryGood($sql, $sess = null) {
         $ans = $this->queryValue($sql, [], $sess);
-        return ($ans !== false);
+        if ($ans !== false && empty($ans)) {
+            return true;
+        } else {
+            return $ans;
+        }
     }
     public function queryValue($sql, $post_data = null, $sess = null) {
 
@@ -58,9 +63,9 @@ class ClickHouseReq extends ClickHouseAPI
             $this->last_error_str = $ans['curl_error'];
             return false;
         }
-        $this->last_ans_str = isset($ans['response']) ? $ans['response'] : null;
+        $this->last_raw_str = isset($ans['response']) ? $ans['response'] : null;
         if ($ans['code'] == 200) {
-            return $ans['response'];
+            return trim($this->last_raw_str);
         } else {
             $this->last_error_str = $ans['response'];
             return false;
