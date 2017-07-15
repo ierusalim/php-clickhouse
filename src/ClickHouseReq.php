@@ -2,7 +2,7 @@
 namespace ierusalim\ClickHouse;
 
 /**
- * Class ClickHouseReq for make queries to ClickHouse
+ * Class ClickHouseReq for make queries to ClickHouse database engine
  *
  * PHP Version >= 5.4
  *
@@ -143,6 +143,21 @@ class ClickHouseReq extends ClickHouseAPI
         return $data;
     }
 
+    /**
+     * Function for queries returning an array (like SELECT * ...)
+     * Returned array have numeric_keys (if $numeric_keys = true),
+     *  or have keys as returned field names (in $numeric_keys = false).
+     * Additional,
+     * Information about field names available in $this->keys
+     * Information about field types available in $this->types
+     * 
+     * If error, return non-array data (usually string of error description)
+     *
+     * @param string $sql
+     * @param boolean $numeric_keys
+     * @param string|null $sess
+     * @return array
+     */
     public function queryArray($sql, $numeric_keys = false, $sess = null)
     {
         $arr = $this->queryFullArray($sql, $numeric_keys, $sess);
@@ -156,7 +171,24 @@ class ClickHouseReq extends ClickHouseAPI
         $this->extra = $arr;
         return $data;
     }
-    
+
+    /**
+     * Function for queries returning an array (like SELECT * ...)
+     * The requested data is transmitted through the JSON format or JSONCompact.
+     * If $data_only flag is false, return full array with [meta],[data], etc.
+     * If $data_only is true, return only [data]-section from received array.
+     * If got error, return non-array data (usually string error description)
+     *
+     * In $data_only mode using only JSONCompact format and returning data
+     *  array have numeric keys (but field names available in $this->keys array)
+     *
+     * When not $data_only mode, returning data-array have keys as field names.
+     *
+     * @param string $sql
+     * @param boolean $data_only
+     * @param string|null $sess
+     * @return array|string
+     */
     public function queryFullArray($sql, $data_only = false, $sess = null)
     {
         $data = $this->getQuery($sql . ' FORMAT ' .
