@@ -360,16 +360,14 @@ class ClickHouseAPI
             }
 
             if (!empty($file) && \file_exists($file)) {
-                $post_fields['file'] = "@$file;filename=" . basename($file);
-            }
-            if ($this->debug) {
-                echo "\n Post parameters:\n";
-                foreach ($post_fields as $k => $v) {
-                    echo "  [$k] => '$v' \n";
+                if (function_exists('\curl_file_create')) {
+                    $post_fields['file'] = \curl_file_create($file);
+                } else {
+                    $post_fields['file'] = "@$file;filename=" . basename($file);
                 }
             }
             \curl_setopt($ch, \CURLOPT_POST, true);
-            @\curl_setopt($ch, \CURLOPT_POSTFIELDS, $post_fields);
+            \curl_setopt($ch, \CURLOPT_POSTFIELDS, $post_fields);
         }
 
         \curl_setopt($ch, \CURLOPT_SSL_VERIFYPEER, false);
