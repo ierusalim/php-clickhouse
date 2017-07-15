@@ -51,16 +51,16 @@ class ClickHouseFunctions extends ClickHouseReq
      * @param string|null $db_name
      * @param string|null $like_pattern
      * @return array|string
-     */
     public function getTablesList($db_name = null, $like_pattern = null)
     {
         //SHOW TABLES [FROM db] [LIKE 'pattern']
         return $this->queryColumn(
                $this->binding('SHOW TABLES :db_name:patt', [
-                   'db_name'=>(empty($db_name) ? '' : ' FROM ' . $db_name),
+                   'db_name'=>(empty($db_name) ? '' : ' FROM ' . \PDO::quote($db_name)),
                    'patt'=>(empty($like_pattern) ? '' : " LIKE '$like_pattern'")
                 ]), true);
     }
+     */
 
     /**
      * Return results of request "SHOW PROCESSLIST"
