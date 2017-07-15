@@ -196,10 +196,7 @@ class ClickHouseReq extends ClickHouseAPI
         if (!\is_array($data)) {
             return $data;
         }
-        $names = \array_column($data, 0);
-        $values = \array_column($data, 1);
-        $data = \array_combine($names, $values);
-        return $data;
+        return \array_combine(\array_column($data, 0), \array_column($data, 1));
     }
 
     /**
