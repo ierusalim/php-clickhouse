@@ -363,8 +363,10 @@ class ClickHouseAPI
                 $post_fields['file'] = "@$file;filename=" . basename($file);
             }
             if ($this->debug) {
-                echo " Post_";
-                print_r($post_fields);
+                echo "\n Post parameters:\n";
+                foreach ($post_fields as $k => $v) {
+                    echo "  [$k] => '$v' \n";
+                }
             }
             \curl_setopt($ch, \CURLOPT_POST, true);
             @\curl_setopt($ch, \CURLOPT_POSTFIELDS, $post_fields);
