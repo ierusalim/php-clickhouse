@@ -24,7 +24,7 @@ class ClickHouseReq extends ClickHouseAPI
     
     /**
      * String contained last error which returned by CURL or in server response
-     * 
+     *
      * @var string
      */
     public $last_error_str = '';
@@ -32,7 +32,7 @@ class ClickHouseReq extends ClickHouseAPI
     /**
      * Last response for plain requests like queryGood, queryValue
      * without 'trim' executed
-     * 
+     *
      * @var string|null
      */
     public $last_raw_str;
@@ -55,11 +55,13 @@ class ClickHouseReq extends ClickHouseAPI
      * @param string|null $sess
      * @return string
      */
-    public function getCurrentDatabase($sess = null) {
+    public function getCurrentDatabase($sess = null)
+    {
         return $this->queryValue('SELECT currentDatabase()', null, $sess);
     }
 
-    public function queryGood($sql, $sess = null) {
+    public function queryGood($sql, $sess = null)
+    {
         $ans = $this->queryValue($sql, [], $sess);
         if ($ans !== false && empty($ans)) {
             return true;
@@ -67,16 +69,17 @@ class ClickHouseReq extends ClickHouseAPI
             return $ans;
         }
     }
-    public function queryValue($sql, $post_data = null, $sess = null) {
-
+    public function queryValue($sql, $post_data = null, $sess = null)
+    {
         // Do query
         $ans = $this->anyQuery($sql, $post_data, $sess);
         
-        // Return string response or false if error
+        // Return false if error
         if (!empty($ans['curl_error'])) {
             $this->last_error_str = $ans['curl_error'];
             return false;
         }
+        
         $this->last_raw_str = isset($ans['response']) ? $ans['response'] : null;
         if ($ans['code'] == 200) {
             return trim($this->last_raw_str);
@@ -87,39 +90,42 @@ class ClickHouseReq extends ClickHouseAPI
     }
     public function queryFullArray($sql, $only_data = false, $sess = null)
     {
-        $data = $this->getQuery($sql . ' FORMAT '. 
-            (($this->json_compact || $only_data) ? 'JSONCompact' : 'JSON')
-            , $sess
+        $data = $this->getQuery($sql . ' FORMAT ' .
+            (($this->json_compact || $only_data) ? 'JSONCompact' : 'JSON'),
+            $sess
             );
-        if($data['code'] != 200) {
+
+        if ($data['code'] != 200) {
             return $data['response'];
         }
 
         $arr = json_decode($data['response'], true);
 
-        if(!is_array($arr)) return $arr;
-        
-        foreach(['meta', 'statistics', 'extremes', 'rows'] as $key) {
+        if (!is_array($arr)) {
+            return $arr;
+        }
+
+        foreach (['meta', 'statistics', 'extremes', 'rows'] as $key) {
             $this->$key = isset($arr[$key]) ? $arr[$key]:null;
         }
         $this->keys = $keys = (is_array($this->meta) && count($this->meta)) ?
             array_column($this->meta, 'name') : null;
-        $this->types = is_array($keys) ? 
+        $this->types = is_array($keys) ?
             array_column($this->meta, 'type') : null;
 
-        if($only_data) {
+        if ($only_data) {
             return $arr['data'];
         }
 
-        if($this->json_compact && !empty($keys)) {
-            if(!empty($arr['data'])) {
-                foreach($arr['data'] as $k=>$ret) {
+        if ($this->json_compact && !empty($keys)) {
+            if (!empty($arr['data'])) {
+                foreach ($arr['data'] as $k => $ret) {
                     $ret = array_combine($keys, $ret);
                     $arr['data'][$k] = $ret;
                 }
             }
-            if(!empty($arr['extremes'])) {
-                foreach($arr['extremes'] as $k=>$ret) {
+            if (!empty($arr['extremes'])) {
+                foreach ($arr['extremes'] as $k => $ret) {
                     $ret = array_combine($keys, $ret);
                     $arr['extremes'][$k] = $ret;
                 }
@@ -127,96 +133,119 @@ class ClickHouseReq extends ClickHouseAPI
         }
         return $arr;
     }
-
-    public function queryData($sql, $only_data = false) {
+    
+    /**
+     * Query return strings array in format "TabSeparated"
+     * If return one column, array no need any convertations.
+     * If return more of one column, strings need to explode by tab
+     * 
+     * @param string $sql
+     * @param string|null $sess
+     * @return array
+     */
+    public function queryColumn($sql, $sess = null)
+    {
+        $data = $this->getQuery($sql . ' FORMAT TabSeparated', $sess);
+        if ($data['code'] != 200) {
+            return $data['response'];
+        }
+        $data = explode("\n", $data['response']);
+        $c = count($data);
+        if($c && empty($data[$c-1])) {
+            unset($data[$c-1]);
+        } 
+        return $data;
+    }
+    
+    public function queryData($sql, $only_data = false)
+    {
         $arr = $this->queryFullArray($sql, $only_data);
         if (!is_array($arr) || $only_data) {
             return $arr;
         }
-        if(!isset($arr['data'])) {
+        if (!isset($arr['data'])) {
             return "No [data] in server answer";
         }
         $data = $arr['data'];
-        foreach(['data', 'meta', 'statistics', 'extremes', 'rows' ] as $key) {
+        foreach (['data', 'meta', 'statistics', 'extremes', 'rows' ] as $key) {
             unset($arr[$key]);
         }
         $this->extra = $arr;
         return $data;
     }
+    public function queryKeyValues($tbl, $key_name, $value_name, $is_sql = 0)
+    {
+        if ($is_sql) {
+            $sql = $tbl;
+        } else {
+            $sql = "SELECT $key_name, $value_name FROM $tbl";
+        }
+        $data = $this->queryData($sql);
+        if (!\is_array($data)) {
+            return $data;
+        }
+        $names = \array_column($data, $key_name);
+        $values = \array_column($data, $value_name);
+        $data = \array_combine($names, $values);
+        return $data;
+    }
 
     
     /**
-     * For requests like SHOW DATABASES, SHOW PROCESSLIST, etc.
-     * Return array, or string error description.
-     * 
-     * @param string $about
-     * @return array|string
-     */
-    public function showAbout($about, $first_column_only = false) {
-        $data = $this->queryData('SHOW ' . $about, true);
-        if (!\count($data)) {
-            return [];
-        }
-        if($first_column_only) {
-            return \array_column($data, \key($data[0]));
-        } else {
-            return $data;
-        }
-    }
-    
-    /**
      * Return Array contained names of existing Databases
-     * 
+     *
      * @return array|string
      */
-    public function showDataBases()
+    public function getDatabasesList()
     {
-        return $this->showAbout("DATABASES", true);
+        return $this->queryColumn("SHOW DATABASES");
     }
 
     /**
      * Return names of tables from specified database or all like pattern
-     * 
+     *
      * @param string|null $db
      * @param string|null $like_pattern
      * @return array|string
      */
-    public function showTables($db = null, $like_pattern = null)
+    public function getTablesList($db = null, $like_pattern = null)
     {
         //SHOW TABLES [FROM db] [LIKE 'pattern']
-        return $this->showAbout("TABLES"
-            . (empty($db) ? '' : ' FROM ' . $db) 
-            . (empty($like_pattern) ? '' : " LIKE '$like_pattern'") 
-        ,true);
+        return $this->queryColumn("SHOW TABLES"
+            . (empty($db) ? '' : ' FROM ' . $db)
+            . (empty($like_pattern) ? '' : " LIKE '$like_pattern'"), true);
     }
 
     /**
      * Return results of request "SHOW PROCESSLIST"
-     * 
+     *
      * @return array|string
      */
-    public function showProcessList()
+    public function getProcessList()
     {
-        return $this->showAbout('PROCESSLIST', false);
+        return $this->queryData('SHOW PROCESSLIST');
     }
     
     /**
-     * Return description of table as Array in following format:
-     * [Keys - field names] => [Values - field types]
-     * 
+     * Return as Array information about specified table
+     * Array is [Keys => field names] => [Values - field types]
+     *
      * @param string $table
      * @return array|string
      */
-    public function describeTable($table) {
+    public function getTableFields($table)
+    {
         //DESCRIBE TABLE [db.]table
-        $data = $this->queryData("DESCRIBE TABLE $table");
-        if (!\is_array($data)) {
-            return $data;
-        }
-        $names = \array_column($data, 'name');
-        $types = \array_column($data, 'type');
-        $data = \array_combine($names, $types);
-        return $data;
+        return $this->queryKeyValues("DESCRIBE TABLE $table", 'name', 'type', 1);
     }
-
+    
+    /**
+     * Return as Array [names=>values] data from system.settings table
+     *
+     * @return array|string
+     */
+    public function getSystemSettings()
+    {
+        return $this->queryKeyValues('system.settings', 'name', 'value');
+    }
 }

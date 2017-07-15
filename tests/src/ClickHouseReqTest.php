@@ -125,7 +125,6 @@ class ClickHouseReqTest extends \PHPUnit_Framework_TestCase
 
     /**
      * @covers ierusalim\ClickHouse\ClickHouseReq::queryData
-     * @todo   Implement testQueryData().
      */
     public function testQueryData()
     {
@@ -136,69 +135,71 @@ class ClickHouseReqTest extends \PHPUnit_Framework_TestCase
         $this->assertArrayHasKey('0', $arr[0]);
         
     }
-
     /**
-     * @covers ierusalim\ClickHouse\ClickHouseReq::showAbout
-     * @todo   Implement testShowAbout().
+     * @covers ierusalim\ClickHouse\ClickHouseReq::queryKeyValues
      */
-    public function testShowAbout()
+    public function testQueryKeyValues()
     {
         $ch = $this->object;
-        $db_arr = $ch->showAbout("DATABASES", true);
-        $data = $ch->queryData("SHOW DATABASES", true);
-        $db_2_arr = \array_column($data, \key($data[0]));
-        $this->assertEquals($db_arr, $db_2_arr);
+        
+        $arr1 = $ch->queryKeyValues("DESCRIBE TABLE system.databases", 'name', 'type', 1);
+        $arr2 = $ch->getTableFields('system.databases');
+
+        $this->assertEquals($arr1, $arr2);
     }
 
     /**
-     * @covers ierusalim\ClickHouse\ClickHouseReq::showDataBases
-     * @todo   Implement testShowDataBases().
+     * @covers ierusalim\ClickHouse\ClickHouseReq::getDatabasesList
      */
-    public function testShowDataBases()
+    public function testGetDatabasesList()
     {
         $ch = $this->object;
-        $db_arr = $ch->showAbout("DATABASES", true);
-        $db_2_arr =$ch->showDataBases();
+        $db_arr = $ch->queryColumn("SHOW DATABASES");
+        $db_2_arr =$ch->getDatabasesList();
         $this->assertEquals($db_arr, $db_2_arr);
         $this->assertTrue(\array_search('system', $db_arr) !== false);
     }
 
     /**
-     * @covers ierusalim\ClickHouse\ClickHouseReq::showProcessList
-     * @todo   Implement testShowProcessList().
+     * @covers ierusalim\ClickHouse\ClickHouseReq::getProcessList
      */
-    public function testShowProcessList()
+    public function testGetProcessList()
     {
         $ch = $this->object;
-        $proc_arr = $ch->showProcessList();
+        $proc_arr = $ch->getProcessList();
         $this->assertTrue(\is_array($proc_arr));
     }
 
     /**
-     * @covers ierusalim\ClickHouse\ClickHouseReq::showTables
-     * @todo   Implement testShowTables().
+     * @covers ierusalim\ClickHouse\ClickHouseReq::getTablesList
      */
-    public function testShowTables()
+    public function testGetTablesList()
     {
         $ch = $this->object;
-        $sys_tbl_arr = $ch->showTables('system');
+        $sys_tbl_arr = $ch->getTablesList('system');
         $this->assertTrue(\count($sys_tbl_arr)>10);
         $this->assertTrue(\array_search('databases', $sys_tbl_arr) !== false);
 
-        $data_tbl_arr = $ch->showTables('system', 'd%');
+        $data_tbl_arr = $ch->getTablesList('system', 'd%');
         $this->assertTrue(count($data_tbl_arr)>0);
         $this->assertTrue(array_search('databases', $data_tbl_arr)!==false);
     }
 
     /**
-     * @covers ierusalim\ClickHouse\ClickHouseReq::describeTable
-     * @todo   Implement testDescribeTable().
+     * @covers ierusalim\ClickHouse\ClickHouseReq::getTableFields
      */
-    public function testDescribeTable()
+    public function testGetTableFields()
     {
         $ch = $this->object;
-        $desc_tbl_arr = $ch->describeTable('system.databases');
+        $desc_tbl_arr = $ch->getTableFields('system.databases');
         $this->assertArrayHasKey('name', $desc_tbl_arr);
         $this->assertArrayHasKey('engine', $desc_tbl_arr);
+    }
+    
+    public function testGetSystemSettings()
+    {
+        $ch = $this->object;
+        $arr = $ch->getSystemSettings();
+        $this->assertTrue(count($arr)>10);
     }
 }
