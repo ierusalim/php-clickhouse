@@ -204,8 +204,9 @@ class ClickHouseAPI
     /**
      * Send Get query if $post_data is empty, otherwise send Post query
      *
-     * @param string     $h_query
-     * @param array|null $post_data
+     * @param string      $h_query
+     * @param array|null  $post_data
+     * @param string|null $sess
      * @return array
      */
     public function anyQuery($h_query, $post_data = null, $sess = null)
@@ -220,7 +221,8 @@ class ClickHouseAPI
     /**
      * Send Get API-query
      *
-     * @param string| null $h_query
+     * @param string|null $h_query
+     * @param string|null $sess
      * @return array
      */
     public function getQuery($h_query = null, $sess = null)
@@ -233,11 +235,17 @@ class ClickHouseAPI
      *
      * @param string|null $h_query
      * @param string|null $post_fields
+     * @param string|null $sess
+     * @param string|null $file
      * @return array
      */
-    public function postQuery($h_query = null, $post_fields = null, $sess = null)
-    {
-        return $this->doQuery($h_query, true, $post_fields, $sess);
+    public function postQuery(
+        $h_query = null,
+        $post_fields = null,
+        $sess = null,
+        $file = null
+    ) {
+        return $this->doQuery($h_query, true, $post_fields, $sess, $file);
     }
     
     /**
@@ -246,13 +254,16 @@ class ClickHouseAPI
      * @param string $query
      * @param boolean $is_post
      * @param stirng|null $post_fields
+     * @param string|null $sess
+     * @param string|null $file
      * @return array
      */
     public function doQuery(
         $query = null,
         $is_post = false,
         $post_fields = null,
-        $session_id = null
+        $session_id = null,
+        $file = null
     ) {
         if (is_null($query)) {
             $query = $this->query;
@@ -281,7 +292,8 @@ class ClickHouseAPI
             $this->server_url,
             $h_parameters,
             $is_post,
-            $post_fields
+            $post_fields,
+            $file
         );
 
         // Restore old session if need
