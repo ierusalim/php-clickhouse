@@ -306,12 +306,13 @@ class ClickHouseAPI
         $api_url,
         $get_params,
         $post_mode = false,
-        $post_fields = null
+        $post_fields = null,
+        $file = null
     ) {
         $api_url .= "?" . \http_build_query($get_params);
 
         if ($this->debug) {
-            echo "Send api request: $api_url\n";
+            echo ($post_mode ? 'POST' : 'GET') . " $api_url\n";
         }
         
         if ($this->hook_before_api_call) {
@@ -325,6 +326,15 @@ class ClickHouseAPI
         }
 
         if ($post_mode) {
+            if (!empty($file) && \file_exists($file)) {
+                if (function_exists('\curl_file_create')) {
+                    $post_fields['file'] = \curl_file_create($file);
+                } else {
+                    $post_fields['file'] = "@$filename;filename="
+                        . basename($file);
+                }
+            }
+
             \curl_setopt($ch, \CURLOPT_POST, true);
             \curl_setopt($ch, \CURLOPT_POSTFIELDS, $post_fields);
         }
@@ -345,8 +355,7 @@ class ClickHouseAPI
         \curl_close($ch);
 
         if ($this->debug) {
-            echo "Serever answered: ";
-            print_r(compact('code', 'curl_error', 'response'));
+            echo "HTTP $code $curl_error \n{\n$response\n}\n";
         }
         return compact('code', 'curl_error', 'response');
     }
