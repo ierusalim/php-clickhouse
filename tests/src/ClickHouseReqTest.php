@@ -50,6 +50,11 @@ class ClickHouseReqTest extends \PHPUnit_Framework_TestCase
 
         $this->assertFalse($ch->queryValue("SELECT blablabla()"));
         $this->assertNotEquals(200, $ch->last_code);
+        
+        $ch->curl_timeout = 2;
+        $ch->setServerUrl("http://localhost:22");
+        $this->assertFalse($ch->queryValue("SELECT 1"));
+        $this->assertTrue(strlen($ch->last_curl_error_str)>10);
     }
 
     /**
