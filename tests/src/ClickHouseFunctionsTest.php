@@ -162,7 +162,7 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
     {
         $ch = $this->object;
         $uptime_sec = $ch->getUptime();
-        $this->assertTrue($uptime_sec>0);
+        $this->assertTrue(is_numeric($uptime_sec));
     }
 
     /**

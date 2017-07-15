@@ -35,7 +35,7 @@ class ClickHouseFunctions extends ClickHouseReq
     {
         return $this->queryGood("USE $db", $sess);
     }
-        /**
+     /**
      * Return Array contained names of existing Databases
      *
      * @return array|string
