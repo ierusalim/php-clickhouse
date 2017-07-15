@@ -16,7 +16,7 @@ class ClickHouseReq extends ClickHouseAPI
     /**
      * Using JSON-full format or JSON-compact format for transfering arrays.
      * Set true for minimalizie traffic or false for maximalize perfomance
-     * 
+     *
      * @var boolean
      */
     public $json_compact = false;
@@ -41,7 +41,7 @@ class ClickHouseReq extends ClickHouseAPI
      * Stored [meta]-section from received data
      * Available after calling functions queryFullArray and queryArray
      * (not need because this data already have in $this-keys and $this-types)
-     * 
+     *
      * @var array|null
      */
     public $meta;
@@ -49,7 +49,7 @@ class ClickHouseReq extends ClickHouseAPI
     /**
      * Stored [statistics]-section from received data
      * Available after calling functions queryFullArray and queryArray
-     * 
+     *
      * @var array|null
      */
     public $statistics;
@@ -58,7 +58,7 @@ class ClickHouseReq extends ClickHouseAPI
      * Stored [extremes]-section from received data
      * Available after calling functions queryFullArray and queryArray
      * for use extremes need set flag by $this->setOption('extremes', 1)
-     * 
+     *
      * @var array|null
      */
     public $extremes;
@@ -66,7 +66,7 @@ class ClickHouseReq extends ClickHouseAPI
     /**
      * Stored [rows]-section from received data, contains rows count.
      * (not need because count(array) is same)
-     * 
+     *
      * @var integer|null
      */
     public $rows;
