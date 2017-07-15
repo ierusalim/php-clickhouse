@@ -58,8 +58,7 @@ class ClickHouseFunctions extends ClickHouseReq
     {
         return $this->queryColumn('SHOW TABLES ' .
                    (empty($name) ? '' : $this->from . $name) .
-                   (empty($like_pattern) ? '' : " LIKE '$like_pattern'"),
-                true);
+                   (empty($like_pattern) ? '' : " LIKE '$like_pattern'"));
     }
 
     /**
@@ -117,7 +116,7 @@ class ClickHouseFunctions extends ClickHouseReq
     
     /**
      * Return array with numbers from ClickHouse server for tests
-     * 
+     *
      * @param integer $lim
      * @param boolean $use_mt
      * @return array
