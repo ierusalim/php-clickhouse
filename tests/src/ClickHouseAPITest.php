@@ -107,9 +107,9 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
     public function testPostQuery()
     {
         $ch = $this->object;
-        $ans = $ch->postQuery("CREATE TABLE t (a UInt8) ENGINE = Memory",[]);
-        if($ans['code']==500) {
-            $ans = $ch->postQuery("DROP TABLE t",[]);
+        $ans = $ch->postQuery("CREATE TABLE t (a UInt8) ENGINE = Memory", []);
+        if ($ans['code'] == 500) {
+            $ans = $ch->postQuery("DROP TABLE t", []);
         }
         $this->assertEquals($ans['code'], 200);
     }
@@ -165,7 +165,7 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
     {
         $ch = $this->object;
         $ch->debug = true;
-        $ch->hook_before_api_call = function($url) {
+        $ch->hook_before_api_call = function ($url) {
             return "https://ierusalim.github.io";
         };
         

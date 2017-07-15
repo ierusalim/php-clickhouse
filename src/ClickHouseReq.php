@@ -43,7 +43,7 @@ class ClickHouseReq extends ClickHouseAPI
      * Return false only if error
      *
      * Very similar to the function queryValue, but return true for empty string
-     * 
+     *
      * @param string $sql
      * @param string|null $sess
      * @return boolean|string
@@ -62,7 +62,7 @@ class ClickHouseReq extends ClickHouseAPI
      * For queries that involve either no return value or one string value.
      * Return string if ok
      * Return false if error
-     * 
+     *
      * @param type $sql
      * @param type $post_data
      * @param type $sess
@@ -115,7 +115,7 @@ class ClickHouseReq extends ClickHouseAPI
      * Return [keys => values] Array
      * From table by 2 specified names
      * or results of any SQL-query with 2 columns
-     * 
+     *
      * @param string $tbl_or_sql
      * @param string|null $key_name_and_value_name
      * @return array
@@ -196,9 +196,11 @@ class ClickHouseReq extends ClickHouseAPI
         }
         return $arr;
     }
-    public function fill($pattern, $replacement_arr) {
-        $src_arr = []; $rep_arr = [];
-        foreach ($replacement_arr as $k => $v) {
+    public function binding($pattern, $vars_arr)
+    {
+        $src_arr = [];
+        $rep_arr = [];
+        foreach ($vars_arr as $k => $v) {
             $src_arr[]=':'.$k;
             $rep_arr[]=$v;
         }

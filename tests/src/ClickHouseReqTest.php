@@ -33,9 +33,9 @@ class ClickHouseReqTest extends \PHPUnit_Framework_TestCase
      */
     public function testQueryGood()
     {
-       $ch = $this->object;
-       $this->assertEquals($ch->queryGood("SELECT 1"), "1");
-       $this->assertTrue($ch->queryGood("USE system"));
+        $ch = $this->object;
+        $this->assertEquals($ch->queryGood("SELECT 1"), "1");
+        $this->assertTrue($ch->queryGood("USE system"));
     }
 
     /**
@@ -44,12 +44,12 @@ class ClickHouseReqTest extends \PHPUnit_Framework_TestCase
      */
     public function testQueryValue()
     {
-       $ch = $this->object;
-       $this->assertEquals($ch->queryValue("SELECT 1"), "1");
-       $this->assertEquals($ch->queryValue("USE system"), "");
-       
-       $this->assertFalse($ch->queryValue("SELECT blablabla()"));
-       $this->assertNotEquals(200, $ch->last_code);
+        $ch = $this->object;
+        $this->assertEquals($ch->queryValue("SELECT 1"), "1");
+        $this->assertEquals($ch->queryValue("USE system"), "");
+
+        $this->assertFalse($ch->queryValue("SELECT blablabla()"));
+        $this->assertNotEquals(200, $ch->last_code);
     }
 
     /**
@@ -58,12 +58,12 @@ class ClickHouseReqTest extends \PHPUnit_Framework_TestCase
      */
     public function testQueryFullArray()
     {
-       $ch = $this->object;
-       $t_arr = $ch->queryFullArray("SHOW DATABASES");
-       $this->assertArrayHasKey('meta', $t_arr);
-       $this->assertArrayHasKey('data', $t_arr);
-       $this->assertArrayHasKey('statistics', $t_arr);
-       $this->assertArrayHasKey('rows', $t_arr);
+        $ch = $this->object;
+        $t_arr = $ch->queryFullArray("SHOW DATABASES");
+        $this->assertArrayHasKey('meta', $t_arr);
+        $this->assertArrayHasKey('data', $t_arr);
+        $this->assertArrayHasKey('statistics', $t_arr);
+        $this->assertArrayHasKey('rows', $t_arr);
     }
 
     /**
@@ -76,7 +76,6 @@ class ClickHouseReqTest extends \PHPUnit_Framework_TestCase
         $this->assertArrayHasKey('name', $arr[0]);
         $arr = $ch->queryArray("SHOW DATABASES", true);
         $this->assertArrayHasKey('0', $arr[0]);
-        
     }
     /**
      * @covers ierusalim\ClickHouse\ClickHouseReq::queryKeyValues

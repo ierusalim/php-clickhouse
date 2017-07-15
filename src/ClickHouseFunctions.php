@@ -5,7 +5,7 @@ namespace ierusalim\ClickHouse;
  * This class contains functions for simple operations with ClickHouse
  *
  * PHP Version >=5.4
- * 
+ *
  * @package    ierusalim\ClickHouseFunctions
  * @author     Alexander Jer <alex@ierusalim.com>
  * @copyright  2017, Ierusalim
@@ -56,10 +56,10 @@ class ClickHouseFunctions extends ClickHouseReq
     {
         //SHOW TABLES [FROM db] [LIKE 'pattern']
         return $this->queryColumn(
-            $this->fill('SHOW TABLES :db_name:patt',[
-                'db_name'=>(empty($db_name) ? '' : ' FROM ' . $db_name),
-                'patt'=>(empty($like_pattern) ? '' : " LIKE '$like_pattern'")
-            ]) , true);
+               $this->binding('SHOW TABLES :db_name:patt', [
+                   'db_name'=>(empty($db_name) ? '' : ' FROM ' . $db_name),
+                   'patt'=>(empty($like_pattern) ? '' : " LIKE '$like_pattern'")
+                ]), true);
     }
 
     /**
