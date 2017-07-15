@@ -93,7 +93,7 @@ class ClickHouseReq extends ClickHouseAPI
      * Query return strings array in format "TabSeparated"
      * If return one column, result array no need transformations.
      * If return more of one column, array strings need be explode by tab
-     * 
+     *
      * @param string $sql
      * @param string|null $sess
      * @return array
@@ -106,9 +106,9 @@ class ClickHouseReq extends ClickHouseAPI
         }
         $data = explode("\n", $data['response']);
         $c = count($data);
-        if($c && empty($data[$c-1])) {
+        if ($c && empty($data[$c-1])) {
             unset($data[$c-1]);
-        } 
+        }
         return $data;
     }
 
@@ -205,15 +205,15 @@ class ClickHouseReq extends ClickHouseAPI
     /**
      * Return names of tables from specified database or all like pattern
      *
-     * @param string|null $db_name
+     * @param string|null $full_or_short_db
      * @param string|null $like_pattern
      * @return array|string
      */
-    public function getTablesList($db_name = null, $like_pattern = null)
+    public function getTablesList($full_or_short_db = null, $like_pattern = null)
     {
         //SHOW TABLES [FROM db] [LIKE 'pattern']
         return $this->queryColumn("SHOW TABLES"
-            . (empty($db_name) ? '' : ' FROM ' . $db_name)
+            . (empty($full_or_short_db) ? '' : ' FROM ' . $full_or_short_db)
             . (empty($like_pattern) ? '' : " LIKE '$like_pattern'"), true);
     }
 
