@@ -64,11 +64,19 @@ class ClickHouseReqTest extends \PHPUnit_Framework_TestCase
     public function testQueryFullArray()
     {
         $ch = $this->object;
-        $t_arr = $ch->queryFullArray("SHOW DATABASES");
+        
+        $ans = $ch->queryFullArray("SELECT blablabla()");
+        $this->assertFalse(is_array($ans));
+        
+        $ch->setOption('extremes',1);
+        $t_arr = $ch->queryFullArray("SELECT * FROM system.settings");
         $this->assertArrayHasKey('meta', $t_arr);
         $this->assertArrayHasKey('data', $t_arr);
         $this->assertArrayHasKey('statistics', $t_arr);
         $this->assertArrayHasKey('rows', $t_arr);
+
+        $t_arr = $ch->queryFullArray("SELECT * FROM system.numbers LIMIT 100", true);
+        $this->assertEquals(100,count($t_arr));
     }
 
     /**

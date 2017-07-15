@@ -43,6 +43,7 @@ class ClickHouseReq extends ClickHouseAPI
      * Return false only if error
      *
      * Very similar to the function queryValue, but return true for empty string
+     * queryGood always send POST-queries for clear read_only-flag.
      *
      * @param string $sql
      * @param string|null $sess
@@ -62,6 +63,8 @@ class ClickHouseReq extends ClickHouseAPI
      * For queries that involve either no return value or one string value.
      * Return string if ok
      * Return false if error
+     *
+     * Send POST-request if have post_data, send GET-request if no post_data
      *
      * @param type $sql
      * @param type $post_data
@@ -161,14 +164,10 @@ class ClickHouseReq extends ClickHouseAPI
             $sess
             );
 
-        if ($data['code'] != 200) {
-            return $data['response'];
-        }
-
-        $arr = json_decode($data['response'], true);
+        $arr = ($data['code'] == 200) ? \json_decode($data['response'], true) : 0;
 
         if (!is_array($arr)) {
-            return $arr;
+            return isset($data['response']) ? $data['response'] : false;
         }
 
         foreach (['meta', 'statistics', 'extremes', 'rows'] as $key) {
