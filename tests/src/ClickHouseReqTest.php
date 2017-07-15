@@ -47,6 +47,9 @@ class ClickHouseReqTest extends \PHPUnit_Framework_TestCase
        $ch = $this->object;
        $this->assertEquals($ch->queryValue("SELECT 1"), "1");
        $this->assertEquals($ch->queryValue("USE system"), "");
+       
+       $this->assertFalse($ch->queryValue("SELECT blablabla()"));
+       $this->assertNotEquals(200, $ch->last_code);
     }
 
     /**
@@ -85,5 +88,24 @@ class ClickHouseReqTest extends \PHPUnit_Framework_TestCase
         $arr = $ch->queryKeyValues("DESCRIBE TABLE system.databases");
         $this->assertArrayHasKey('name', $arr);
         $this->assertArrayHasKey('engine', $arr);
+        
+        $arr = $ch->queryKeyValues("system.settings", "name, value");
+        $this->assertTrue(count($arr)>10);
+        
+        $err = $ch->queryKeyValues("SELECT blablabla()");
+        $this->assertFalse(is_array($err));
+    }
+    /**
+     * @covers ierusalim\ClickHouse\ClickHouseReq::queryColumn
+     */
+    public function testQueryColumn()
+    {
+        $ch = $this->object;
+        
+        $arr = $ch->queryColumn("SELECT * FROM system.numbers LIMIT 100");
+        $this->assertTrue(\count($arr)==100);
+
+        $str = $ch->queryColumn("SELECT * FROM notfoundtable LIMIT 1");
+        $this->assertNotEquals(200, $ch->last_code);
     }
 }

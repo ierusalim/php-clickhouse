@@ -143,9 +143,6 @@ class ClickHouseReq extends ClickHouseAPI
         if (!is_array($arr) || $numeric_keys) {
             return $arr;
         }
-        if (!isset($arr['data'])) {
-            return "No [data] in server answer";
-        }
         $data = $arr['data'];
         foreach (['data', 'meta', 'statistics', 'extremes', 'rows' ] as $key) {
             unset($arr[$key]);
@@ -198,5 +195,13 @@ class ClickHouseReq extends ClickHouseAPI
             }
         }
         return $arr;
+    }
+    public function fill($pattern, $replacement_arr) {
+        $src_arr = []; $rep_arr = [];
+        foreach ($replacement_arr as $k => $v) {
+            $src_arr[]=':'.$k;
+            $rep_arr[]=$v;
+        }
+        return str_replace($src_arr, $rep_arr, $pattern);
     }
 }

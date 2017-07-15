@@ -55,9 +55,11 @@ class ClickHouseFunctions extends ClickHouseReq
     public function getTablesList($db_name = null, $like_pattern = null)
     {
         //SHOW TABLES [FROM db] [LIKE 'pattern']
-        return $this->queryColumn('SHOW TABLES'
-            . (empty($db_name) ? '' : ' FROM ' . $db_name)
-            . (empty($like_pattern) ? '' : " LIKE '$like_pattern'"), true);
+        return $this->queryColumn(
+            $this->fill('SHOW TABLES :db_name:patt',[
+                'db_name'=>(empty($db_name) ? '' : ' FROM ' . $db_name),
+                'patt'=>(empty($like_pattern) ? '' : " LIKE '$like_pattern'")
+            ]) , true);
     }
 
     /**
