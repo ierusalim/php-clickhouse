@@ -151,7 +151,7 @@ class ClickHouseReq extends ClickHouseAPI
     }
 
     /**
-     * Return strings array in "TabSeparated"-format
+     * Return strings array (using "TabSeparated"-format for data transfer)
      * If return one column, result array no need transformations.
      * If return more of one column, array strings need be explode by tab
      *
@@ -174,9 +174,9 @@ class ClickHouseReq extends ClickHouseAPI
     }
 
     /**
-     * Return [keys => values] Array
-     * From table by 2 specified names
-     * or results of any SQL-query with 2 columns
+     * Return Array [keys => values]
+     * Request and return data from table by 2 specified field-names,
+     * or return results of any SQL-query with 2 columns in results.
      *
      * @param string $tbl_or_sql
      * @param string|null $key_name_and_value_name
