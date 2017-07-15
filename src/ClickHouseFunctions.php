@@ -13,8 +13,7 @@ namespace ierusalim\ClickHouse;
  */
 class ClickHouseFunctions extends ClickHouseReq
 {
-    private $showtable = 'SHOW TABLES';
-    private $from = ' FROM ';
+    private $from = ' FROM '; // For dummy code analyzers
 
     /**
      * Get current database name for current or specified session
