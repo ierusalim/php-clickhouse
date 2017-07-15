@@ -205,15 +205,15 @@ class ClickHouseReq extends ClickHouseAPI
     /**
      * Return names of tables from specified database or all like pattern
      *
-     * @param string|null $full_or_short_db
+     * @param string|null $db_name
      * @param string|null $like_pattern
      * @return array|string
      */
-    public function getTablesList($full_or_short_db = null, $like_pattern = null)
+    public function getTablesList($db_name = null, $like_pattern = null)
     {
         //SHOW TABLES [FROM db] [LIKE 'pattern']
-        return $this->queryColumn("SHOW TABLES"
-            . (empty($full_or_short_db) ? '' : ' FROM ' . $full_or_short_db)
+        return $this->queryColumn('SHOW TABLES'
+            . (empty($db_name) ? '' : ' FROM ' . \urlencode($db_name))
             . (empty($like_pattern) ? '' : " LIKE '$like_pattern'"), true);
     }
 
