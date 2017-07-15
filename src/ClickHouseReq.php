@@ -13,13 +13,72 @@ namespace ierusalim\ClickHouse;
  */
 class ClickHouseReq extends ClickHouseAPI
 {
-    public $json_compact = true;
+    /**
+     * Using JSON-full format or JSON-compact format for transfering arrays.
+     * Set true for minimalizie traffic or false for maximalize perfomance
+     * 
+     * @var boolean
+     */
+    public $json_compact = false;
     
-    public $meta;
+    /**
+     * Contains array with field-names from received meta-data
+     * Available after calling functions queryFullArray and queryArray
+     *
+     * @var array|null
+     */
     public $keys;
+    
+    /**
+     * Contains array with field-types from received meta-data
+     * Available after calling functions queryFullArray and queryArray
+     *
+     * @var array|null
+     */
     public $types;
+
+    /**
+     * Stored [meta]-section from received data
+     * Available after calling functions queryFullArray and queryArray
+     * (not need because this data already have in $this-keys and $this-types)
+     * 
+     * @var array|null
+     */
+    public $meta;
+    
+    /**
+     * Stored [statistics]-section from received data
+     * Available after calling functions queryFullArray and queryArray
+     * 
+     * @var array|null
+     */
     public $statistics;
+    
+    /**
+     * Stored [extremes]-section from received data
+     * Available after calling functions queryFullArray and queryArray
+     * for use extremes need set flag by $this->setOption('extremes', 1)
+     * 
+     * @var array|null
+     */
+    public $extremes;
+    
+    /**
+     * Stored [rows]-section from received data, contains rows count.
+     * (not need because count(array) is same)
+     * 
+     * @var integer|null
+     */
     public $rows;
+    
+    /**
+     * Data remaining in the array after remove all known sections-keys
+     *  Known keys is ['meta', 'statistics', 'extremes', 'rows']
+     * Available after calling functions queryArray (not after queryFullArray)
+     * (usually contains empty array)
+     *
+     * @var array|null
+     */
     public $extra;
     
     /**
@@ -30,8 +89,8 @@ class ClickHouseReq extends ClickHouseAPI
     public $last_error_str = '';
 
     /**
-     * Last response for plain requests like queryGood, queryValue
-     * without 'trim' executed
+     * Last string-response for request (after functions queryGood, queryValue)
+     * without 'trim' executed, so usually contained "\n" in end
      *
      * @var string|null
      */
@@ -150,7 +209,7 @@ class ClickHouseReq extends ClickHouseAPI
      * Additional,
      * Information about field names available in $this->keys
      * Information about field types available in $this->types
-     * 
+     *
      * If error, return non-array data (usually string of error description)
      *
      * @param string $sql

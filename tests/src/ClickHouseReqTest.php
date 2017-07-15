@@ -25,6 +25,7 @@ class ClickHouseReqTest extends \PHPUnit_Framework_TestCase
             $clickhouse_url = null;
         }
         $this->object = new ClickHouseReq($clickhouse_url);
+        $this->object->json_compact = true;
     }
 
     /**
