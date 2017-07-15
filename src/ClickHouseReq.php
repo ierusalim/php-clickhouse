@@ -36,18 +36,6 @@ class ClickHouseReq extends ClickHouseAPI
      * @var string|null
      */
     public $last_raw_str;
-    
-    /**
-     * Set current database name for current or specified session
-     *
-     * @param string $db
-     * @param string|null $sess
-     * @return boolean
-     */
-    public function setCurrentDatabase($db, $sess = null)
-    {
-        return $this->queryGood("USE $db", $sess);
-    }
 
     /**
      * Get current database name for current or specified session
@@ -58,6 +46,18 @@ class ClickHouseReq extends ClickHouseAPI
     public function getCurrentDatabase($sess = null)
     {
         return $this->queryValue('SELECT currentDatabase()', null, $sess);
+    }
+
+    /**
+     * Set current database name for current or specified session
+     *
+     * @param string $db
+     * @param string|null $sess
+     * @return boolean
+     */
+    public function setCurrentDatabase($db, $sess = null)
+    {
+        return $this->queryGood("USE $db", $sess);
     }
 
     public function queryGood($sql, $sess = null)
@@ -88,10 +88,68 @@ class ClickHouseReq extends ClickHouseAPI
             return false;
         }
     }
-    public function queryFullArray($sql, $only_data = false, $sess = null)
+
+    /**
+     * Query return strings array in format "TabSeparated"
+     * If return one column, result array no need transformations.
+     * If return more of one column, array strings need be explode by tab
+     * 
+     * @param string $sql
+     * @param string|null $sess
+     * @return array
+     */
+    public function queryColumn($sql, $sess = null)
+    {
+        $data = $this->getQuery($sql . ' FORMAT TabSeparated', $sess);
+        if ($data['code'] != 200) {
+            return $data['response'];
+        }
+        $data = explode("\n", $data['response']);
+        $c = count($data);
+        if($c && empty($data[$c-1])) {
+            unset($data[$c-1]);
+        } 
+        return $data;
+    }
+
+    public function queryKeyValues($tbl, $key_name, $value_name, $is_sql = 0)
+    {
+        if ($is_sql) {
+            $sql = $tbl;
+        } else {
+            $sql = "SELECT $key_name, $value_name FROM $tbl";
+        }
+        $data = $this->queryArray($sql);
+        if (!\is_array($data)) {
+            return $data;
+        }
+        $names = \array_column($data, $key_name);
+        $values = \array_column($data, $value_name);
+        $data = \array_combine($names, $values);
+        return $data;
+    }
+
+    public function queryArray($sql, $numeric_keys = false, $sess = null)
+    {
+        $arr = $this->queryFullArray($sql, $numeric_keys, $sess);
+        if (!is_array($arr) || $numeric_keys) {
+            return $arr;
+        }
+        if (!isset($arr['data'])) {
+            return "No [data] in server answer";
+        }
+        $data = $arr['data'];
+        foreach (['data', 'meta', 'statistics', 'extremes', 'rows' ] as $key) {
+            unset($arr[$key]);
+        }
+        $this->extra = $arr;
+        return $data;
+    }
+    
+    public function queryFullArray($sql, $data_only = false, $sess = null)
     {
         $data = $this->getQuery($sql . ' FORMAT ' .
-            (($this->json_compact || $only_data) ? 'JSONCompact' : 'JSON'),
+            (($this->json_compact || $data_only) ? 'JSONCompact' : 'JSON'),
             $sess
             );
 
@@ -113,7 +171,7 @@ class ClickHouseReq extends ClickHouseAPI
         $this->types = is_array($keys) ?
             array_column($this->meta, 'type') : null;
 
-        if ($only_data) {
+        if ($data_only) {
             return $arr['data'];
         }
 
@@ -133,63 +191,6 @@ class ClickHouseReq extends ClickHouseAPI
         }
         return $arr;
     }
-    
-    /**
-     * Query return strings array in format "TabSeparated"
-     * If return one column, array no need any convertations.
-     * If return more of one column, strings need to explode by tab
-     * 
-     * @param string $sql
-     * @param string|null $sess
-     * @return array
-     */
-    public function queryColumn($sql, $sess = null)
-    {
-        $data = $this->getQuery($sql . ' FORMAT TabSeparated', $sess);
-        if ($data['code'] != 200) {
-            return $data['response'];
-        }
-        $data = explode("\n", $data['response']);
-        $c = count($data);
-        if($c && empty($data[$c-1])) {
-            unset($data[$c-1]);
-        } 
-        return $data;
-    }
-    
-    public function queryData($sql, $only_data = false)
-    {
-        $arr = $this->queryFullArray($sql, $only_data);
-        if (!is_array($arr) || $only_data) {
-            return $arr;
-        }
-        if (!isset($arr['data'])) {
-            return "No [data] in server answer";
-        }
-        $data = $arr['data'];
-        foreach (['data', 'meta', 'statistics', 'extremes', 'rows' ] as $key) {
-            unset($arr[$key]);
-        }
-        $this->extra = $arr;
-        return $data;
-    }
-    public function queryKeyValues($tbl, $key_name, $value_name, $is_sql = 0)
-    {
-        if ($is_sql) {
-            $sql = $tbl;
-        } else {
-            $sql = "SELECT $key_name, $value_name FROM $tbl";
-        }
-        $data = $this->queryData($sql);
-        if (!\is_array($data)) {
-            return $data;
-        }
-        $names = \array_column($data, $key_name);
-        $values = \array_column($data, $value_name);
-        $data = \array_combine($names, $values);
-        return $data;
-    }
-
     
     /**
      * Return Array contained names of existing Databases
@@ -223,7 +224,7 @@ class ClickHouseReq extends ClickHouseAPI
      */
     public function getProcessList()
     {
-        return $this->queryData('SHOW PROCESSLIST');
+        return $this->queryArray('SHOW PROCESSLIST');
     }
     
     /**
@@ -247,5 +248,20 @@ class ClickHouseReq extends ClickHouseAPI
     public function getSystemSettings()
     {
         return $this->queryKeyValues('system.settings', 'name', 'value');
+    }
+    public function getVersion()
+    {
+        return $this->queryValue('SELECT version()');
+    }
+    public function getUptime()
+    {
+        return $this->queryValue('SELECT uptime()');
+    }
+    
+    public function getNumbers($lim = 100, $use_mt = false)
+    {
+        return $this->queryColumn(
+            'SELECT * FROM system.numbers' . ( $use_mt ? '_mt': '') .
+            ' LIMIT '. $lim);
     }
 }

@@ -124,14 +124,14 @@ class ClickHouseReqTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @covers ierusalim\ClickHouse\ClickHouseReq::queryData
+     * @covers ierusalim\ClickHouse\ClickHouseReq::queryArray
      */
-    public function testQueryData()
+    public function testQueryArray()
     {
         $ch = $this->object;
-        $arr = $ch->queryData("SHOW DATABASES", false);
+        $arr = $ch->queryArray("SHOW DATABASES", false);
         $this->assertArrayHasKey('name', $arr[0]);
-        $arr = $ch->queryData("SHOW DATABASES", true);
+        $arr = $ch->queryArray("SHOW DATABASES", true);
         $this->assertArrayHasKey('0', $arr[0]);
         
     }
