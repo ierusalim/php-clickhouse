@@ -362,12 +362,12 @@ class ClickHouseAPI
             if (!empty($file) && \file_exists($file)) {
                 $post_fields['file'] = "@$file;filename=" . basename($file);
             }
-            if($this->debug) {
+            if ($this->debug) {
                 echo " Post_";
                 print_r($post_fields);
             }
             \curl_setopt($ch, \CURLOPT_POST, true);
-            \curl_setopt($ch, \CURLOPT_POSTFIELDS, $post_fields);
+            @\curl_setopt($ch, \CURLOPT_POSTFIELDS, $post_fields);
         }
 
         \curl_setopt($ch, \CURLOPT_SSL_VERIFYPEER, false);
