@@ -100,6 +100,7 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
 
     /**
      * @covers ierusalim\ClickHouse\ClickHouseFunctions::getTablesList
+     */
     public function testGetTablesList()
     {
         $ch = $this->object;
@@ -111,7 +112,6 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
         $this->assertTrue(count($data_tbl_arr)>0);
         $this->assertTrue(array_search('databases', $data_tbl_arr)!==false);
     }
-    */
 
     /**
      * @covers ierusalim\ClickHouse\ClickHouseFunctions::getProcessList

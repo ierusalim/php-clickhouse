@@ -196,14 +196,4 @@ class ClickHouseReq extends ClickHouseAPI
         }
         return $arr;
     }
-    public function binding($pattern, $vars_arr)
-    {
-        $src_arr = [];
-        $rep_arr = [];
-        foreach ($vars_arr as $k => $v) {
-            $src_arr[]=':'.$k;
-            $rep_arr[]=$v;
-        }
-        return str_replace($src_arr, $rep_arr, $pattern);
-    }
 }
