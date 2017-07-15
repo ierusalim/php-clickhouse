@@ -120,14 +120,17 @@ class ClickHouseReq extends ClickHouseAPI
      * @param string|null $key_name_and_value_name
      * @return array
      */
-    public function queryKeyValues($tbl_or_sql, $key_name_and_value_name = null)
-    {
+    public function queryKeyValues(
+        $tbl_or_sql,
+        $key_name_and_value_name = null,
+        $sess = null
+    ) {
         if (is_null($key_name_and_value_name)) {
             $sql = $tbl_or_sql;
         } else {
             $sql = "SELECT $key_name_and_value_name FROM $tbl_or_sql";
         }
-        $data = $this->queryArray($sql, true);
+        $data = $this->queryArray($sql, true, $sess);
         if (!\is_array($data)) {
             return $data;
         }

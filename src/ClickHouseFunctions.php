@@ -13,7 +13,7 @@ namespace ierusalim\ClickHouse;
  */
 class ClickHouseFunctions extends ClickHouseReq
 {
-    private $from = ' FROM '; // For dummy code analyzers
+    private $from = ' FROM '; // For stupid code analyzers
 
     /**
      * Get current database name for current or specified session
@@ -58,8 +58,8 @@ class ClickHouseFunctions extends ClickHouseReq
     {
         return $this->queryColumn('SHOW TABLES ' .
                    (empty($name) ? '' : $this->from . $name) .
-                   (empty($like_pattern) ? '' : " LIKE '$like_pattern'")
-                , true);
+                   (empty($like_pattern) ? '' : " LIKE '$like_pattern'"),
+                true);
     }
 
     /**
@@ -95,16 +95,33 @@ class ClickHouseFunctions extends ClickHouseReq
         return $this->queryKeyValues('system.settings', 'name, value');
     }
 
+    /**
+     * Return as string version of ClickHouse server
+     *
+     * @return string
+     */
     public function getVersion()
     {
         return $this->queryValue('SELECT version()');
     }
 
+    /**
+     * Return server uptime in seconds
+     *
+     * @return integer
+     */
     public function getUptime()
     {
         return $this->queryValue('SELECT uptime()');
     }
     
+    /**
+     * Return array with numbers from ClickHouse server for tests
+     * 
+     * @param integer $lim
+     * @param boolean $use_mt
+     * @return array
+     */
     public function getNumbers($lim = 100, $use_mt = false)
     {
         return $this->queryColumn(
