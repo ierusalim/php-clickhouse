@@ -51,7 +51,6 @@ class ClickHouseReqTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals($db_name, $db_1);
         $db_name = $ch->getCurrentDatabase($session_id_2);
         $this->assertEquals($db_name, $db_2);
-
     }
 
     /**

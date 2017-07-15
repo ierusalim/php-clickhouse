@@ -85,6 +85,13 @@ class ClickHouseAPI
     public $ssl_verify_host = 0; //set 2 if server have valid ssl-sertificate
     
     /**
+     * CURL option CURLOPT_TIMEOUT
+     *
+     * @var integer
+     */
+    public $curl_timeout = 30;
+    
+    /**
      * Last error reported by CURL or empty string if none
      *
      * @var string
@@ -132,6 +139,13 @@ class ClickHouseAPI
      * @var boolean
      */
     public $session_autocreate = true;
+    
+    /**
+     * Last used session_id
+     *
+     * @var string|null
+     */
+    public $last_used_session_id;
 
     /**
      * Two formats supported for set server parameters when creating object:
@@ -193,7 +207,11 @@ class ClickHouseAPI
                 }
             }
         }
-        if (empty($this->scheme) || empty($this->host) || empty($this->port)) {
+        if (empty($this->scheme) ||
+            empty($this->host) ||
+            empty($this->port) ||
+            !in_array($this->scheme, ['http', 'https'])
+        ) {
             throw new \Exception("Illegal server parameters");
         }
         $this->server_url = $this->scheme . '://' . $this->host
@@ -254,7 +272,7 @@ class ClickHouseAPI
      * @param string $query
      * @param boolean $is_post
      * @param stirng|null $post_fields
-     * @param string|null $sess
+     * @param string|null $session_id
      * @param string|null $file
      * @return array
      */
@@ -287,6 +305,9 @@ class ClickHouseAPI
             \compact('user', 'password', 'query'),
             $this->options
         );
+        
+        $this->last_used_session_id = isset($h_parameters['session_id']) ?
+            $h_parameters['session_id'] : null;
         
         $response_data = $this->doApiCall(
             $this->server_url,
@@ -323,30 +344,28 @@ class ClickHouseAPI
     ) {
         $api_url .= "?" . \http_build_query($get_params);
 
-        if ($this->debug) {
-            echo ($post_mode ? 'POST' : 'GET') . " $api_url\n";
-        }
-        
         if ($this->hook_before_api_call) {
             $api_url = call_user_func($this->hook_before_api_call, $api_url);
         }
         
+        if ($this->debug) {
+            echo ($post_mode ? 'POST' : 'GET') . "->$api_url\n" . $file;
+        }
+        
         $ch = curl_init($api_url);
 
-        if (!is_array($post_fields)) {
-            $post_fields = array();
-        }
-
         if ($post_mode) {
-            if (!empty($file) && \file_exists($file)) {
-                if (function_exists('\curl_file_create')) {
-                    $post_fields['file'] = \curl_file_create($file);
-                } else {
-                    $post_fields['file'] = "@$filename;filename="
-                        . basename($file);
-                }
+            if (empty($post_fields)) {
+                $post_fields = array();
             }
 
+            if (!empty($file) && \file_exists($file)) {
+                $post_fields['file'] = "@$file;filename=" . basename($file);
+            }
+            if($this->debug) {
+                echo " Post_";
+                print_r($post_fields);
+            }
             \curl_setopt($ch, \CURLOPT_POST, true);
             \curl_setopt($ch, \CURLOPT_POSTFIELDS, $post_fields);
         }
@@ -354,9 +373,9 @@ class ClickHouseAPI
         \curl_setopt($ch, \CURLOPT_SSL_VERIFYPEER, false);
         \curl_setopt($ch, \CURLOPT_SSL_VERIFYHOST, $this->ssl_verify_host);
 
-        \curl_setopt($ch, \CURLOPT_TIMEOUT, 30);
+        \curl_setopt($ch, \CURLOPT_TIMEOUT, $this->curl_timeout);
         \curl_setopt($ch, \CURLOPT_RETURNTRANSFER, true);
-        \curl_setopt($ch, \CURLOPT_USERAGENT, "PHP-API");
+        \curl_setopt($ch, \CURLOPT_USERAGENT, "PHP-ClickHouse");
 
         $response = \curl_exec($ch);
 

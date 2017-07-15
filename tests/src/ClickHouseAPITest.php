@@ -24,6 +24,22 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
         $ch->session_autocreate = false;
     }
 
+    public function testConstructEmpty()
+    {
+        $r = new ClickHouseAPI();
+        $this->assertEquals('127.0.0.1', $r->host);
+    }
+    public function testConstructWithURL()
+    {
+        $r = new ClickHouseAPI('https://8.8.8.8:1234/');
+        $this->assertEquals('8.8.8.8', $r->host);
+    }
+    public function testConstructWithHostEtc()
+    {
+        $r = new ClickHouseAPI('1.2.3.4', 5678, 'default', '');
+        $this->assertEquals('1.2.3.4', $r->host);
+    }
+
     protected function resetServerUrl()
     {
         $ch = $this->object;
@@ -38,7 +54,6 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
     }
     /**
      * @covers Ierusalim\ClickHouse\ClickHouseAPI::setServerUrl
-     * @todo   Implement testSetServerUrl().
      */
     public function testSetServerUrl()
     {
@@ -46,6 +61,12 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
         $ch->setServerUrl("https://8.8.8.8:1234/");
         $this->assertEquals($ch->host, '8.8.8.8');
         $this->resetServerUrl();
+    }
+    public function testSetServerUrlException()
+    {
+        $ch = $this->object;
+        $this->setExpectedException("\Exception");
+        $ch->setServerUrl("ftp://8.8.8.8");
     }
 
     /**
@@ -55,7 +76,14 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
     public function testAnyQuery()
     {
         $ch = $this->object;
+        
+        //get mode
         $ans = $ch->anyQuery("SELECT 123");
+        $this->assertTrue(isset($ans['response']));
+        $this->assertEquals(trim($ans['response']), 123);
+        
+        //post mode
+        $ans = $ch->anyQuery("SELECT 123", []);
         $this->assertTrue(isset($ans['response']));
         $this->assertEquals(trim($ans['response']), 123);
     }
@@ -93,8 +121,40 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
     public function testDoQuery()
     {
         $ch = $this->object;
+
+        $ch->session_autocreate = false;
+
+        // test default query SELECT 1
+        $ans = $ch->doQuery();
+        $this->assertEquals(\trim($ans['response']), 1);
+
+        $session_id = $ch->getSession();
+        $this->assertNull($session_id);
+  
+        $ch->session_autocreate = true;
         $ans = $ch->doQuery("SELECT 22");
-        $this->assertEquals(trim($ans['response']), 22);
+        $this->assertEquals(\trim($ans['response']), 22);
+
+        $session_id = $ch->getSession();
+        $this->assertEquals(32, strlen($session_id));
+
+        // test previous query SELECT 22
+        $ans = $ch->doQuery();
+        $this->assertEquals(\trim($ans['response']), 22);
+        
+        $sess = $ch->getSession();
+        $this->assertEquals($sess, $session_id);
+        
+        // test temporary session
+        $sess_tmp = md5(microtime());
+        // use temporary session
+        $ans = $ch->doQuery("SELECT 123", false, [], $sess_tmp);
+        
+        // session_id must not changed
+        $this->assertEquals($session_id, $ch->getSession());
+
+        // but last last_used_session_id must be sess_tmp
+        $this->assertEquals($sess_tmp, $ch->last_used_session_id);
     }
 
     /**
@@ -104,8 +164,15 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
     public function testDoApiCall()
     {
         $ch = $this->object;
-        $ans = $ch->doApiCall("https://ierusalim.github.io", []);
-        $this->assertEquals($ans['code'], 200);
+        $ch->debug = true;
+        $ch->hook_before_api_call = function($url) {
+            return "https://ierusalim.github.io";
+        };
+        
+        $file = dirname(dirname(__DIR__)) . DIRECTORY_SEPARATOR . '.gitignore';
+        
+        $ans = $ch->doApiCall("empty", [], true, [], $file);
+        $this->assertEquals($ans['code'], 405);
     }
 
     /**

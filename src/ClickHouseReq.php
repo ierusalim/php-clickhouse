@@ -37,14 +37,28 @@ class ClickHouseReq extends ClickHouseAPI
      */
     public $last_raw_str;
     
+    /**
+     * Set current database name for current or specified session
+     *
+     * @param string $db
+     * @param string|null $sess
+     * @return boolean
+     */
     public function setCurrentDatabase($db, $sess = null)
     {
         return $this->queryGood("USE $db", $sess);
     }
+
+    /**
+     * Get current database name for current or specified session
+     *
+     * @param string|null $sess
+     * @return string
+     */
     public function getCurrentDatabase($sess = null) {
         return $this->queryValue('SELECT currentDatabase()', null, $sess);
     }
-    
+
     public function queryGood($sql, $sess = null) {
         $ans = $this->queryValue($sql, [], $sess);
         if ($ans !== false && empty($ans)) {
@@ -133,8 +147,7 @@ class ClickHouseReq extends ClickHouseAPI
     
     /**
      * For requests like SHOW DATABASES, SHOW PROCESSLIST, etc.
-     * Return array of returned names.
-     * If error return string with error description.
+     * Return array, or string error description.
      * 
      * @param string $about
      * @return array|string
@@ -160,11 +173,7 @@ class ClickHouseReq extends ClickHouseAPI
     {
         return $this->showAbout("DATABASES", true);
     }
-    public function showProcessList()
-    {
-        return $this->showAbout('PROCESSLIST', false);
-    }
-    
+
     /**
      * Return names of tables from specified database or all like pattern
      * 
@@ -179,6 +188,16 @@ class ClickHouseReq extends ClickHouseAPI
             . (empty($db) ? '' : ' FROM ' . $db) 
             . (empty($like_pattern) ? '' : " LIKE '$like_pattern'") 
         ,true);
+    }
+
+    /**
+     * Return results of request "SHOW PROCESSLIST"
+     * 
+     * @return array|string
+     */
+    public function showProcessList()
+    {
+        return $this->showAbout('PROCESSLIST', false);
     }
     
     /**
