@@ -2,7 +2,7 @@
 namespace ierusalim\ClickHouse;
 
 /**
- * Class ClickHouseReq
+ * Class ClickHouseReq for make queries to ClickHouse
  *
  * PHP Version >= 5.4
  *
@@ -38,28 +38,16 @@ class ClickHouseReq extends ClickHouseAPI
     public $last_raw_str;
 
     /**
-     * Get current database name for current or specified session
+     * For queries that involve either no return value or one string value.
+     * Return true or non-empty string if ok
+     * Return false only if error
      *
+     * Very similar to the function queryValue, but return true for empty string
+     * 
+     * @param string $sql
      * @param string|null $sess
-     * @return string
+     * @return boolean|string
      */
-    public function getCurrentDatabase($sess = null)
-    {
-        return $this->queryValue('SELECT currentDatabase()', null, $sess);
-    }
-
-    /**
-     * Set current database name for current or specified session
-     *
-     * @param string $db
-     * @param string|null $sess
-     * @return boolean
-     */
-    public function setCurrentDatabase($db, $sess = null)
-    {
-        return $this->queryGood("USE $db", $sess);
-    }
-
     public function queryGood($sql, $sess = null)
     {
         $ans = $this->queryValue($sql, [], $sess);
@@ -69,6 +57,17 @@ class ClickHouseReq extends ClickHouseAPI
             return $ans;
         }
     }
+    
+    /**
+     * For queries that involve either no return value or one string value.
+     * Return string if ok
+     * Return false if error
+     * 
+     * @param type $sql
+     * @param type $post_data
+     * @param type $sess
+     * @return boolean|string
+     */
     public function queryValue($sql, $post_data = null, $sess = null)
     {
         // Do query
@@ -90,7 +89,7 @@ class ClickHouseReq extends ClickHouseAPI
     }
 
     /**
-     * Query return strings array in format "TabSeparated"
+     * Return strings array in "TabSeparated"-format
      * If return one column, result array no need transformations.
      * If return more of one column, array strings need be explode by tab
      *
@@ -112,19 +111,28 @@ class ClickHouseReq extends ClickHouseAPI
         return $data;
     }
 
-    public function queryKeyValues($tbl, $key_name, $value_name, $is_sql = 0)
+    /**
+     * Return [keys => values] Array
+     * From table by 2 specified names
+     * or results of any SQL-query with 2 columns
+     * 
+     * @param string $tbl_or_sql
+     * @param string|null $key_name_and_value_name
+     * @return array
+     */
+    public function queryKeyValues($tbl_or_sql, $key_name_and_value_name = null)
     {
-        if ($is_sql) {
-            $sql = $tbl;
+        if (is_null($key_name_and_value_name)) {
+            $sql = $tbl_or_sql;
         } else {
-            $sql = "SELECT $key_name, $value_name FROM $tbl";
+            $sql = "SELECT $key_name_and_value_name FROM $tbl_or_sql";
         }
-        $data = $this->queryArray($sql);
+        $data = $this->queryArray($sql, true);
         if (!\is_array($data)) {
             return $data;
         }
-        $names = \array_column($data, $key_name);
-        $values = \array_column($data, $value_name);
+        $names = \array_column($data, 0);
+        $values = \array_column($data, 1);
         $data = \array_combine($names, $values);
         return $data;
     }
@@ -190,78 +198,5 @@ class ClickHouseReq extends ClickHouseAPI
             }
         }
         return $arr;
-    }
-    
-    /**
-     * Return Array contained names of existing Databases
-     *
-     * @return array|string
-     */
-    public function getDatabasesList()
-    {
-        return $this->queryColumn("SHOW DATABASES");
-    }
-
-    /**
-     * Return names of tables from specified database or all like pattern
-     *
-     * @param string|null $db_name
-     * @param string|null $like_pattern
-     * @return array|string
-     */
-    public function getTablesList($db_name = null, $like_pattern = null)
-    {
-        //SHOW  TABLES [FROM db] [LIKE 'pattern']
-        return $this->queryColumn('SHOW '.'TABLES'
-            . (empty($db_name) ? '' : ' FROM ' . $db_name)
-            . (empty($like_pattern) ? '' : " LIKE '$like_pattern'"), true);
-    }
-
-    /**
-     * Return results of request "SHOW PROCESSLIST"
-     *
-     * @return array|string
-     */
-    public function getProcessList()
-    {
-        return $this->queryArray('SHOW PROCESSLIST');
-    }
-    
-    /**
-     * Return as Array information about specified table
-     * Array is [Keys => field names] => [Values - field types]
-     *
-     * @param string $table
-     * @return array|string
-     */
-    public function getTableFields($table)
-    {
-        //DESCRIBE TABLE [db.]table
-        return $this->queryKeyValues("DESCRIBE TABLE $table", 'name', 'type', 1);
-    }
-    
-    /**
-     * Return as Array [names=>values] data from system.settings table
-     *
-     * @return array|string
-     */
-    public function getSystemSettings()
-    {
-        return $this->queryKeyValues('system.settings', 'name', 'value');
-    }
-    public function getVersion()
-    {
-        return $this->queryValue('SELECT version()');
-    }
-    public function getUptime()
-    {
-        return $this->queryValue('SELECT uptime()');
-    }
-    
-    public function getNumbers($lim = 100, $use_mt = false)
-    {
-        return $this->queryColumn(
-            'SELECT * FROM system.numbers' . ( $use_mt ? '_mt': '') .
-            ' LIMIT '. $lim);
     }
 }
