@@ -111,7 +111,7 @@ class ClickHouseQuery extends ClickHouseAPI
      * Very similar to the function queryValue, but return true for empty string
      * queryGood always send POST-queries for clear read_only-flag.
      *
-     * @param string $sql
+     * @param string      $sql
      * @param string|null $sess
      * @return boolean|string
      */
@@ -132,9 +132,9 @@ class ClickHouseQuery extends ClickHouseAPI
      *
      * Send POST-request if have post_data, send GET-request if no post_data
      *
-     * @param type $sql
-     * @param type $post_data
-     * @param type $sess
+     * @param string            $sql
+     * @param array|string|null $post_data
+     * @param string|null       $sess
      * @return boolean|string
      */
     public function queryValue($sql, $post_data = null, $sess = null)
@@ -167,9 +167,9 @@ class ClickHouseQuery extends ClickHouseAPI
      *  Returned data not unescaped!
      *  If have option 'extreme' or 'WITH TOTALS' requires filtering extra lines
      *
-     * @param string $sql
+     * @param string      $sql
      * @param string|null $sess
-     * @param boolean $with_names_types
+     * @param boolean     $with_names_types
      * @return array
      */
     public function queryColumnTab($sql, $with_names_types = false, $sess = null)
