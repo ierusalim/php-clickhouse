@@ -224,9 +224,9 @@ class ClickHouseAPI
     /**
      * Send Get query if $post_data is empty, otherwise send Post query
      *
-     * @param string      $h_query
-     * @param array|null  $post_data
-     * @param string|null $sess
+     * @param string            $h_query
+     * @param array|string|null $post_data
+     * @param string|null       $sess
      * @return array
      */
     public function anyQuery($h_query, $post_data = null, $sess = null)
@@ -253,7 +253,7 @@ class ClickHouseAPI
      * Send Post API-query
      *
      * @param string|null $h_query
-     * @param string|null $post_fields
+     * @param array|string|null $post_fields
      * @param string|null $sess
      * @param string|null $file
      * @return array
@@ -272,7 +272,7 @@ class ClickHouseAPI
      *
      * @param string $query
      * @param boolean $is_post
-     * @param stirng|null $post_fields
+     * @param array|string|null $post_fields
      * @param string|null $session_id
      * @param string|null $file
      * @return array
@@ -332,7 +332,7 @@ class ClickHouseAPI
      * @param string $api_url
      * @param array $get_params
      * @param boolean $post_mode
-     * @param array|null $post_fields
+     * @param array|string|null $post_fields
      * @param string|null $file
      * @return array
      */
