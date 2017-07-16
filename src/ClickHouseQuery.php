@@ -2,7 +2,9 @@
 namespace ierusalim\ClickHouse;
 
 /**
- * Class ClickHouseQuery for make queries to ClickHouse database engine
+ * Class ClickHouseQuery for make queries to ClickHouse database engine.
+ * Functions are a wrapper for ClickHouseAPI and allow to easily send
+ * sql-queries to ClickHouse server and parsing answersing data.
  *
  * PHP Version >= 5.4
  *
@@ -10,6 +12,22 @@ namespace ierusalim\ClickHouse;
  * @author     Alexander Jer <alex@ierusalim.com>
  * @copyright  2017, Ierusalim
  * @license    https://opensource.org/licenses/Apache-2.0 Apache-2.0
+ * 
+ * This query-functions recommended for use:
+ *
+ *  ->queryGood($sql) - for non-returnable data requests (return false if error)
+ *
+ *  ->queryArray(see description) - for queries returning any data.
+ *
+ * In addition, the following functions may be useful:
+ *
+ *  ->queryKeyValues(see descr.) - for queries returning 2 columns key => value
+ *
+ *  ->queryValue($sql, [post]) - for send query and receive answer in string
+ *          String returned without any transformations (return false if error)
+ *
+ *  Other functions can be useful for tests and hacks. See descriptions.
+ *
  */
 class ClickHouseQuery extends ClickHouseAPI
 {
@@ -161,7 +179,7 @@ class ClickHouseQuery extends ClickHouseAPI
      * Return strings array (using TabSeparated-format for data transfer)
      * If return one column, result array no need transformations.
      * If return more of one column, array strings need be explode by tab
-     * If $with_names_types is true, first 2 strings of results array
+     * If $with_names_types is true, first 2 strings of results in array
      *  contain names and types of returned columns.
      * Nuances:
      *  Returned data not unescaped!
@@ -193,9 +211,9 @@ class ClickHouseQuery extends ClickHouseAPI
      * Return Array [keys => values]
      * Request and return data from table by 2 specified field-names,
      *  or return results of any SQL-query with 2 columns in results.
-     * Similar than queryKeyValues, but using JSONCompact for data transferring.
+     * Similar than queryKeyValArr, but using JSONCompact for data transferring.
      *
-     * @param string $tbl_or_sql
+     * @param string      $tbl_or_sql
      * @param string|null $key_name_and_value_name
      * @param string|null $sess
      * @return array
@@ -223,7 +241,7 @@ class ClickHouseQuery extends ClickHouseAPI
      * Provides the best performance on powerful servers,
      *  but, on weak processors it runs slower than queryKeyValues
      * Returned data not unescaped!
-     * If unescape is important, it's best to use queryKeyValues insead.
+     * If unescape is important, it's best to use queryKeyValues instead.
      *
      * @param string $tbl_or_sql
      * @param string|null $key_name_and_value_name
@@ -257,13 +275,13 @@ class ClickHouseQuery extends ClickHouseAPI
 
     /**
      * Function for queries returning an array (like SELECT * ...)
-     * Returned array have numeric_keys (if $numeric_keys = true),
-     *  or have keys as returned field names (in $numeric_keys = false).
+     * Returned array have numeric_keys if $numeric_keys = true,
+     *  or have keys as returned field names (when $numeric_keys = false).
      * Additional,
      * Information about field names available in $this->keys
      * Information about field types available in $this->types
      *
-     * If error, return non-array data (usually string of error description)
+     * If error, return non-array data (usually string with error description)
      *
      * @param string $sql
      * @param boolean $numeric_keys
@@ -294,15 +312,13 @@ class ClickHouseQuery extends ClickHouseAPI
     /**
      * Similar as queryArray, but use TabSeparated format for data transferring.
      * Provides better performance than queryArray, but needed unescape later.
-     * Returned data not unescaped!
      * If unescape is important, it's best to use queryArray instead queryArr.
      *
-     * @param string $sql
-     * @param boolean $numeric_keys
+     * @param string      $sql
+     * @param boolean     $numeric_keys
      * @param string|null $sess
      * @return array
      */
-    
     public function queryArr($sql, $numeric_keys = false, $sess = null)
     {
         $this->extra = [];
@@ -336,7 +352,7 @@ class ClickHouseQuery extends ClickHouseAPI
             }
         }
 
-        // Parsing extra data if found. Its may be extremes and/or total.
+        // Parsing extra data if found. Its may be extremes and/or totals.
         if ($found_extra) {
             $c = \count($data);
             for ($l = $c + 1; $k < $l; $k++) {
@@ -344,14 +360,13 @@ class ClickHouseQuery extends ClickHouseAPI
                 if (empty($s)) {
                     if (\count($this->extra) == 1) {
                         $this->totals = $this->extra[0];
-                        $this->extra = [];
                     }
                     if (\count($this->extra) == 2) {
                         $this->extremes = array_combine(
                             ['min', 'max'],
                             $this->extra);
-                        $this->extra = [];
                     }
+                    $this->extra = [];
                 } else {
                     $s = \explode("\t", $s);
                     if (!$numeric_keys) {
@@ -361,7 +376,7 @@ class ClickHouseQuery extends ClickHouseAPI
                 }
             }
         }
-        $this->rows = count($ret);
+        $this->rows = \count($ret);
         return $ret;
     }
 
@@ -384,8 +399,8 @@ class ClickHouseQuery extends ClickHouseAPI
      */
     public function queryFullArray($sql, $data_only = false, $sess = null)
     {
-        $data = $this->getQuery($sql . ' FORMAT ' .
-            (($this->json_compact || $data_only) ? 'JSONCompact' : 'JSON'),
+        $data = $this->getQuery($sql . ' FORMAT JSON' .
+            (($this->json_compact || $data_only) ? 'Compact' : ''),
             $sess
             );
 
