@@ -37,7 +37,7 @@ class ClickHouseFunctions extends ClickHouseReq
     {
         return $this->queryGood("USE $db", $sess);
     }
-     /**
+    /**
      * Return Array contained names of existing Databases
      *
      * @return array|string
@@ -57,8 +57,8 @@ class ClickHouseFunctions extends ClickHouseReq
     public function getTablesList($name = null, $like_pattern = null)
     {
         return $this->queryColumnTab('SHOW TABLES ' .
-                   (empty($name) ? '' : $this->from . $name) .
-                   (empty($like_pattern) ? '' : " LIKE '$like_pattern'"));
+                    (empty($name) ? '' : $this->from . $name) .
+                    (empty($like_pattern) ? '' : " LIKE '$like_pattern'"));
     }
 
     /**

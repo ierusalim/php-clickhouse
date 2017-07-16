@@ -3,17 +3,18 @@
 namespace ierusalim\ClickHouse;
 
 /**
- * This is a simple http/https connector for ClickHouse database server
+ * This class contains simple http/https connector for ClickHouse db-server
  * No dependency, nothing extra.
  *
  * PHP Version >= 5.4
  *
- * Example of use:
- *  $ch = new ClickHouseAPI("http://127.0.0.1:8123");
+ * This file can be used independently.
+ *
+ * Example of independent use:
+ *  require "ClickHouseAPI.php";
+ *  $ch = new ClickHouseAPI(); // connect http://127.0.0.1:8123 by default
  *  $response = $ch->getQuery("SELECT 1");
- *  if ($response['code'] != 200 || $response['response'] != 1) {
- *     die("The server does not work");
- *  }
+ *  print_r($response);
  *  $ch->postQuery("CREATE TABLE t (a UInt8) ENGINE = Memory");
  *  $ch->postQuery('INSERT INTO t VALUES (1),(2),(3)');
  *  $data = $ch->getQuery('SELECT * FROM t FORMAT JSONCompact');
@@ -33,7 +34,7 @@ class ClickHouseAPI
      *
      * @var string
      */
-    private $scheme = 'http';
+    public $scheme = 'http';
     
     /**
      * Server IP or host name
@@ -47,14 +48,14 @@ class ClickHouseAPI
      *
      * @var integer
      */
-    private $port = 8123;
+    public $port = 8123;
     
     /**
      * Base path for server request
      *
      * @var string
      */
-    private $path = '/';
+    public $path = '/';
     
     /**
      * Username if need authorization
@@ -158,22 +159,22 @@ class ClickHouseAPI
      *  $h = new ClickHouseAPI;
      *  $h->setServerUrl("https://user:pass@127.0.0.1:8443/");
      *
-     * @param string|null $host_or_url
+     * @param string|null $host_or_full_url
      * @param string|null $port
      * @param string|null $user
      * @param string|null $pass
      */
     public function __construct(
-        $host_or_url = null,
+        $host_or_full_url = null,
         $port = null,
         $user = null,
         $pass = null
     ) {
-        if (!empty($host_or_url)) {
-            if (strpos($host_or_url, '/')) {
-                $this->setServerUrl($host_or_url);
+        if (!empty($host_or_full_url)) {
+            if (strpos($host_or_full_url, '/')) {
+                $this->setServerUrl($host_or_full_url);
             } else {
-                $this->host = $host_or_url;
+                $this->host = $host_or_full_url;
             }
         }
         if (!empty($port)) {
@@ -194,13 +195,13 @@ class ClickHouseAPI
      * Set scheme=http, host=127.0.0.1, port=8123, user=default, pass=[empty]
      *  $h->setServerUrl("http://default:@127.0.0.1:8123/");
      *
-     * @param string|null $server_url
+     * @param string|null $full_server_url
      * @throws \Exception
      */
-    public function setServerUrl($server_url = null)
+    public function setServerUrl($full_server_url = null)
     {
-        if (!empty($server_url)) {
-            $p_arr = \parse_url($server_url);
+        if (!empty($full_server_url)) {
+            $p_arr = \parse_url($full_server_url);
             foreach (['scheme', 'host', 'port', 'user', 'pass', 'path'] as $p) {
                 if (!empty($p_arr[$p])) {
                     $this->$p = $p_arr[$p];
@@ -231,8 +232,7 @@ class ClickHouseAPI
     {
         return
             \is_null($post_data) ?
-            $this->getQuery($h_query, $sess) :
-            $this->postQuery($h_query, $post_data, $sess)
+            $this->getQuery($h_query, $sess) : $this->postQuery($h_query, $post_data, $sess)
         ;
     }
     
@@ -403,7 +403,7 @@ class ClickHouseAPI
     {
         $old_value = isset($this->options[$key]) ? $this->options[$key] : null;
         if (is_null($old_value) || $overwrite) {
-            $this->options[$key]=$value;
+            $this->options[$key] = $value;
         }
         return $old_value;
     }

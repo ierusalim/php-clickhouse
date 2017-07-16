@@ -176,15 +176,15 @@ class ClickHouseReq extends ClickHouseAPI
     {
         $data = $this->getQuery(
             $sql .
-            ' FORMAT TabSeparated' . ($with_names_types ? 'WithNamesAndTypes':''),
+            ' FORMAT TabSeparated' . ($with_names_types ? 'WithNamesAndTypes' : ''),
             $sess);
         if ($data['code'] != 200) {
             return $data['response'];
         }
         $data = explode("\n", $data['response']);
         $c = count($data);
-        if ($c && empty($data[$c-1])) {
-            unset($data[$c-1]);
+        if ($c && empty($data[$c - 1])) {
+            unset($data[$c - 1]);
         }
         return $data;
     }
@@ -323,7 +323,7 @@ class ClickHouseReq extends ClickHouseAPI
             if ($numeric_keys) {
                 $ret[] = $x;
             } else {
-                if ($k<2) {
+                if ($k < 2) {
                     if ($k) {
                         $this->types = $x;
                     } else {
@@ -340,7 +340,7 @@ class ClickHouseReq extends ClickHouseAPI
         if ($found_extra) {
             $c = \count($data);
             for ($l = $c + 1; $k < $l; $k++) {
-                $s = ($k < $c) ? $data[$k]: '';
+                $s = ($k < $c) ? $data[$k] : '';
                 if (empty($s)) {
                     if (\count($this->extra) == 1) {
                         $this->totals = $this->extra[0];
@@ -396,7 +396,7 @@ class ClickHouseReq extends ClickHouseAPI
         }
         
         foreach (['meta', 'statistics', 'extremes', 'rows', 'totals'] as $key) {
-            $this->$key = isset($arr[$key]) ? $arr[$key]:null;
+            $this->$key = isset($arr[$key]) ? $arr[$key] : null;
         }
         $this->keys = $keys = (is_array($this->meta) && count($this->meta)) ?
             array_column($this->meta, 'name') : null;
@@ -404,7 +404,7 @@ class ClickHouseReq extends ClickHouseAPI
             array_column($this->meta, 'type') : null;
 
         if ($this->json_compact && !empty($keys)) {
-            foreach(['data', 'extremes'] as $key) {
+            foreach (['data', 'extremes'] as $key) {
                 if ($key == 'data' && $data_only) {
                     continue;
                 }
@@ -413,12 +413,12 @@ class ClickHouseReq extends ClickHouseAPI
                         $ret = \array_combine($keys, $ret);
                         $arr[$key][$k] = $ret;
                     }
-                    if($key != 'data') {
+                    if ($key != 'data') {
                         $this->$key = $arr[$key];
                     }
                 }
             }
-            if(!empty($this->totals)) {
+            if (!empty($this->totals)) {
                 $this->totals = \array_combine($keys, $this->totals);
                 $arr['totals'] = $this->totals;
             }
