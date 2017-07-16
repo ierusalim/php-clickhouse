@@ -70,7 +70,7 @@ class ClickHouseReqTest extends \PHPUnit_Framework_TestCase
         $this->assertFalse(is_array($ans));
         
         $ch->setOption('extremes', 1);
-        $t_arr = $ch->queryFullArray("SELECT * FROM system.settings");
+        $t_arr = $ch->queryFullArray("SELECT * FROM system.settings WITH TOTALS");
         $this->assertArrayHasKey('meta', $t_arr);
         $this->assertArrayHasKey('data', $t_arr);
         $this->assertArrayHasKey('statistics', $t_arr);
@@ -92,6 +92,20 @@ class ClickHouseReqTest extends \PHPUnit_Framework_TestCase
         $this->assertArrayHasKey('0', $arr[0]);
     }
     /**
+     * @covers ierusalim\ClickHouse\ClickHouseReq::queryArr
+     */
+    public function testQueryArr()
+    {
+        $ch = $this->object;
+        $ch->setOption("extremes", 1);
+        $arr = $ch->queryArr("SELECT * FROM system.settings WITH TOTALS");
+        $this->assertArrayHasKey(10, $arr);
+        $this->assertEquals(2, count($ch->extremes));
+        $this->assertFalse(empty($ch->totals));
+        $arr = $ch->queryArr("SELECT * FROM system.settings", true);
+        $this->assertArrayHasKey(10, $arr);
+    }
+    /**
      * @covers ierusalim\ClickHouse\ClickHouseReq::queryKeyValues
      */
     public function testQueryKeyValues()
@@ -106,6 +120,23 @@ class ClickHouseReqTest extends \PHPUnit_Framework_TestCase
         $this->assertTrue(count($arr)>10);
         
         $err = $ch->queryKeyValues("SELECT blablabla()");
+        $this->assertFalse(is_array($err));
+    }
+    /**
+     * @covers ierusalim\ClickHouse\ClickHouseReq::queryKeyValArr
+     */
+    public function testQueryKeyValArr()
+    {
+        $ch = $this->object;
+        
+        $arr = $ch->queryKeyValArr("DESCRIBE TABLE system.databases");
+        $this->assertArrayHasKey('name', $arr);
+        $this->assertArrayHasKey('engine', $arr);
+        
+        $arr = $ch->queryKeyValArr("system.settings", "name, value");
+        $this->assertTrue(count($arr)>10);
+        
+        $err = $ch->queryKeyValArr("SELECT blablabla()");
         $this->assertFalse(is_array($err));
     }
     /**

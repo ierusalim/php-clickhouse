@@ -14,16 +14,16 @@ namespace ierusalim\ClickHouse;
 class ClickHouseReq extends ClickHouseAPI
 {
     /**
-     * Using JSON-full format or JSON-compact format for transfering arrays.
-     * Set true for minimalizie traffic or false for maximalize perfomance
+     * Using JSON-full format or JSON-compact format for transferring arrays.
+     * In my tests JSONCompact always the best than JSON.
      *
      * @var boolean
      */
-    public $json_compact = false;
+    public $json_compact = true;
     
     /**
      * Contains array with field-names from received meta-data
-     * Available after calling functions queryFullArray and queryArray
+     * Available after calling functions queryFullArray, queryArray, queryArr
      *
      * @var array|null
      */
@@ -56,7 +56,7 @@ class ClickHouseReq extends ClickHouseAPI
     
     /**
      * Stored [extremes]-section from received data
-     * Available after calling functions queryFullArray and queryArray
+     * Available after calling functions queryFullArray, queryArray, queryArr
      * for use extremes need set flag by $this->setOption('extremes', 1)
      *
      * @var array|null
@@ -74,12 +74,19 @@ class ClickHouseReq extends ClickHouseAPI
     /**
      * Data remaining in the array after remove all known sections-keys
      *  Known keys is ['meta', 'statistics', 'extremes', 'rows']
-     * Available after calling functions queryArray (not after queryFullArray)
+     * Available after calling functions queryArray, queryArr
      * (usually contains empty array)
      *
      * @var array|null
      */
     public $extra;
+    
+    /**
+     * Set after calling queryFullArray, queryArry, queryArr when 'WITH TOTALS'
+     *
+     * @var array|null
+     */
+    public $totals;
     
     /**
      * String contained last error which returned by CURL or in server response
@@ -151,17 +158,23 @@ class ClickHouseReq extends ClickHouseAPI
     }
 
     /**
-     * Return strings array (using "TabSeparated"-format for data transfer)
+     * Return strings array (using TabSeparated-format for data transfer)
      * If return one column, result array no need transformations.
      * If return more of one column, array strings need be explode by tab
      *
+     * If with_names is true, first string of results contain names of columns.
+     *
      * @param string $sql
      * @param string|null $sess
+     * @param boolean $with_names
      * @return array
      */
-    public function queryColumn($sql, $sess = null)
+    public function queryColumn($sql, $sess = null, $with_names = false)
     {
-        $data = $this->getQuery($sql . ' FORMAT TabSeparated', $sess);
+        $data = $this->getQuery(
+            $sql .
+            ' FORMAT TabSeparated' . ($with_names ? 'WithNames':''),
+            $sess);
         if ($data['code'] != 200) {
             return $data['response'];
         }
@@ -177,9 +190,11 @@ class ClickHouseReq extends ClickHouseAPI
      * Return Array [keys => values]
      * Request and return data from table by 2 specified field-names,
      * or return results of any SQL-query with 2 columns in results.
+     * Similar than queryKeyValues, but using JSONCompact for data transferring.
      *
      * @param string $tbl_or_sql
      * @param string|null $key_name_and_value_name
+     * @param string|null $sess
      * @return array
      */
     public function queryKeyValues(
@@ -197,6 +212,39 @@ class ClickHouseReq extends ClickHouseAPI
             return $data;
         }
         return \array_combine(\array_column($data, 0), \array_column($data, 1));
+    }
+    
+    /**
+     * Return Array [keys => values]
+     * Similar than queryKeyValues, but using TabSeparated for data transferring.
+     * Provides the best performance on powerful servers,
+     *  but, on weak processors it runs slower than queryKeyValues
+     *
+     * @param string $tbl_or_sql
+     * @param string|null $key_name_and_value_name
+     * @param string|null $sess
+     * @return array
+     */
+    public function queryKeyValArr(
+        $tbl_or_sql,
+        $key_name_and_value_name = null,
+        $sess = null
+    ) {
+        if (is_null($key_name_and_value_name)) {
+            $sql = $tbl_or_sql;
+        } else {
+            $sql = "SELECT $key_name_and_value_name FROM $tbl_or_sql";
+        }
+        $data = $this->queryColumn($sql, $sess);
+        if (!\is_array($data)) {
+            return $data;
+        }
+        $ret = [];
+        foreach ($data as $s) {
+            $x = explode("\t", $s);
+            $ret[$x[0]] = $x[1];
+        }
+        return $ret;
     }
 
     /**
@@ -221,11 +269,82 @@ class ClickHouseReq extends ClickHouseAPI
             return $arr;
         }
         $data = $arr['data'];
-        foreach (['data', 'meta', 'statistics', 'extremes', 'rows' ] as $key) {
+        foreach ([
+            'data',
+            'meta',
+            'statistics',
+            'extremes',
+            'rows',
+            'totals'
+            ] as $key) {
             unset($arr[$key]);
         }
         $this->extra = $arr;
         return $data;
+    }
+    
+    /**
+     * Similar as queryArray, but use TabSeparated format for data transferring.
+     *
+     * @param string $sql
+     * @param boolean $numeric_keys
+     * @param string|null $sess
+     * @return array
+     */
+    
+    public function queryArr($sql, $numeric_keys = false, $sess = null)
+    {
+        $data = $this->queryColumn($sql, $sess, !$numeric_keys);
+        $found_extra = false;
+        $ret = [];
+        foreach ($data as $k => $s) {
+            if (empty($s)) {
+                $found_extra = true;
+                break;
+            }
+            $x = explode("\t", $s);
+            if ($numeric_keys) {
+                $ret[] = $x;
+            } else {
+                if (!$k) {
+                    $keys = $x;
+                    $this->keys = $x;
+                } else {
+                    $ret[] = \array_combine($keys, $x);
+                }
+            }
+        }
+
+        $this->extra = [];
+        $this->totals = $this->meta = $this->types = null;
+
+        // Parsing extra data if found. Its may be extremes and/or total.
+        if ($found_extra) {
+            $c = \count($data);
+            for ($l = $c + 1; $k < $l; $k++) {
+                $s = ($k < $c) ? $data[$k]: '';
+                if (empty($s)) {
+                    if (\count($this->extra) == 1) {
+                        $this->totals = $this->extra[0];
+                        $this->extra = [];
+                    }
+                    if (\count($this->extra) == 2) {
+                        $this->extremes = array_combine(
+                            ['min', 'max'],
+                            $this->extra);
+                        $this->extra = [];
+                    }
+                } else {
+                    $s = \explode("\t", $s);
+                    if (!$numeric_keys) {
+                        $s = \array_combine($keys, $s);
+                    }
+                    $this->extra[] = $s;
+                }
+            }
+        }
+        $this->rows = \count($ret);
+        return $ret;
     }
 
     /**
@@ -257,8 +376,8 @@ class ClickHouseReq extends ClickHouseAPI
         if (!is_array($arr)) {
             return isset($data['response']) ? $data['response'] : false;
         }
-
-        foreach (['meta', 'statistics', 'extremes', 'rows'] as $key) {
+        
+        foreach (['meta', 'statistics', 'extremes', 'rows', 'totals'] as $key) {
             $this->$key = isset($arr[$key]) ? $arr[$key]:null;
         }
         $this->keys = $keys = (is_array($this->meta) && count($this->meta)) ?
@@ -266,24 +385,31 @@ class ClickHouseReq extends ClickHouseAPI
         $this->types = is_array($keys) ?
             array_column($this->meta, 'type') : null;
 
-        if ($data_only) {
-            return $arr['data'];
+        if ($this->json_compact && !empty($keys)) {
+            foreach(['data', 'extremes'] as $key) {
+                if ($key == 'data' && $data_only) {
+                    continue;
+                }
+                if (!empty($arr[$key])) {
+                    foreach ($arr[$key] as $k => $ret) {
+                        $ret = \array_combine($keys, $ret);
+                        $arr[$key][$k] = $ret;
+                    }
+                    if($key != 'data') {
+                        $this->$key = $arr[$key];
+                    }
+                }
+            }
+            if(!empty($this->totals)) {
+                $this->totals = \array_combine($keys, $this->totals);
+                $arr['totals'] = $this->totals;
+            }
         }
 
-        if ($this->json_compact && !empty($keys)) {
-            if (!empty($arr['data'])) {
-                foreach ($arr['data'] as $k => $ret) {
-                    $ret = array_combine($keys, $ret);
-                    $arr['data'][$k] = $ret;
-                }
-            }
-            if (!empty($arr['extremes'])) {
-                foreach ($arr['extremes'] as $k => $ret) {
-                    $ret = array_combine($keys, $ret);
-                    $arr['extremes'][$k] = $ret;
-                }
-            }
+        if ($data_only) {
+            return $arr['data'];
+        } else {
+            return $arr;
         }
-        return $arr;
     }
 }

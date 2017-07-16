@@ -153,6 +153,7 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
         $ch = $this->object;
         $version = $ch->getVersion();
         $this->assertTrue(strpos($version, '.')>0);
+        echo "Version of ClickHouse server: $version\n";
     }
 
     /**
