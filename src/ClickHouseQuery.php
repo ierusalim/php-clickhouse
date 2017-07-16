@@ -2,7 +2,7 @@
 namespace ierusalim\ClickHouse;
 
 /**
- * Class ClickHouseReq for make queries to ClickHouse database engine
+ * Class ClickHouseQuery for make queries to ClickHouse database engine
  *
  * PHP Version >= 5.4
  *
@@ -11,7 +11,7 @@ namespace ierusalim\ClickHouse;
  * @copyright  2017, Ierusalim
  * @license    https://opensource.org/licenses/Apache-2.0 Apache-2.0
  */
-class ClickHouseReq extends ClickHouseAPI
+class ClickHouseQuery extends ClickHouseAPI
 {
     /**
      * Using JSON-full format or JSON-compact format for transferring arrays.

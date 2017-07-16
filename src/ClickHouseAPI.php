@@ -8,11 +8,12 @@ namespace ierusalim\ClickHouse;
  *
  * PHP Version >= 5.4
  *
- * This file can be used independently.
+ * This file is a part of packet php-clickhouse, but it may be used independently.
  *
  * Example of independent use:
+ *
  *  require "ClickHouseAPI.php";
- *  $ch = new ClickHouseAPI(); // connect http://127.0.0.1:8123 by default
+ *  $ch = new ClickHouseAPI("http://127.0.0.1:8123");
  *  $response = $ch->getQuery("SELECT 1");
  *  print_r($response);
  *  $ch->postQuery("CREATE TABLE t (a UInt8) ENGINE = Memory");
