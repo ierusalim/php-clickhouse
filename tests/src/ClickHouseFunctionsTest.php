@@ -92,7 +92,7 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
     public function testGetDatabasesList()
     {
         $ch = $this->object;
-        $db_arr = $ch->queryColumn("SHOW DATABASES");
+        $db_arr = $ch->queryColumnTab("SHOW DATABASES");
         $db_2_arr =$ch->getDatabasesList();
         $this->assertEquals($db_arr, $db_2_arr);
         $this->assertTrue(\array_search('system', $db_arr) !== false);

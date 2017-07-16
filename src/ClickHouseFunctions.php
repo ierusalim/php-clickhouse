@@ -44,7 +44,7 @@ class ClickHouseFunctions extends ClickHouseReq
      */
     public function getDatabasesList()
     {
-        return $this->queryColumn('SHOW DATABASES');
+        return $this->queryColumnTab('SHOW DATABASES');
     }
 
     /**
@@ -56,7 +56,7 @@ class ClickHouseFunctions extends ClickHouseReq
      */
     public function getTablesList($name = null, $like_pattern = null)
     {
-        return $this->queryColumn('SHOW TABLES ' .
+        return $this->queryColumnTab('SHOW TABLES ' .
                    (empty($name) ? '' : $this->from . $name) .
                    (empty($like_pattern) ? '' : " LIKE '$like_pattern'"));
     }
@@ -123,7 +123,7 @@ class ClickHouseFunctions extends ClickHouseReq
      */
     public function getNumbers($lim = 100, $use_mt = false)
     {
-        return $this->queryColumn(
+        return $this->queryColumnTab(
             'SELECT * FROM system.numbers' . ( $use_mt ? '_mt': '') .
             ' LIMIT '. $lim);
     }

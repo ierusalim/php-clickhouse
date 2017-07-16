@@ -97,6 +97,7 @@ class ClickHouseReqTest extends \PHPUnit_Framework_TestCase
     public function testQueryArr()
     {
         $ch = $this->object;
+        $this->assertFalse(is_array($ch->queryArr("SELECT blabla()")));
         $ch->setOption("extremes", 1);
         $arr = $ch->queryArr("SELECT * FROM system.settings WITH TOTALS");
         $this->assertArrayHasKey(10, $arr);
@@ -133,6 +134,8 @@ class ClickHouseReqTest extends \PHPUnit_Framework_TestCase
         $this->assertArrayHasKey('name', $arr);
         $this->assertArrayHasKey('engine', $arr);
         
+        $ch->setOption("extremes", 1);
+        
         $arr = $ch->queryKeyValArr("system.settings", "name, value");
         $this->assertTrue(count($arr)>10);
         
@@ -140,16 +143,16 @@ class ClickHouseReqTest extends \PHPUnit_Framework_TestCase
         $this->assertFalse(is_array($err));
     }
     /**
-     * @covers ierusalim\ClickHouse\ClickHouseReq::queryColumn
+     * @covers ierusalim\ClickHouse\ClickHouseReq::queryColumnTab
      */
-    public function testQueryColumn()
+    public function testQueryColumnTab()
     {
         $ch = $this->object;
         
-        $arr = $ch->queryColumn("SELECT * FROM system.numbers LIMIT 100");
+        $arr = $ch->queryColumnTab("SELECT * FROM system.numbers LIMIT 100");
         $this->assertTrue(\count($arr)==100);
 
-        $str = $ch->queryColumn("SELECT * FROM notfoundtable LIMIT 1");
+        $str = $ch->queryColumnTab("SELECT * FROM notfoundtable LIMIT 1");
         $this->assertNotEquals(200, $ch->last_code);
     }
 }

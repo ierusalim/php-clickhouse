@@ -161,19 +161,22 @@ class ClickHouseReq extends ClickHouseAPI
      * Return strings array (using TabSeparated-format for data transfer)
      * If return one column, result array no need transformations.
      * If return more of one column, array strings need be explode by tab
-     *
-     * If with_names is true, first string of results contain names of columns.
+     * If $with_names_types is true, first 2 strings of results array
+     *  contain names and types of returned columns.
+     * Nuances:
+     *  Returned data not unescaped!
+     *  If have option 'extreme' or 'WITH TOTALS' requires filtering extra lines
      *
      * @param string $sql
      * @param string|null $sess
-     * @param boolean $with_names
+     * @param boolean $with_names_types
      * @return array
      */
-    public function queryColumn($sql, $sess = null, $with_names = false)
+    public function queryColumnTab($sql, $with_names_types = false, $sess = null)
     {
         $data = $this->getQuery(
             $sql .
-            ' FORMAT TabSeparated' . ($with_names ? 'WithNames':''),
+            ' FORMAT TabSeparated' . ($with_names_types ? 'WithNamesAndTypes':''),
             $sess);
         if ($data['code'] != 200) {
             return $data['response'];
@@ -189,7 +192,7 @@ class ClickHouseReq extends ClickHouseAPI
     /**
      * Return Array [keys => values]
      * Request and return data from table by 2 specified field-names,
-     * or return results of any SQL-query with 2 columns in results.
+     *  or return results of any SQL-query with 2 columns in results.
      * Similar than queryKeyValues, but using JSONCompact for data transferring.
      *
      * @param string $tbl_or_sql
@@ -219,6 +222,8 @@ class ClickHouseReq extends ClickHouseAPI
      * Similar than queryKeyValues, but using TabSeparated for data transferring.
      * Provides the best performance on powerful servers,
      *  but, on weak processors it runs slower than queryKeyValues
+     * Returned data not unescaped!
+     * If unescape is important, it's best to use queryKeyValues insead.
      *
      * @param string $tbl_or_sql
      * @param string|null $key_name_and_value_name
@@ -235,12 +240,15 @@ class ClickHouseReq extends ClickHouseAPI
         } else {
             $sql = "SELECT $key_name_and_value_name FROM $tbl_or_sql";
         }
-        $data = $this->queryColumn($sql, $sess);
+        $data = $this->queryColumnTab($sql, false, $sess);
         if (!\is_array($data)) {
             return $data;
         }
         $ret = [];
         foreach ($data as $s) {
+            if (empty($s)) {
+                break;
+            }
             $x = explode("\t", $s);
             $ret[$x[0]] = $x[1];
         }
@@ -285,6 +293,9 @@ class ClickHouseReq extends ClickHouseAPI
     
     /**
      * Similar as queryArray, but use TabSeparated format for data transferring.
+     * Provides better performance than queryArray, but needed unescape later.
+     * Returned data not unescaped!
+     * If unescape is important, it's best to use queryArray instead queryArr.
      *
      * @param string $sql
      * @param boolean $numeric_keys
@@ -294,7 +305,13 @@ class ClickHouseReq extends ClickHouseAPI
     
     public function queryArr($sql, $numeric_keys = false, $sess = null)
     {
-        $data = $this->queryColumn($sql, $sess, !$numeric_keys);
+        $this->extra = [];
+        $this->totals = $this->meta = $this->types = null;
+
+        $data = $this->queryColumnTab($sql, !$numeric_keys, $sess);
+        if (!\is_array($data)) {
+            return $data;
+        }
         $found_extra = false;
         $ret = [];
         foreach ($data as $k => $s) {
@@ -306,17 +323,18 @@ class ClickHouseReq extends ClickHouseAPI
             if ($numeric_keys) {
                 $ret[] = $x;
             } else {
-                if (!$k) {
-                    $keys = $x;
-                    $this->keys = $x;
+                if ($k<2) {
+                    if ($k) {
+                        $this->types = $x;
+                    } else {
+                        $keys = $x;
+                        $this->keys = $x;
+                    }
                 } else {
                     $ret[] = \array_combine($keys, $x);
                 }
             }
         }
-
-        $this->extra = [];
-        $this->totals = $this->meta = $this->types = null;
 
         // Parsing extra data if found. Its may be extremes and/or total.
         if ($found_extra) {
@@ -343,7 +361,7 @@ class ClickHouseReq extends ClickHouseAPI
                 }
             }
         }
-        $this->rows = \count($ret);
+        $this->rows = count($ret);
         return $ret;
     }
 
