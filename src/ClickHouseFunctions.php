@@ -173,7 +173,7 @@ class ClickHouseFunctions extends ClickHouseQuery
             }
             return $this->types_bytes[$name];
         }
-        $can_conv = false;
+
         switch ($name) {
             case 'Array':
                 $to_conv = false;
