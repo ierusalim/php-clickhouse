@@ -13,8 +13,14 @@ namespace ierusalim\ClickHouse;
  */
 class ClickHouseFunctions extends ClickHouseQuery
 {
-    // String, FixedString(N), Enum
-    public $types_bytes = [
+    /**
+     * List of fixed-size data-types of ClickHouse
+     * [key - type in Canonical-case] => count of bytes occupied
+     * Not listed: FixedString, String, Array
+     *
+     * @var array
+     */
+    public $types_fix_size = [
         'Date' => 2,
         'DateTime' => 4,
         'Int8' => 1,
@@ -29,6 +35,34 @@ class ClickHouseFunctions extends ClickHouseQuery
         'Float64' => 8,
         'Enum8' => 1,
         'Enum16' => 2
+    ];
+
+    /**
+     * List of aliases [key must be lowecase] => value must be canonical case.
+     * @var array
+     */
+    public $types_aliases = [
+        'string' => 'String',
+        'fixedstring' => 'FixedString',
+        'array' => 'Array',
+        'tinyint' => 'Int8',
+        'bool' => 'Int8',
+        'boolean' => 'Int8',
+        'smallint' => 'Int16',
+        'int' => 'Int32',
+        'integer' => 'Int32',
+        'bigint' => 'Int64',
+        'float' => 'Float64',
+        'double' => 'Float64',
+        'blob' => 'String',
+        'text' => 'String',
+        'char' => 'FixedString',
+        'varchar' => 'FixedString',
+        'binary' => 'FixedString',
+        'varbinary' => 'FixedString',
+        'timestamp' => 'DateTime',
+        'time' => 'DateTime',
+        'enum' => 'Enum8',
     ];
 
     private $from = ' FROM '; // For stupid code analyzers
@@ -152,26 +186,36 @@ class ClickHouseFunctions extends ClickHouseQuery
      * Otherwise return length in bytes for this type.
      * Return 0 if length is undefined (for String and Array).
      *
-     * @param string $type
+     * @param string $type_full
      * @return boolean|int
      */
-    public function parseType($type, &$name = null, &$to_conv = null)
+    public function parseType(&$type_full, &$name = null, &$to_conv = null)
     {
-        $i = \strpos($type, '(');
+        $i = \strpos($type_full, '(');
         if ($i) {
-            $name = \substr($type, 0, $i);
+            $name = \substr($type_full, 0, $i);
         } else {
-            $name = $type;
+            $name = $type_full;
+        }
+        $cano_name = $this->changeIfIsAlias($name);
+        if ($cano_name != $name) {
+            $name = $cano_name;
+            if ($i) {
+                $type_full = $cano_name . \substr($type_full, $i);
+                $i = strlen($cano_name);
+            } else {
+                $type_full = $cano_name;
+            }
         }
 
         // function for convertation, like String -> toString(...)
         $to_conv = ['to' . $name . '(',')'];
 
-        if (isset($this->types_bytes[$name])) {
+        if (isset($this->types_fix_size[$name])) {
             if (substr($name, 0, 4) === 'Enum') {
                 $to_conv = false;
             }
-            return $this->types_bytes[$name];
+            return $this->types_fix_size[$name];
         }
 
         switch ($name) {
@@ -181,8 +225,8 @@ class ClickHouseFunctions extends ClickHouseQuery
             case 'String':
                 return 0;
             case 'FixedString':
-                $j = \strpos($type, ')', $i);
-                $j = \substr($type, $i+1, $j - $i - 1);
+                $j = \strpos($type_full, ')', $i);
+                $j = \substr($type_full, $i+1, $j - $i - 1);
                 if (\is_numeric($j)) {
                     $to_conv[1] = ',' . $j . ')';
                     return (int) $j;
@@ -204,6 +248,9 @@ class ClickHouseFunctions extends ClickHouseQuery
      *       ['Int16', '777'] - is same 'Int16 777'. Type "Int16", default=777
      *       ['String'] - is same 'String'. Type "String", no default value.
      *       ['Date', 'now()'] - type "Date", default value = now() function.
+     *
+     * Types may be specified as aliases and case insensitive.
+     *  (see list of aliases in $this->type_aliases).
      *
      * Default values may be specified with DEFAULT keyword, for example:
      *    field_type = 'Int16 DEFAULT 123+5' , or ['Int16', 'DEFAULT 123+5']
@@ -294,20 +341,20 @@ class ClickHouseFunctions extends ClickHouseQuery
             }
 
             // make $type_full, $default, $create strings from $create array
-            $type_full = $create[0];
+            $type_full = $type_src = $create[0];
+            // make $type_full, $type_name, $to_conv, $bytes (from $type_full)
+            $type_name = $to_conv = 0;
+            $bytes = $this->parseType($type_full, $type_name, $to_conv);
+            if ($bytes === false) {
+                throw new \Exception("Unrecognized data type '$type_full'");
+            }
+
             if (isset($create[1])) {
                 $default = $create[1];
                 $create = $type_full . ' DEFAULT ' . $default;
             } else {
                 $default = '';
                 $create = $type_full;
-            }
-
-            // make $type_name, $to_conv, $bytes from $type_full
-            $type_name = $to_conv = 0;
-            $bytes = $this->parseType($type_full, $type_name, $to_conv);
-            if ($bytes === false) {
-                throw new \Exception("Unrecognized data type '$type_full'");
             }
 
             if (strlen($default)) {
@@ -329,6 +376,7 @@ class ClickHouseFunctions extends ClickHouseQuery
                 'create',
                 'type_full',
                 'type_name',
+                'type_src',
                 'default',
                 'bytes'
             );
@@ -354,5 +402,24 @@ class ClickHouseFunctions extends ClickHouseQuery
            (($fc === '"' || $fc === "'") && ($fc === $lc)) ||
            (($lc === ')' && strpos($str, '(') !==false))
         ) ? $str : json_encode($str);
+    }
+
+    /**
+     * Returns the value unchanged, if no alias is found, or returns an alias.
+     *
+     * @param string $type_src
+     * @return string
+     */
+    public function changeIfIsAlias($type_src)
+    {
+        static $aliases_arr = false;
+        $type_lower = \strtolower($type_src);
+        if (!$aliases_arr) {
+            $aliases_arr = $this->types_aliases;
+            foreach ($this->types_fix_size as $type_canonic => $v) {
+                $aliases_arr[strtolower($type_canonic)] = $type_canonic;
+            }
+        }
+        return isset($aliases_arr[$type_lower]) ? $aliases_arr[$type_lower] : $type_src;
     }
 }

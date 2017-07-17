@@ -28,6 +28,36 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
+     * @covers ierusalim\ClickHouse\ClickHouseFunctions::changeIfIsAlias
+     */
+    public function testChangeIfIsAlias()
+    {
+        $ch = $this->object;
+
+        $test_type = 'testtype';
+        $this->assertEquals($test_type, $ch->changeIfIsAlias($test_type));
+
+        $canonical_types = array_merge(
+            $ch->types_fix_size,
+            ['String'=>0, 'FixedString'=>0, 'Array'=>0]
+        );
+
+        foreach ($ch->types_aliases as $key => $v) {
+            $cano_type = $ch->changeIfIsAlias($key);
+            $this->assertEquals($cano_type, $v);
+            $is_canonic = isset($canonical_types[$v]);
+            if (!$is_canonic) {
+                echo "\nNon-canonical type $v\n";
+            }
+            $this->assertTrue($is_canonic);
+        }
+        foreach ($ch->types_fix_size as $key => $v) {
+            $cano_type = $ch->changeIfIsAlias(strtoupper($key));
+            $this->assertEquals($cano_type, $key);
+        }
+    }
+
+    /**
      * @covers ierusalim\ClickHouse\ClickHouseFunctions::getCurrentDatabase
      */
     public function testGetCurrentDatabase()
@@ -256,20 +286,22 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
     {
         $ch = $this->object;
 
-        $arr = $ch->parseFieldsArr(['id' => 'Int16']);
+        $arr = $ch->parseFieldsArr(['id' => 'int']);
         $this->assertEquals(['id' => [
-            'create' => 'id Int16',
-            'type_full' => 'Int16',
-            'type_name' => 'Int16',
+            'create' => 'id Int32',
+            'type_full' => 'Int32',
+            'type_name' => 'Int32',
+            'type_src' => 'int',
             'default' => '',
-            'bytes' => 2
+            'bytes' => 4
         ]], $arr);
 
-        $arr = $ch->parseFieldsArr(['id' => 'Int16 123']);
+        $arr = $ch->parseFieldsArr(['id' => 'int16 123']);
         $this->assertEquals(['id' => [
             'create' => 'id DEFAULT toInt16(123)',
             'type_full' => 'Int16',
             'type_name' => 'Int16',
+            'type_src' => 'int16',
             'default' => 'toInt16(123)',
             'bytes' => 2
         ]], $arr);
@@ -279,6 +311,7 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
             'create' => 'id Int16 DEFAULT 123',
             'type_full' => 'Int16',
             'type_name' => 'Int16',
+            'type_src' => 'Int16',
             'default' => '123',
             'bytes' => 2
         ]], $arr);
@@ -288,6 +321,7 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
             'create' => 'id DEFAULT toFixedString("x",55)',
             'type_full' => 'FixedString(55)',
             'type_name' => 'FixedString',
+            'type_src' => 'FixedString(55)',
             'default' => 'toFixedString("x",55)',
             'bytes' => 55
         ]], $arr);
@@ -297,6 +331,7 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
             'create' => 'id DEFAULT toFixedString("x",55)',
             'type_full' => 'FixedString(55)',
             'type_name' => 'FixedString',
+            'type_src' => 'FixedString(55)',
             'default' => 'toFixedString("x",55)',
             'bytes' => 55
         ]], $arr);
@@ -306,6 +341,7 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
             'create' => 'id Enum8("google"=1,"bing"=2) DEFAULT "google"',
             'type_full' => 'Enum8("google"=1,"bing"=2)',
             'type_name' => 'Enum8',
+            'type_src' => 'Enum8("google"=1,"bing"=2)',
             'default' => '"google"',
             'bytes' => 1
         ]], $arr);
@@ -327,7 +363,11 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
         $this->assertFalse($ch->parseType($type, $name, $to_conv));
         $this->assertEquals("Unknown", $name);
 
-        $type = "Enum8('google' = 1, 'bing' = 2)";
+        $type = "int";
+        $this->assertEquals(4, $ch->parseType($type, $name, $to_conv));
+        $this->assertEquals("Int32", $name);
+
+        $type = "enum('google' = 1, 'bing' = 2)";
         $this->assertEquals(1, $ch->parseType($type, $name, $to_conv));
         $this->assertEquals('Enum8', $name);
         $this->assertFalse($to_conv);
@@ -346,8 +386,8 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
         $this->assertFalse($ch->parseType($type, $name, $to_conv));
         $this->assertEquals('FixedString', $name);
 
-        foreach (\array_merge(['String'], \array_keys($ch->types_bytes)) as $type) {
-            $bytes = isset($ch->types_bytes[$type]) ? $ch->types_bytes[$type] : 0;
+        foreach (\array_merge(['String'], \array_keys($ch->types_fix_size)) as $type) {
+            $bytes = isset($ch->types_fix_size[$type]) ? $ch->types_fix_size[$type] : 0;
             $this->assertEquals($bytes, $ch->parseType($type, $name, $to_conv));
             $this->assertEquals($type, $name);
             if ($to_conv) {
