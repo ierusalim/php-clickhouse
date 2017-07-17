@@ -40,12 +40,12 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
 
         $db_1 = 'default';
         $db_2 = 'system';
-        
+
         $ans = $ch->setCurrentDatabase($db_1, $session_id_1);
         $this->assertTrue($ans);
         $ans = $ch->setCurrentDatabase($db_2, $session_id_2);
         $this->assertTrue($ans);
-        
+
         $ch->setSession($session_id_1);
         $db_name = $ch->getCurrentDatabase();
         $this->assertEquals($db_name, $db_1);
@@ -73,7 +73,7 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
 
         $db_1 = 'default';
         $db_2 = 'system';
-        
+
         $ans = $ch->setCurrentDatabase($db_1, $session_id_1);
         $this->assertTrue($ans);
         $ans = $ch->setCurrentDatabase($db_2, $session_id_2);
@@ -85,7 +85,6 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals($db_name, $db_2);
     }
 
-
     /**
      * @covers ierusalim\ClickHouse\ClickHouseFunctions::getDatabasesList
      */
@@ -93,7 +92,7 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
     {
         $ch = $this->object;
         $db_arr = $ch->queryColumnTab("SHOW DATABASES");
-        $db_2_arr =$ch->getDatabasesList();
+        $db_2_arr = $ch->getDatabasesList();
         $this->assertEquals($db_arr, $db_2_arr);
         $this->assertTrue(\array_search('system', $db_arr) !== false);
     }
@@ -105,12 +104,12 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
     {
         $ch = $this->object;
         $sys_tbl_arr = $ch->getTablesList('system');
-        $this->assertTrue(\count($sys_tbl_arr)>10);
+        $this->assertTrue(\count($sys_tbl_arr) > 10);
         $this->assertTrue(\array_search('databases', $sys_tbl_arr) !== false);
 
         $data_tbl_arr = $ch->getTablesList('system', 'd%');
-        $this->assertTrue(count($data_tbl_arr)>0);
-        $this->assertTrue(array_search('databases', $data_tbl_arr)!==false);
+        $this->assertTrue(count($data_tbl_arr) > 0);
+        $this->assertTrue(array_search('databases', $data_tbl_arr) !== false);
     }
 
     /**
@@ -123,7 +122,6 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
         $this->assertTrue(\is_array($proc_arr));
     }
 
-
     /**
      * @covers ierusalim\ClickHouse\ClickHouseFunctions::getTableFields
      */
@@ -134,7 +132,7 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
         $this->assertArrayHasKey('name', $desc_tbl_arr);
         $this->assertArrayHasKey('engine', $desc_tbl_arr);
     }
-    
+
     /**
      * @covers ierusalim\ClickHouse\ClickHouseFunctions::getSystemSettings
      */
@@ -142,7 +140,7 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
     {
         $ch = $this->object;
         $arr = $ch->getSystemSettings();
-        $this->assertTrue(count($arr)>10);
+        $this->assertTrue(count($arr) > 10);
     }
 
     /**
@@ -152,7 +150,7 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
     {
         $ch = $this->object;
         $version = $ch->getVersion();
-        $this->assertTrue(strpos($version, '.')>0);
+        $this->assertTrue(strpos($version, '.') > 0);
         echo "Version of ClickHouse server: $version\n";
     }
 
@@ -174,5 +172,189 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
         $ch = $this->object;
         $arr = $ch->getNumbers(100);
         $this->assertEquals(100, count($arr));
+    }
+
+    /**
+     * @covers ierusalim\ClickHouse\ClickHouseFunctions::sqlTableQuick
+     */
+    public function testSqlTableQuick()
+    {
+        $ch = $this->object;
+
+        $sql = $ch->sqlTableQuick('temp', [
+            'id' => 'Int16',
+            'dt' => ['Date','now()']
+        ]);
+
+        $this->assertEquals(
+            'CREATE TABLE IF NOT EXIST temp (' .
+            ' id Int16, dt DEFAULT toDate(now()) ' .
+            ') ENGINE = MergeTree(dt, (id, dt), 8192)',
+        $sql);
+
+        $this->setExpectedException("\Exception");
+        // No date field exception
+        $sql = $ch->sqlTableQuick('temp', [
+            'id' => 'Int16',
+            'dt' => ['Int32','toInt32(now())']
+        ]);
+    }
+    /**
+     * @covers ierusalim\ClickHouse\ClickHouseFunctions::sqlTableQuick
+     */
+    public function testSqlTableQuickException()
+    {
+        $ch = $this->object;
+        $this->setExpectedException("\Exception");
+
+        // No primary field
+        $sql = $ch->sqlTableQuick('temp', [
+            'dt' => ['Int32','toInt32(now())']
+        ]);
+        $this->assertFalse("This line will not be executed");
+    }
+
+    /**
+     * @covers ierusalim\ClickHouse\ClickHouseFunctions::fnQuote
+     */
+    public function testFnQuote()
+    {
+        $ch = $this->object;
+        $this->assertEquals(123, $ch->fnQuote(123));
+        $this->assertEquals('"a"', $ch->fnQuote('a'));
+        $this->assertEquals('"a"', $ch->fnQuote('"a"'));
+        $this->assertEquals("'a'", $ch->fnQuote("'a'"));
+        $this->assertEquals("now()", $ch->fnQuote("now()"));
+        $str = "test\ttttt";
+        $this->assertEquals(json_encode($str), $ch->fnQuote($str));
+    }
+
+    /**
+     * @covers ierusalim\ClickHouse\ClickHouseFunctions::createTableQuick
+     */
+    public function testCreateTableQuick()
+    {
+        $ch = $this->object;
+
+        $table = 'tempcreate';
+
+        $ans = $ch->createTableQuick($table, [
+            'id' => 'Int16',
+            'dt' => ['Date', 'now()']
+        ], 2);
+        $this->assertTrue($ans);
+
+        $fields_arr = $ch->getTableFields($table);
+
+        $this->assertEquals(['id'=>'Int16', 'dt'=>'Date'], $fields_arr);
+    }
+
+    /**
+     * @covers ierusalim\ClickHouse\ClickHouseFunctions::parseFieldsArr
+     */
+    public function testParseFieldsArr()
+    {
+        $ch = $this->object;
+
+        $arr = $ch->parseFieldsArr(['id' => 'Int16']);
+        $this->assertEquals(['id' => [
+            'create' => 'id Int16',
+            'type_full' => 'Int16',
+            'type_name' => 'Int16',
+            'default' => '',
+            'bytes' => 2
+        ]], $arr);
+
+        $arr = $ch->parseFieldsArr(['id' => 'Int16 123']);
+        $this->assertEquals(['id' => [
+            'create' => 'id DEFAULT toInt16(123)',
+            'type_full' => 'Int16',
+            'type_name' => 'Int16',
+            'default' => 'toInt16(123)',
+            'bytes' => 2
+        ]], $arr);
+
+        $arr = $ch->parseFieldsArr(['id' => 'Int16 DEFAULT 123']);
+        $this->assertEquals(['id' => [
+            'create' => 'id Int16 DEFAULT 123',
+            'type_full' => 'Int16',
+            'type_name' => 'Int16',
+            'default' => '123',
+            'bytes' => 2
+        ]], $arr);
+
+        $arr = $ch->parseFieldsArr(['id' => 'FixedString(55) x']);
+        $this->assertEquals(['id' => [
+            'create' => 'id DEFAULT toFixedString("x",55)',
+            'type_full' => 'FixedString(55)',
+            'type_name' => 'FixedString',
+            'default' => 'toFixedString("x",55)',
+            'bytes' => 55
+        ]], $arr);
+
+        $arr = $ch->parseFieldsArr(['id' => ['FixedString(55)','x']]);
+        $this->assertEquals(['id' => [
+            'create' => 'id DEFAULT toFixedString("x",55)',
+            'type_full' => 'FixedString(55)',
+            'type_name' => 'FixedString',
+            'default' => 'toFixedString("x",55)',
+            'bytes' => 55
+        ]], $arr);
+
+        $arr = $ch->parseFieldsArr(['id' => ['Enum8("google"=1,"bing"=2)','google']]);
+        $this->assertEquals(['id' => [
+            'create' => 'id Enum8("google"=1,"bing"=2) DEFAULT "google"',
+            'type_full' => 'Enum8("google"=1,"bing"=2)',
+            'type_name' => 'Enum8',
+            'default' => '"google"',
+            'bytes' => 1
+        ]], $arr);
+
+        $this->setExpectedException("\Exception");
+        $arr = $ch->parseFieldsArr(['id' => 'UnknownType']);
+        $this->assertFalse("This line will not be executed");
+    }
+
+    /**
+     * @covers ierusalim\ClickHouse\ClickHouseFunctions::parseType
+     */
+    public function testParseType()
+    {
+        $ch = $this->object;
+        $name = $to_conv = '';
+
+        $type = "Unknown()";
+        $this->assertFalse($ch->parseType($type, $name, $to_conv));
+        $this->assertEquals("Unknown", $name);
+
+        $type = "Enum8('google' = 1, 'bing' = 2)";
+        $this->assertEquals(1, $ch->parseType($type, $name, $to_conv));
+        $this->assertEquals('Enum8', $name);
+        $this->assertFalse($to_conv);
+
+        $type = "Array(1,2,3)";
+        $this->assertEquals(0, $ch->parseType($type, $name, $to_conv));
+        $this->assertEquals('Array', $name);
+        $this->assertFalse($to_conv);
+
+        $type = "FixedString(123)";
+        $this->assertEquals(123, $ch->parseType($type, $name, $to_conv));
+        $this->assertEquals('FixedString', $name);
+        $this->assertEquals(['toFixedString(', ',123)'], $to_conv);
+
+        $type = "FixedString(x)";
+        $this->assertFalse($ch->parseType($type, $name, $to_conv));
+        $this->assertEquals('FixedString', $name);
+
+        foreach (\array_merge(['String'], \array_keys($ch->types_bytes)) as $type) {
+            $bytes = isset($ch->types_bytes[$type]) ? $ch->types_bytes[$type] : 0;
+            $this->assertEquals($bytes, $ch->parseType($type, $name, $to_conv));
+            $this->assertEquals($type, $name);
+            if ($to_conv) {
+                $this->assertEquals(['to' . $type . '(', ')'], $to_conv);
+            } else {
+                $this->assertEquals('Enum', substr($type, 0, 4));
+            }
+        }
     }
 }
