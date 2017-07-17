@@ -177,8 +177,8 @@ class ClickHouseFunctions extends ClickHouseQuery
     public function getNumbers($lim = 100, $use_mt = false)
     {
         return $this->queryColumnTab(
-            'SELECT * FROM system.numbers' . ( $use_mt ? '_mt': '') .
-            ' LIMIT '. $lim);
+            'SELECT * FROM system.numbers' . ($use_mt ? '_mt' : '') .
+            ' LIMIT ' . $lim);
     }
 
     /**
@@ -209,7 +209,7 @@ class ClickHouseFunctions extends ClickHouseQuery
         }
 
         // function for convertation, like String -> toString(...)
-        $to_conv = ['to' . $name . '(',')'];
+        $to_conv = ['to' . $name . '(', ')'];
 
         if (isset($this->types_fix_size[$name])) {
             if (substr($name, 0, 4) === 'Enum') {
@@ -226,7 +226,7 @@ class ClickHouseFunctions extends ClickHouseQuery
                 return 0;
             case 'FixedString':
                 $j = \strpos($type_full, ')', $i);
-                $j = \substr($type_full, $i+1, $j - $i - 1);
+                $j = \substr($type_full, $i + 1, $j - $i - 1);
                 if (\is_numeric($j)) {
                     $to_conv[1] = ',' . $j . ')';
                     return (int) $j;
@@ -291,7 +291,7 @@ class ClickHouseFunctions extends ClickHouseQuery
      */
     public function sqlTableQuick($table_name, $fields_arr, $if_not_exist = 1)
     {
-        if (!is_array($fields_arr) || count($fields_arr)<2) {
+        if (!is_array($fields_arr) || count($fields_arr) < 2) {
             throw new \Exception("Table must contain as least 1 field");
         }
 
@@ -334,7 +334,7 @@ class ClickHouseFunctions extends ClickHouseQuery
                 // Can parse as string only scalar types, not Enum or Array
                 $i = \strpos($create, ' ');
                 if ($i) {
-                    $create = [\substr($create, 0, $i), \substr($create, $i+1)];
+                    $create = [\substr($create, 0, $i), \substr($create, $i + 1)];
                 } else {
                     $create = [$create];
                 }
@@ -400,7 +400,7 @@ class ClickHouseFunctions extends ClickHouseQuery
         $lc = substr($str, -1);
         return (is_numeric($str) ||
            (($fc === '"' || $fc === "'") && ($fc === $lc)) ||
-           (($lc === ')' && strpos($str, '(') !==false))
+           (($lc === ')' && strpos($str, '(') !== false))
         ) ? $str : json_encode($str);
     }
 
