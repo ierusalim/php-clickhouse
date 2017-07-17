@@ -232,7 +232,7 @@ class ClickHouseQuery extends ClickHouseAPI
         if (!\is_array($data) || !\count($data)) {
             return $data;
         }
-        if(count($data[0]) == 1) {
+        if (count($data[0]) == 1) {
             return \array_column($data, 0);
         }
         return \array_combine(\array_column($data, 0), \array_column($data, 1));

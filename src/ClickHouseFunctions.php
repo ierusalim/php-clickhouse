@@ -270,7 +270,7 @@ class ClickHouseFunctions extends ClickHouseQuery
     public function createTableQuick($table_name, $fields_arr, $if_exists = 0)
     {
         if ($if_exists == 2) {
-            $ans = $this->queryGood("DROP TABLE IF EXISTS $table_name");
+            $this->queryGood("DROP TABLE IF EXISTS $table_name");
         }
         $sql = $this->sqlTableQuick($table_name, $fields_arr, !$if_exists);
         return $this->queryGood($sql);
