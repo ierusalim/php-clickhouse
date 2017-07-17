@@ -458,7 +458,7 @@ class ClickHouseFunctions extends ClickHouseQuery
      *
      * @param array $fields_arr
      * @param integer $dynamic_cnt (by reference)
-     * @return integer
+     * @return integer|string
      */
     public function countRowFixedSize($fields_arr, &$dynamic_cnt = 0)
     {
