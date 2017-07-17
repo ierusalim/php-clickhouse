@@ -12,7 +12,7 @@ namespace ierusalim\ClickHouse;
  * @author     Alexander Jer <alex@ierusalim.com>
  * @copyright  2017, Ierusalim
  * @license    https://opensource.org/licenses/Apache-2.0 Apache-2.0
- * 
+ *
  * This query-functions recommended for use:
  *
  *  ->queryGood($sql) - for non-returnable data requests (return false if error)
@@ -38,7 +38,7 @@ class ClickHouseQuery extends ClickHouseAPI
      * @var boolean
      */
     public $json_compact = true;
-    
+
     /**
      * Contains array with field-names from received meta-data
      * Available after calling functions queryFullArray, queryArray, queryArr
@@ -46,7 +46,7 @@ class ClickHouseQuery extends ClickHouseAPI
      * @var array|null
      */
     public $keys;
-    
+
     /**
      * Contains array with field-types from received meta-data
      * Available after calling functions queryFullArray and queryArray
@@ -63,7 +63,7 @@ class ClickHouseQuery extends ClickHouseAPI
      * @var array|null
      */
     public $meta;
-    
+
     /**
      * Stored [statistics]-section from received data
      * Available after calling functions queryFullArray and queryArray
@@ -71,7 +71,7 @@ class ClickHouseQuery extends ClickHouseAPI
      * @var array|null
      */
     public $statistics;
-    
+
     /**
      * Stored [extremes]-section from received data
      * Available after calling functions queryFullArray, queryArray, queryArr
@@ -80,7 +80,7 @@ class ClickHouseQuery extends ClickHouseAPI
      * @var array|null
      */
     public $extremes;
-    
+
     /**
      * Stored [rows]-section from received data, contains rows count.
      * (not need because count(array) is same)
@@ -88,7 +88,7 @@ class ClickHouseQuery extends ClickHouseAPI
      * @var integer|null
      */
     public $rows;
-    
+
     /**
      * Data remaining in the array after remove all known sections-keys
      *  Known keys is ['meta', 'statistics', 'extremes', 'rows']
@@ -98,14 +98,14 @@ class ClickHouseQuery extends ClickHouseAPI
      * @var array|null
      */
     public $extra;
-    
+
     /**
      * Set after calling queryFullArray, queryArry, queryArr when 'WITH TOTALS'
      *
      * @var array|null
      */
     public $totals;
-    
+
     /**
      * String contained last error which returned by CURL or in server response
      *
@@ -142,7 +142,7 @@ class ClickHouseQuery extends ClickHouseAPI
             return $ans;
         }
     }
-    
+
     /**
      * For queries that involve either no return value or one string value.
      * Return string if ok
@@ -159,13 +159,13 @@ class ClickHouseQuery extends ClickHouseAPI
     {
         // Do query
         $ans = $this->anyQuery($sql, $post_data, $sess);
-        
+
         // Return false if error
         if (!empty($ans['curl_error'])) {
             $this->last_error_str = $ans['curl_error'];
             return false;
         }
-        
+
         $this->last_raw_str = isset($ans['response']) ? $ans['response'] : null;
         if ($ans['code'] == 200) {
             return trim($this->last_raw_str);
@@ -229,12 +229,15 @@ class ClickHouseQuery extends ClickHouseAPI
             $sql = "SELECT $key_name_and_value_name FROM $tbl_or_sql";
         }
         $data = $this->queryArray($sql, true, $sess);
-        if (!\is_array($data)) {
+        if (!\is_array($data) || !\count($data)) {
             return $data;
+        }
+        if(count($data[0]) == 1) {
+            return \array_column($data, 0);
         }
         return \array_combine(\array_column($data, 0), \array_column($data, 1));
     }
-    
+
     /**
      * Return Array [keys => values]
      * Similar than queryKeyValues, but using TabSeparated for data transferring.
@@ -259,7 +262,7 @@ class ClickHouseQuery extends ClickHouseAPI
             $sql = "SELECT $key_name_and_value_name FROM $tbl_or_sql";
         }
         $data = $this->queryColumnTab($sql, false, $sess);
-        if (!\is_array($data)) {
+        if (!\is_array($data) || !\count($data) || !\strpos($data[0], "\t")) {
             return $data;
         }
         $ret = [];
@@ -308,7 +311,7 @@ class ClickHouseQuery extends ClickHouseAPI
         $this->extra = $arr;
         return $data;
     }
-    
+
     /**
      * Similar as queryArray, but use TabSeparated format for data transferring.
      * Provides better performance than queryArray, but needed unescape later.
@@ -409,7 +412,7 @@ class ClickHouseQuery extends ClickHouseAPI
         if (!is_array($arr)) {
             return isset($data['response']) ? $data['response'] : false;
         }
-        
+
         foreach (['meta', 'statistics', 'extremes', 'rows', 'totals'] as $key) {
             $this->$key = isset($arr[$key]) ? $arr[$key] : null;
         }

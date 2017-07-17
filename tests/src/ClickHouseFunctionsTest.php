@@ -153,6 +153,44 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
+     * @covers ierusalim\ClickHouse\ClickHouseFunctions::getTableRowSize
+     */
+    public function testGetTableRowSize()
+    {
+        $ch = $this->object;
+        $sum_arr = $ch->getTableRowSize('system.processes');
+        \extract($sum_arr);
+        $this->assertTrue($fixed_bytes > 10);
+        $this->assertTrue($dynamic_cnt > 5);
+
+        //exceptions
+        $sum_arr = $ch->getTableRowSize('notfoundtable');
+        $this->assertTrue(is_string($sum_arr));
+
+        $sum_arr = $ch->getTableRowSize(['badtype']);
+        $this->assertTrue(is_string($sum_arr));
+    }
+
+    /**
+     * @covers ierusalim\ClickHouse\ClickHouseFunctions::countRowFixedSize
+     */
+    public function testCountRowFixedSize()
+    {
+        $ch = $this->object;
+        $dyna = 0;
+        $sum = $ch->countRowFixedSize(['int16', 'int32', 'int64', 'String'], $dyna);
+        $this->assertEquals(14, $sum);
+        $this->assertEquals(1, $dyna);
+
+        // exceptions
+        $sum = $ch->countRowFixedSize([]);
+        $this->assertTrue(is_string($sum));
+
+        $sum = $ch->countRowFixedSize(['int16','badtype']);
+        $this->assertTrue(is_string($sum));
+    }
+
+    /**
      * @covers ierusalim\ClickHouse\ClickHouseFunctions::getTableFields
      */
     public function testGetTableFields()
