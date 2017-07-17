@@ -38,7 +38,7 @@ class ClickHouseFunctions extends ClickHouseQuery
     ];
 
     /**
-     * List of aliases [key must be lowecase] => value must be canonical case.
+     * List of aliases [key must be lowercase] => value must be canonical case.
      * @var array
      */
     public $types_aliases = [
@@ -421,5 +421,64 @@ class ClickHouseFunctions extends ClickHouseQuery
             }
         }
         return isset($aliases_arr[$type_lower]) ? $aliases_arr[$type_lower] : $type_src;
+    }
+
+    /**
+     * Return information about size of table row by fields definition.
+     * If parameter have string-type, fields array try get from db-table.
+     * If parameter is array, it is seen as $fileds_arr with fields definition.
+     *
+     * @param string|array $table_name_or_fields_arr
+     * @return array with $fixed_bytes, $fixed_fields, $dynamic_cnt, $comment
+     */
+    public function getTableRowSize($table_name_or_fields_arr)
+    {
+        if (!\is_array($table_name_or_fields_arr)) {
+            $fields_arr = $this->getTableFields($table_name_or_fields_arr);
+            if (!\is_array($fields_arr)) {
+                return $fields_arr;
+            }
+        } else {
+            $fields_arr = $table_name_or_fields_arr;
+        }
+        $dynamic_cnt = 0;
+        $fixed_bytes = $this->countRowFixedSize($fields_arr, $dynamic_cnt);
+        if (!\is_numeric($fixed_bytes)) {
+            return $fixed_bytes;
+        }
+        $fixed_fields = \count($fields_arr) - $dynamic_cnt;
+        $comment = $fixed_bytes .
+            " bytes in $fixed_fields FIXED FIELDS, $dynamic_cnt DYNAMIC FIELDS";
+        return \compact('fixed_bytes', 'fixed_fields', 'dynamic_cnt', 'comment');
+    }
+
+    /**
+     * Count and return summary of fixed-size fields by $fields_arr
+     * Addition, in $dynamic_cnt (by ref) return count of dynamic-fields.
+     *
+     * @param array $fields_arr
+     * @param integer $dynamic_cnt (by reference)
+     * @return integer
+     */
+    public function countRowFixedSize($fields_arr, &$dynamic_cnt = 0)
+    {
+        if (!\is_array($fields_arr) || !\count($fields_arr)) {
+            return "Need array";
+        }
+        try {
+            // Parse fields array and check types
+            $parsed_arr = $this->parseFieldsArr($fields_arr);
+        } catch (\Exception $e) {
+            return $e->getMessage();
+        }
+        $sum = 0;
+        foreach (\array_column($parsed_arr, 'bytes') as $bytes) {
+            if ($bytes) {
+                $sum += $bytes;
+            } else {
+                $dynamic_cnt++;
+            }
+        }
+        return $sum;
     }
 }
