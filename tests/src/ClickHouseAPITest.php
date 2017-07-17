@@ -43,8 +43,8 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
     protected function resetServerUrl()
     {
         $ch = $this->object;
-        
-        $localenv = "localenv.php";
+
+        $localenv = "../localenv.php";
         if (is_file($localenv)) {
             include $localenv;
         } else {
@@ -76,12 +76,12 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
     public function testAnyQuery()
     {
         $ch = $this->object;
-        
+
         //get mode
         $ans = $ch->anyQuery("SELECT 123");
         $this->assertTrue(isset($ans['response']));
         $this->assertEquals(trim($ans['response']), 123);
-        
+
         //post mode
         $ans = $ch->anyQuery("SELECT 123", []);
         $this->assertTrue(isset($ans['response']));
@@ -130,7 +130,7 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
 
         $session_id = $ch->getSession();
         $this->assertNull($session_id);
-  
+
         $ch->session_autocreate = true;
         $ans = $ch->doQuery("SELECT 22");
         $this->assertEquals(\trim($ans['response']), 22);
@@ -141,15 +141,15 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
         // test previous query SELECT 22
         $ans = $ch->doQuery();
         $this->assertEquals(\trim($ans['response']), 22);
-        
+
         $sess = $ch->getSession();
         $this->assertEquals($sess, $session_id);
-        
+
         // test temporary session
         $sess_tmp = md5(microtime());
         // use temporary session
         $ans = $ch->doQuery("SELECT 123", false, [], $sess_tmp);
-        
+
         // session_id must not changed
         $this->assertEquals($session_id, $ch->getSession());
 
@@ -168,9 +168,9 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
         $ch->hook_before_api_call = function ($url) {
             return "https://ierusalim.github.io";
         };
-        
+
         $file = dirname(dirname(__DIR__)) . DIRECTORY_SEPARATOR . '.gitignore';
-        
+
         $ans = $ch->doApiCall("empty", [], true, [], $file);
         $this->assertEquals($ans['code'], 405);
     }
