@@ -257,12 +257,21 @@ class ClickHouseFunctions extends ClickHouseQuery
             throw new \Exception("Table must contain field type Date");
         }
 
+        // If have field named "ver", then ReplacingMergeTree will be used
+        if (isset($fields_arr['ver'])) {
+            $engine = "ReplacingMergeTree";
+            $last_engine_par = ", 8192 ,ver";
+        } else {
+            $engine = "MergeTree";
+            $last_engine_par = ", 8192";
+        }
+
         return
             "CREATE TABLE " . ($if_not_exist ? 'IF NOT EXIST ' : '') .
             $table_name . ' ( ' .
             implode(", ", \array_column($fields_arr, 'create')) .
-            ' ) ENGINE = ' .
-            "MergeTree($date_field, ($primary_field, $date_field), 8192)";
+            ' ) ENGINE = ' . $engine .
+            "($date_field, ($primary_field, $date_field)$last_engine_par)";
     }
 
     /**
@@ -334,19 +343,19 @@ class ClickHouseFunctions extends ClickHouseQuery
      * "aaa" => "aaa"  (No changes because have begin-final quotes)
      * 'aaa' => 'aaa'  (No changes because have begin-final quotes)
      * fn(x) => fn(x)  (No changes because have final ")" and "(" within)
-     *  aaa  => "aaa"  (json_encode)
+     *  aaa  => "aaa"  (add $quote-quotes and slashes for [ ' \t \n \r ] )
      *
      * @param string $str
      * @return string
      */
-    public function fnQuote($str)
+    public function fnQuote($str, $quote = "'")
     {
         $fc = substr($str, 0, 1);
         $lc = substr($str, -1);
         return (is_numeric($str) ||
            (($fc === '"' || $fc === "'") && ($fc === $lc)) ||
            (($lc === ')' && strpos($str, '(') !== false))
-        ) ? $str : json_encode($str);
+        ) ? $str : $quote . addcslashes($str, "'\t\n\r") . $quote;
     }
 
     /**
@@ -469,7 +478,7 @@ class ClickHouseFunctions extends ClickHouseQuery
      * If parameter is array, it is seen as $fileds_arr with fields definition.
      *
      * @param string|array $table_name_or_fields_arr
-     * @return array with $fixed_bytes, $fixed_fields, $dynamic_cnt, $comment
+     * @return array with $fixed_bytes, $fixed_fields, $dynamic_fields, $comment
      */
     public function getTableRowSize($table_name_or_fields_arr)
     {
@@ -483,25 +492,25 @@ class ClickHouseFunctions extends ClickHouseQuery
             $fields_arr = $table_name_or_fields_arr;
             $table_name = null;
         }
-        $dynamic_cnt = 0;
-        $fixed_bytes = $comment = $this->countRowFixedSize($fields_arr, $dynamic_cnt);
+        $dynamic_fields = 0;
+        $fixed_bytes = $comment = $this->countRowFixedSize($fields_arr, $dynamic_fields);
         if (!\is_numeric($fixed_bytes)) {
             return $fixed_bytes;
         }
-        $fixed_fields = \count($fields_arr) - $dynamic_cnt;
-        $comment .= " bytes in $fixed_fields FIXED FIELDS, $dynamic_cnt DYNAMIC FIELDS";
-        return \compact('table_name', 'fixed_bytes', 'fixed_fields', 'dynamic_cnt', 'comment');
+        $fixed_fields = \count($fields_arr) - $dynamic_fields;
+        $comment .= " bytes in $fixed_fields FIXED FIELDS, $dynamic_fields DYNAMIC FIELDS";
+        return \compact('table_name', 'fixed_bytes', 'fixed_fields', 'dynamic_fields', 'comment');
     }
 
     /**
      * Count and return summary of fixed-size fields by $fields_arr
-     * Addition, in $dynamic_cnt (by ref) return count of dynamic-fields.
+     * Addition, in $dynamic_fields (by ref) return count of dynamic-fields.
      *
      * @param array $fields_arr
-     * @param integer $dynamic_cnt (by reference)
+     * @param integer $dynamic_fields (by reference)
      * @return integer|string
      */
-    public function countRowFixedSize($fields_arr, &$dynamic_cnt = 0)
+    public function countRowFixedSize($fields_arr, &$dynamic_fields = 0)
     {
         if (!\is_array($fields_arr) || !\count($fields_arr)) {
             return "Need array";
@@ -517,9 +526,66 @@ class ClickHouseFunctions extends ClickHouseQuery
             if ($bytes) {
                 $sum += $bytes;
             } else {
-                $dynamic_cnt++;
+                $dynamic_fields++;
             }
         }
         return $sum;
+    }
+
+    /**
+     * Get information about $table_name from system.columns
+     * return array with extra info like [rows_cnt], [uncompressed_bytes], etc.
+     *
+     * @param string $table_name
+     * @return array|string
+     */
+    public function getTableInfo($table_name)
+    {
+        $i = \strpos($table_name, '.');
+        if ($i) {
+            $db = \substr($table_name, 0, $i);
+            $table_name = substr($table_name, $i+1);
+        } else {
+            $db = "currentDatabase()";
+        }
+        $where = "WHERE table='$table_name' AND database=" . $this->fnQuote($db);
+        $columnts_arr = $this->queryArr("SELECT * FROM system.columns $where");
+        if (!is_array($columnts_arr)) {
+            return $columnts_arr;
+        }
+        if (!count($columnts_arr)) {
+            return "Not found info about table $table_name";
+        }
+        $field_names = \array_column($columnts_arr, 'name');
+        $columnts_arr = \array_combine($field_names, $columnts_arr);
+        $fields_arr = [];
+        $sum_compressed_bytes = $sum_uncompressed_bytes = 0;
+        foreach ($columnts_arr as $col_name => $col_arr) {
+            $database = $col_arr['database'];
+            $table = $col_arr['table'];
+            unset($col_arr['database']);
+            unset($col_arr['table']);
+            unset($col_arr['name']);
+            $sum_compressed_bytes += $col_arr['data_compressed_bytes'];
+            $column_bytes = $col_arr['data_uncompressed_bytes'];
+            $sum_uncompressed_bytes += $column_bytes;
+            $fixed_bytes = $this->parseType($col_arr['type']);
+            if ($fixed_bytes) {
+                $col_arr['fixed_bytes'] = $fixed_bytes;
+                $col_rows_cnt = $column_bytes / $fixed_bytes;
+                $rows_cnt = $col_rows_cnt;
+                $col_arr['rows_cnt'] = $col_rows_cnt;
+            }
+            $columnts_arr[$col_name] = $col_arr;
+            $fields_arr[$col_name] = $col_arr['type'];
+        }
+        $ret_arr = $this->getTableRowSize($fields_arr);
+        $ret_arr['table_name'] = $database . '.' . $table;
+        $ret_arr['uncompressed_bytes'] = $sum_uncompressed_bytes;
+        $ret_arr['compressed_bytes'] = $sum_compressed_bytes;
+        $ret_arr['rows_cnt'] = is_null($rows_cnt) ? "Unknown" : $rows_cnt;
+        $ret_arr['columns_cnt'] = \count($columnts_arr);
+        $ret_arr['columns'] = $columnts_arr;
+        return $ret_arr;
     }
 }

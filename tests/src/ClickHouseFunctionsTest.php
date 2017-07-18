@@ -205,7 +205,7 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
         $sum_arr = $ch->getTableRowSize('system.processes');
         \extract($sum_arr);
         $this->assertTrue($fixed_bytes > 10);
-        $this->assertTrue($dynamic_cnt > 5);
+        $this->assertTrue($dynamic_fields > 5);
 
         //exceptions
         $sum_arr = $ch->getTableRowSize('notfoundtable');
@@ -304,6 +304,18 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
             ') ENGINE = MergeTree(dt, (id, dt), 8192)',
         $sql);
 
+        $sql = $ch->sqlTableQuick('temp', [
+            'id' => 'Int16',
+            'dt' => ['Date','now()'],
+            'ver' => 'int'
+        ]);
+
+        $this->assertEquals(
+            'CREATE TABLE IF NOT EXIST temp (' .
+            ' id Int16, dt DEFAULT toDate(now()), ver Int32 ' .
+            ') ENGINE = ReplacingMergeTree(dt, (id, dt), 8192 ,ver)',
+        $sql);
+
         $this->setExpectedException("\Exception");
         // No date field exception
         $sql = $ch->sqlTableQuick('temp', [
@@ -333,12 +345,12 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
     {
         $ch = $this->object;
         $this->assertEquals(123, $ch->fnQuote(123));
-        $this->assertEquals('"a"', $ch->fnQuote('a'));
+        $this->assertEquals("'a'", $ch->fnQuote('a'));
         $this->assertEquals('"a"', $ch->fnQuote('"a"'));
         $this->assertEquals("'a'", $ch->fnQuote("'a'"));
         $this->assertEquals("now()", $ch->fnQuote("now()"));
-        $str = "test\ttttt";
-        $this->assertEquals(json_encode($str), $ch->fnQuote($str));
+        $str = "test\tttt";
+        $this->assertEquals("'test\\tttt'", $ch->fnQuote($str));
     }
 
     /**
@@ -359,6 +371,24 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
         $fields_arr = $ch->getTableFields($table);
 
         $this->assertEquals(['id'=>'Int16', 'dt'=>'Date'], $fields_arr);
+    }
+
+    /**
+     * @covers ierusalim\ClickHouse\ClickHouseFunctions::getTableInfo
+     */
+    public function testGetTableInfo()
+    {
+        $ch = $this->object;
+
+        $tbl = "system.columns";
+        $arr = $ch->getTableInfo($tbl);
+        $this->assertArrayHasKey('table_name', $arr);
+        $this->assertEquals($tbl, $arr['table_name']);
+        $arr = $ch->getTableInfo("notfoundthistable");
+        $this->assertFalse(\is_array($arr));
+        //broken request
+        $arr = $ch->getTableInfo("notfound'\nthistable");
+        $this->assertFalse(\is_array($arr));
     }
 
     /**
@@ -400,31 +430,31 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
 
         $arr = $ch->parseFieldsArr(['id' => 'FixedString(55) x']);
         $this->assertEquals(['id' => [
-            'create' => 'id DEFAULT toFixedString("x",55)',
+            'create' => "id DEFAULT toFixedString('x',55)",
             'type_full' => 'FixedString(55)',
             'type_name' => 'FixedString',
             'type_src' => 'FixedString(55)',
-            'default' => 'toFixedString("x",55)',
+            'default' => "toFixedString('x',55)",
             'bytes' => 55
         ]], $arr);
 
         $arr = $ch->parseFieldsArr(['id' => ['FixedString(55)','x']]);
         $this->assertEquals(['id' => [
-            'create' => 'id DEFAULT toFixedString("x",55)',
+            'create' => "id DEFAULT toFixedString('x',55)",
             'type_full' => 'FixedString(55)',
             'type_name' => 'FixedString',
             'type_src' => 'FixedString(55)',
-            'default' => 'toFixedString("x",55)',
+            'default' => "toFixedString('x',55)",
             'bytes' => 55
         ]], $arr);
 
-        $arr = $ch->parseFieldsArr(['id' => ['Enum8("google"=1,"bing"=2)','google']]);
+        $arr = $ch->parseFieldsArr(['id' => ["Enum8('google'=1,'bing'=2)",'google']]);
         $this->assertEquals(['id' => [
-            'create' => 'id Enum8("google"=1,"bing"=2) DEFAULT "google"',
-            'type_full' => 'Enum8("google"=1,"bing"=2)',
+            'create' => "id Enum8('google'=1,'bing'=2) DEFAULT 'google'",
+            'type_full' => "Enum8('google'=1,'bing'=2)",
             'type_name' => 'Enum8',
-            'type_src' => 'Enum8("google"=1,"bing"=2)',
-            'default' => '"google"',
+            'type_src' => "Enum8('google'=1,'bing'=2)",
+            'default' => "'google'",
             'bytes' => 1
         ]], $arr);
 

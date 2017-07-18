@@ -270,8 +270,8 @@ class ClickHouseQuery extends ClickHouseAPI
             if (empty($s)) {
                 break;
             }
-            $x = explode("\t", $s);
-            $ret[$x[0]] = $x[1];
+            $i = strpos($s, "\t");
+            $ret[substr($s,0,$i)] = substr($s, $i+1);
         }
         return $ret;
     }

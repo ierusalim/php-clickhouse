@@ -30,8 +30,8 @@ contains functions for simple operations with ClickHouse.
     $ch->createTableQuick("temp", [
         'temp_id'   => 'integer',
         'temp_date' => 'date now()',
-        'temp_name' => 'char(32) "Unknown name"',
+        'temp_name' => "char(32) 'Unknown name'",
         'temp_str'  => 'string'
     ]);
-    print_r($ch->getTableRowSize("temp"));
+    print_r($ch->getTableInfo("temp"));
  ```
