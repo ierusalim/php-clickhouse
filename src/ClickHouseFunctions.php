@@ -185,14 +185,17 @@ class ClickHouseFunctions extends ClickHouseQuery
      *
      * $fields_arr: array with keys is fields names and values is field types.
      *
-     *   Each of field type may be specified in 3 variants of format:
-     *   - String without spaces. For example, 'Int16'
-     *   - String field_type[space default_value], for example, 'Int16 1234'
-     *   - Array ['field_type' [, 'default_value']]
-     *     For example:
-     *       ['Int16', '777'] - is same 'Int16 777'. Type "Int16", default=777
-     *       ['String'] - is same 'String'. Type "String", no default value.
-     *       ['Date', 'now()'] - type "Date", default value = now() function.
+     * First field in array means as primary key
+     * Fields must contain 'Date' type field
+     *
+     * Each of field type may be specified in 3 variants of format:
+     *  - String without spaces. For example, 'Int16'
+     *  - String field_type[space default_value], for example, 'Int16 1234'
+     *  - Array ['field_type' [, 'default_value']]
+     *  For example:
+     *    ['Int16', '777'] - is same 'Int16 777'. Type "Int16", default=777
+     *    ['String'] - is same 'String'. Type "String", no default value.
+     *    ['Date', 'now()'] - type "Date", default value = now() function.
      *
      * Data-types may be specified as aliases and case insensitive.
      * See list of aliases in $this->type_aliases and function ->addTypeAlias.
@@ -245,16 +248,15 @@ class ClickHouseFunctions extends ClickHouseQuery
 
         // Search Date field
         foreach ($fields_arr as $field_name => $field_par) {
+            if (empty($primary_field)) {
+                $primary_field = $field_name;
+            }
             if ($field_par['type_name'] === 'Date' && empty($date_field)) {
                 $date_field = $field_name;
-            } else {
-                if (empty($primary_field)) {
-                    $primary_field = $field_name;
-                }
             }
         }
         if (empty($date_field)) {
-            throw new \Exception("Table must contain field type Date");
+            throw new \Exception("Table must contain field 'Date' type");
         }
 
         // If have field named "ver", then ReplacingMergeTree will be used

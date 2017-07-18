@@ -17,21 +17,25 @@ contains functions for simple operations with ClickHouse.
 <?php
     require "vendor/autoload.php";
     $ch = new ClickHouseFunctions("http://127.0.0.1:8123/");
+
     echo "ClickHouse version: " . $ch->getVersion();
     echo " Server uptime: " . $ch->getUptime();
     
     echo "\n\nDatabases: ";
     print_r($ch->getDatabasesList());
+
     $ch->setCurrentDatabase("system");
     echo "Tables in '" . $ch->getCurrentDatabase() ."' database:\n";
     print_r($ch->getTablesList());
 
     $ch->setCurrentDatabase("default");
-    $ch->createTableQuick("temp", [
+
+    $ch->createTableQuick("temptab", [
         'temp_id'   => 'integer',
         'temp_date' => 'date now()',
         'temp_name' => "char(32) 'Unknown name'",
         'temp_str'  => 'string'
     ]);
-    print_r($ch->getTableInfo("temp"));
+
+    print_r($ch->getTableInfo("temptab"));
  ```
