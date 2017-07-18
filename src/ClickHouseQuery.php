@@ -4,7 +4,7 @@ namespace ierusalim\ClickHouse;
 /**
  * Class ClickHouseQuery for make queries to ClickHouse database engine.
  * Functions are a wrapper for ClickHouseAPI and allow to easily send
- * sql-queries to ClickHouse server and parsing answersing data.
+ * sql-queries to ClickHouse server and parsing answering data.
  *
  * PHP Version >= 5.4
  *

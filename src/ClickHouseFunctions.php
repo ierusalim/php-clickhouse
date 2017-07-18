@@ -108,7 +108,7 @@ class ClickHouseFunctions extends ClickHouseQuery
 
     /**
      * Returns canonical-type for specified $type_src data-type if alias found
-     * or return value unchanged.
+     * or return value without changes.
      *
      * @param string $type_src
      * @return string
