@@ -270,10 +270,10 @@ class ClickHouseFunctions extends ClickHouseQuery
     }
 
     /**
-     * Parse source array from format [field_names => field_types_defaults]
+     * Parse source $fields_arr from format [field_names => types[ defaults]]
      *
-     * @param array $fields_arr
-     * @return array
+     * @param array $fields_arr Array of elements [field_name]=>[field_type]
+     * @return array Each element contains [create, type_name, default, ...]
      * @throws \Exception
      */
     public function parseFieldsArr($fields_arr)
@@ -334,10 +334,16 @@ class ClickHouseFunctions extends ClickHouseQuery
     }
 
     /**
+     * Add quotes and slashes if need
+     *
      *  123  => 123    (No changes because is_numeric)
+     *
      * "aaa" => "aaa"  (No changes because have begin-final quotes)
+     *
      * 'aaa' => 'aaa'  (No changes because have begin-final quotes)
+     *
      * fn(x) => fn(x)  (No changes because have final ")" and "(" within)
+     *
      *  aaa  => "aaa"  (add $quote-quotes and slashes for [ ' \t \n \r ] )
      *
      * @param string $str
@@ -356,7 +362,7 @@ class ClickHouseFunctions extends ClickHouseQuery
     /**
      * Return as Array [names=>values] data from system.settings table
      *
-     * @return array|string
+     * @return array|string Array with results or String with error described
      */
     public function getSystemSettings()
     {
@@ -366,7 +372,7 @@ class ClickHouseFunctions extends ClickHouseQuery
     /**
      * Return as string version of ClickHouse server
      *
-     * @return string
+     * @return string|boolean String version or false if error
      */
     public function getVersion()
     {
@@ -376,7 +382,7 @@ class ClickHouseFunctions extends ClickHouseQuery
     /**
      * Return server uptime in seconds
      *
-     * @return integer|boolean
+     * @return integer|boolean Integer of server uptime (seconds) or false if error
      */
     public function getUptime()
     {
@@ -386,8 +392,8 @@ class ClickHouseFunctions extends ClickHouseQuery
     /**
      * Get current database name for current or specified session
      *
-     * @param string|null $sess
-     * @return string
+     * @param string|null $sess session_id
+     * @return string|boolean String with current db-name or false if error
      */
     public function getCurrentDatabase($sess = null)
     {
@@ -395,11 +401,11 @@ class ClickHouseFunctions extends ClickHouseQuery
     }
 
     /**
-     * Set current database name for current or specified session
+     * Set current database by name for current or specified session
      *
-     * @param string      $db
-     * @param string|null $sess
-     * @return boolean
+     * @param string      $db   Database name
+     * @param string|null $sess session_id
+     * @return boolean True if ok, false if error
      */
     public function setCurrentDatabase($db, $sess = null)
     {
@@ -407,7 +413,7 @@ class ClickHouseFunctions extends ClickHouseQuery
     }
 
     /**
-     * Return Array contained names of existing Databases
+     * Return Array contained names of Databases existing on ClickHouse server
      *
      * @return array|string Array with results or String with error described
      */
@@ -445,8 +451,8 @@ class ClickHouseFunctions extends ClickHouseQuery
      *
      * Result Array is [Keys - field names] => [Values - field types]
      *
-     * @param string $table
-     * @return array|string
+     * @param string $table Table name
+     * @return array|string Results in array or string with error described
      */
     public function getTableFields($table)
     {
@@ -457,9 +463,9 @@ class ClickHouseFunctions extends ClickHouseQuery
     /**
      * Return array with numbers from ClickHouse server for tests
      *
-     * @param integer $lim Counts of numbers
+     * @param integer $lim Limit of numbers
      * @param boolean $use_mt true for using table system.numbers_mt
-     * @return array
+     * @return array|string Results in array or string with error described
      */
     public function getNumbers($lim = 100, $use_mt = false)
     {
@@ -476,7 +482,7 @@ class ClickHouseFunctions extends ClickHouseQuery
      * If parameter is array, it is seen as $fileds_arr with fields definition.
      *
      * @param string|array $table_or_fields_arr (string)$table | (array)$fields_arr
-     * @return array [fixed_bytes, fixed_fields, dynamic_fields, comment]
+     * @return array|string [fixed_bytes, fixed_fields, dynamic_fields, comment]
      */
     public function getTableRowSize($table_or_fields_arr)
     {
@@ -507,7 +513,7 @@ class ClickHouseFunctions extends ClickHouseQuery
      *
      * @param array $fields_arr Array [field_name]=>[field_type]
      * @param integer $dynamic_fields (by reference)
-     * @return integer|string
+     * @return integer|string Integer of fixed_bytes or string with error described
      */
     public function countRowFixedSize($fields_arr, &$dynamic_fields = 0)
     {
@@ -533,10 +539,11 @@ class ClickHouseFunctions extends ClickHouseQuery
 
     /**
      * Get information about $table_name from system.columns
+     *
      * return array with extra info like [rows_cnt], [uncompressed_bytes], etc.
      *
      * @param string $table_name Table name
-     * @return array|string
+     * @return array|string Results in array or string with error described
      */
     public function getTableInfo($table_name)
     {
