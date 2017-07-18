@@ -355,7 +355,7 @@ class ClickHouseQuery extends ClickHouseAPI
             }
         }
 
-        // Parsing extra data if found. Its may be extremes and/or totals.
+        // Parsing extra data if found. Its may be if 'extremes' or 'with totals'.
         if ($found_extra) {
             $c = \count($data);
             for ($l = $c + 1; $k < $l; $k++) {
