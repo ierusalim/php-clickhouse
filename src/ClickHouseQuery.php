@@ -16,11 +16,11 @@ namespace ierusalim\ClickHouse;
  *
  * This query-functions recommended for use:
  *
- *  ->queryTrue($sql) - Return true if SQL-request not return data or false if error.
+ *  ->queryTrue($sql, [post]) - Return true if no errors and no return data, false if error.
  *
- *  ->queryFalse($sql)- Return false if not error, or string with error descr.
+ *  ->queryFalse($sql, [post])- Return false if not error, or string with error described.
  *
- *  ->queryValue($sql, [post]) -  for queries returning data in one string
+ *  ->queryValue($sql, [post]) - for queries returning data in one string
  *
  *  ->queryArray($sql) - for queries returning data as array
  *
@@ -124,17 +124,6 @@ class ClickHouseQuery extends ClickHouseAPI
     public $last_error_str = '';
 
     /**
-     * Last string-response for request
-     *
-     * Actually after functions queryTrue, queryFalse, queryValue
-     *
-     * without 'trim' executed, so usually contained "\n" in end
-     *
-     * @var string|null
-     */
-    public $last_raw_str;
-
-    /**
      * For queries that involve either no return value or one string value.
      *
      * Return true or non-empty string if ok
@@ -204,9 +193,8 @@ class ClickHouseQuery extends ClickHouseAPI
             return false;
         }
 
-        $this->last_raw_str = isset($ans['response']) ? $ans['response'] : null;
         if ($ans['code'] == 200) {
-            return trim($this->last_raw_str);
+            return isset($ans['response']) ? trim($ans['response']) : null;
         } else {
             $this->last_error_str = $ans['response'];
             return false;
