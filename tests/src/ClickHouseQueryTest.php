@@ -29,6 +29,61 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
+     * @covers ierusalim\ClickHouse\ClickHouseQuery::queryInsert
+     */
+    public function testQueryInsert()
+    {
+        $ch = $this->object;
+
+        $tmp = 'tempcreate';
+
+        $ans = $ch->queryFalse("DROP TABLE IF EXISTS $tmp");
+        $this->assertFalse($ans);
+
+        $ans = $ch->queryFalse("CREATE TABLE IF NOT EXISTS $tmp" .
+            "( b FixedString(1), dt DEFAULT toDate(now()), " .
+            " f DEFAULT toString('abc'), x String )" .
+            "ENGINE = MergeTree(dt, (b, dt), 8192)");
+        $this->assertFalse($ans);
+
+        $arr = $ch->queryInsert($tmp, ['b', 'x'], ['a', 'hello-a']);
+        $this->assertFalse($arr);
+
+        $arr = $ch->queryInsert($tmp, ['b', 'x'], [['b', 'hello-b']]);
+        $this->assertFalse($arr);
+
+        $arr = $ch->queryInsert($tmp, ['b', 'x'], [
+            ['c', 'hello-c'],
+            ['d', 'hello-d']
+        ]);
+        $this->assertFalse($arr);
+
+        $arr = $ch->queryInsert($tmp, null, ['b'=>'e', 'x'=>'hello-e']);
+        $this->assertFalse($arr);
+
+        $arr = $ch->queryInsert($tmp, null, [['b'=>'f', 'x'=>'hello-f']]);
+        $this->assertFalse($arr);
+
+        $arr = $ch->queryInsert($tmp, ['b','x','f'], [
+            ['b'=>'g', 'x'=>'hello-g'],
+            ['b'=>'h', 'x'=>'hello-h'],
+            ['b'=>'h', 'x'=>'hello-h', 'f'=>'ahha']
+        ]);
+        $this->assertFalse($arr);
+
+        $arr = $ch->queryColumnTab("SELECT * FROM $tmp LIMIT 10");
+        $this->assertTrue(count($arr)>7);
+
+        // test bad parameters
+        $arr = $ch->queryInsert($tmp, ['b', 'x'], []);
+
+        $this->setExpectedException("\Exception");
+        $ch->keys = null;
+        $arr = $ch->queryInsert($tmp, null, ['x', 'hello-x']);
+        $this->assertFalse($arr);
+    }
+
+    /**
      * @covers ierusalim\ClickHouse\ClickHouseQuery::queryGood
      * @todo   Implement testQueryGood().
      */
@@ -37,6 +92,17 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
         $ch = $this->object;
         $this->assertEquals($ch->queryGood("SELECT 1"), "1");
         $this->assertTrue($ch->queryGood("USE system"));
+    }
+
+    /**
+     * @covers ierusalim\ClickHouse\ClickHouseQuery::queryFalse
+     * @todo   Implement testQueryBad().
+     */
+    public function testQueryBad()
+    {
+        $ch = $this->object;
+        $this->assertFalse($ch->queryFalse("SELECT 1"), "1");
+        $this->assertTrue(is_string($ch->queryFalse("SELECT err")));
     }
 
     /**

@@ -218,10 +218,13 @@ class ClickHouseFunctions extends ClickHouseQuery
     public function createTableQuick($table_name, $fields_arr, $if_exists = 0)
     {
         if ($if_exists == 2) {
-            $this->queryGood("DROP TABLE IF EXISTS $table_name");
+            $ans = $this->queryFalse("DROP TABLE IF EXISTS $table_name");
+            if ($ans !== false) {
+                return $ans;
+            }
         }
-        $sql = $this->sqlTableQuick($table_name, $fields_arr, !$if_exists);
-        return $this->queryGood($sql);
+        $sql = $this->sqlTableQuick($table_name, $fields_arr, $if_exists);
+        return $this->queryFalse($sql);
     }
 
     /**
@@ -269,7 +272,7 @@ class ClickHouseFunctions extends ClickHouseQuery
         }
 
         return
-            "CREATE TABLE " . ($if_not_exist ? 'IF NOT EXIST ' : '') .
+            "CREATE TABLE " . ($if_not_exist ? 'IF NOT EXISTS ' : '') .
             $table_name . ' ( ' .
             implode(", ", \array_column($fields_arr, 'create')) .
             ' ) ENGINE = ' . $engine .
@@ -410,7 +413,7 @@ class ClickHouseFunctions extends ClickHouseQuery
      */
     public function setCurrentDatabase($db, $sess = null)
     {
-        return $this->queryGood("USE $db", $sess);
+        return $this->queryGood("USE $db", [], $sess);
     }
 
     /**

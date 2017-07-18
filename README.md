@@ -31,11 +31,32 @@ contains functions for simple operations with ClickHouse.
     $ch->setCurrentDatabase("default");
 
     $ch->createTableQuick("temptab", [
-        'temp_id'   => 'integer',
-        'temp_date' => 'date now()',
-        'temp_name' => "char(32) 'Unknown name'",
-        'temp_str'  => 'string'
+        'id'   => 'integer',
+        'dt' => 'date now()',
+        'name' => "char(32) 'example'",
+        'email'  => 'string'
+    ]);
+    
+    $ch->queryInsert("temptab", null, [
+        'id' => 1,
+        'email' => 'noreply@github.com'
+    ]);
+    
+    $ch->queryInsert("temptab", ['id', 'email', 'name'], [
+        [2, 'reply@github.com', 'Andy'],
+        [3, null , 'Donald'],
     ]);
 
+    $ch->queryInsert("temptab", null, [
+        ['id'=>4, 'name'=>'Ronald', 'email'=>'no'],
+        ['id'=>5, 'name'=>'', 'email'=>'yes'],
+    ]);
+    
+    $rows = $ch->queryArray("SELECT * FROM temptab");
+    print_r($rows);
+    
+    $name_emails_arr = $ch->queryKeyValues('temptab', 'name, email');
+    print_r($name_emails_arr);
+    
     print_r($ch->getTableInfo("temptab"));
  ```

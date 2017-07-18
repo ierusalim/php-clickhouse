@@ -17,7 +17,11 @@ namespace ierusalim\ClickHouse;
  *
  *  ->queryGood($sql) - for non-returnable data requests (return false if error)
  *
+ *  ->queryFalse($sql) - anti-queryGood, return false if good, string if error.
+ *
  *  ->queryArray(see description) - for queries returning any data.
+ *
+ *  ->queryInsert($table, $fields_arr, $fields_set) - insert rows into table.
  *
  * In addition, the following functions may be useful:
  *
@@ -126,20 +130,42 @@ class ClickHouseQuery extends ClickHouseAPI
      * Return true or non-empty string if ok
      * Return false only if error
      *
-     * Very similar to the function queryValue, but return true for empty string
-     * queryGood always send POST-queries for clear read_only-flag.
+     * queryGood send POST-request by default for clear read_only-flag.
      *
-     * @param string      $sql
-     * @param string|null $sess
+     * @param string            $sql
+     * @param string|array|null $post_data
+     * @param string|null       $sess
      * @return boolean|string
      */
-    public function queryGood($sql, $sess = null)
+    public function queryGood($sql, $post_data=[], $sess = null)
     {
-        $ans = $this->queryValue($sql, [], $sess);
+        $ans = $this->queryValue($sql, $post_data, $sess);
         if ($ans !== false && empty($ans)) {
             return true;
         } else {
             return $ans;
+        }
+    }
+
+    /**
+     * For queries that involve either no return value or one string value.
+     * Return string with error description if error
+     * Return false if ok (no error)
+     *
+     * queryFalse send POST-request by default for clear read_only-flag.
+     *
+     * @param string            $sql
+     * @param string|array|null $post_data
+     * @param string|null       $sess
+     * @return boolean|string
+     */
+    public function queryFalse($sql, $post_data=[], $sess = null)
+    {
+        $ans = $this->queryValue($sql, $post_data, $sess);
+        if ($ans === false) {
+            return $this->last_error_str;
+        } else {
+            return false;
         }
     }
 
@@ -271,7 +297,7 @@ class ClickHouseQuery extends ClickHouseAPI
                 break;
             }
             $i = strpos($s, "\t");
-            $ret[substr($s,0,$i)] = substr($s, $i+1);
+            $ret[substr($s, 0, $i)] = substr($s, $i+1);
         }
         return $ret;
     }
@@ -447,5 +473,62 @@ class ClickHouseQuery extends ClickHouseAPI
         } else {
             return $arr;
         }
+    }
+
+    public function queryInsert($table_name, $fields_arr, $fields_set_arr, $sess = null)
+    {
+        if (!\is_array($fields_set_arr) || !\count($fields_set_arr)) {
+            return false;
+        }
+
+        // Resolve $fields_arr
+        $use_json_each_row = false;
+        if (isset($fields_set_arr[0])) {
+            if (is_array($fields_set_arr[0])) {
+                if (!isset($fields_set_arr[0][0])) {
+                    $in_arr_fields_arr = \array_keys($fields_set_arr[0]);
+                    $use_json_each_row = true;
+                }
+            }
+        } else {
+            $in_arr_fields_arr = \array_keys($fields_set_arr);
+            $use_json_each_row = true;
+        }
+
+        if (\is_null($fields_arr)) {
+            if (!isset($in_arr_fields_arr)) {
+                $fields_arr = $this->keys;
+            } else {
+                $fields_arr = $in_arr_fields_arr;
+            }
+        }
+        if (\is_null($fields_arr)) {
+            throw new \Exception("Inserting fields undefined");
+        }
+
+        $sql = "INSERT INTO $table_name (" . implode(",", $fields_arr) . ") " .
+           "FORMAT " . ($use_json_each_row ? 'JSONEachRow' : 'TabSeparated');
+
+        if (!isset($fields_set_arr[0])) {
+            $post_data = [\json_encode($fields_set_arr)];
+        } else {
+            $post_data = [];
+            if(!$use_json_each_row && !is_array($fields_set_arr[0])) {
+                $fields_set_arr=[$fields_set_arr];
+            }
+            foreach ($fields_set_arr as $row_arr) {
+                if ($use_json_each_row) {
+                    $post_data[] = \json_encode($row_arr);
+                } else {
+                    $row_arr = array_map(
+                        function ($s) {
+                            return \addcslashes($s, "\t\\\n\0");
+                        },
+                        $row_arr);
+                    $post_data[] = \implode("\t", $row_arr);
+                }
+            }
+        }
+        return $this->queryFalse($sql, \implode("\n", $post_data) . "\n", $sess);
     }
 }

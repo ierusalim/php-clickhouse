@@ -299,7 +299,7 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
         ]);
 
         $this->assertEquals(
-            'CREATE TABLE IF NOT EXIST temp (' .
+            'CREATE TABLE IF NOT EXISTS temp (' .
             ' id Int16, dt DEFAULT toDate(now()) ' .
             ') ENGINE = MergeTree(dt, (id, dt), 8192)',
         $sql);
@@ -311,7 +311,7 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
         ]);
 
         $this->assertEquals(
-            'CREATE TABLE IF NOT EXIST temp (' .
+            'CREATE TABLE IF NOT EXISTS temp (' .
             ' id Int16, dt DEFAULT toDate(now()), ver Int32 ' .
             ') ENGINE = ReplacingMergeTree(dt, (id, dt), 8192 ,ver)',
         $sql);
@@ -366,11 +366,17 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
             'id' => 'Int16',
             'dt' => ['Date', 'now()']
         ], 2);
-        $this->assertTrue($ans);
+        $this->assertFalse($ans);
 
         $fields_arr = $ch->getTableFields($table);
 
         $this->assertEquals(['id'=>'Int16', 'dt'=>'Date'], $fields_arr);
+
+        $ans = $ch->createTableQuick("broken'\nname", [
+            'id' => 'Int16',
+            'dt' => ['Date', 'now()']
+        ], 2);
+        $this->assertTrue(is_string($ans));
     }
 
     /**
