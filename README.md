@@ -25,11 +25,13 @@ contains functions for simple operations with ClickHouse.
     $ch->setCurrentDatabase("system");
     echo "Tables in '" . $ch->getCurrentDatabase() ."' database:\n";
     print_r($ch->getTablesList());
-    
+
+    $ch->setCurrentDatabase("default");
     $ch->createTableQuick("temp", [
         'temp_id'   => 'integer',
         'temp_date' => 'date now()',
         'temp_name' => 'char(32) "Unknown name"',
-        'temp_str' => 'string'
+        'temp_str'  => 'string'
     ]);
+    print_r($ch->getTableRowSize("temp"));
  ```

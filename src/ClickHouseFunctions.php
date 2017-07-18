@@ -474,12 +474,14 @@ class ClickHouseFunctions extends ClickHouseQuery
     public function getTableRowSize($table_name_or_fields_arr)
     {
         if (!\is_array($table_name_or_fields_arr)) {
-            $fields_arr = $this->getTableFields($table_name_or_fields_arr);
+            $table_name = $table_name_or_fields_arr;
+            $fields_arr = $this->getTableFields($table_name);
             if (!\is_array($fields_arr)) {
                 return $fields_arr;
             }
         } else {
             $fields_arr = $table_name_or_fields_arr;
+            $table_name = null;
         }
         $dynamic_cnt = 0;
         $fixed_bytes = $comment = $this->countRowFixedSize($fields_arr, $dynamic_cnt);
@@ -488,7 +490,7 @@ class ClickHouseFunctions extends ClickHouseQuery
         }
         $fixed_fields = \count($fields_arr) - $dynamic_cnt;
         $comment .= " bytes in $fixed_fields FIXED FIELDS, $dynamic_cnt DYNAMIC FIELDS";
-        return \compact('fixed_bytes', 'fixed_fields', 'dynamic_cnt', 'comment');
+        return \compact('table_name', 'fixed_bytes', 'fixed_fields', 'dynamic_cnt', 'comment');
     }
 
     /**
