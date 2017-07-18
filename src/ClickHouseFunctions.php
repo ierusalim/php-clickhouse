@@ -183,47 +183,37 @@ class ClickHouseFunctions extends ClickHouseQuery
     /**
      * Create Table with name $table_name (using MergeTree engine)
      *
-     * $fields_arr: array with keys is fields names and values is field types.
+     * $fields_arr: [fields names] => field types[ default].
      *
-     * First field in array means as primary key
-     * Fields must contain 'Date' type field
+     * First key $fields_arr means as primary key
+     * Must contains 'Date' field
      *
-     * Each of field type may be specified in 3 variants of format:
-     *  - String without spaces. For example, 'Int16'
-     *  - String field_type[space default_value], for example, 'Int16 1234'
-     *  - Array ['field_type' [, 'default_value']]
-     *  For example:
-     *    ['Int16', '777'] - is same 'Int16 777'. Type "Int16", default=777
-     *    ['String'] - is same 'String'. Type "String", no default value.
-     *    ['Date', 'now()'] - type "Date", default value = now() function.
+     * Each of field type may be specified in this formats:
+     *  'Int16'      - String without spaces.
+     *  'Int16 1234' - String field_type[space default_value]
+     *  ['field_type' [, 'default_value']] - array, for example
+     *    ['Int16', '1234'] - is same 'Int16 1234'.
      *
-     * Data-types may be specified as aliases and case insensitive.
-     * See list of aliases in $this->type_aliases and function ->addTypeAlias.
+     * Data-types case insensitive and may be specified via aliases.
      *
-     * Default values may be specified with DEFAULT keyword, for example:
-     *    field_type = 'Int16 DEFAULT 123+5' , or ['Int16', 'DEFAULT 123+5']
-     * Keyword 'DEFAULT' blocking changes, expression used exactly as specified.
-     * Otherwise, if keyword DEFAULT not specified, parser used fnQuote function
-     *   to add quotes if necessary, and used type conversion if possible.
+     * Default values may be specified with DEFAULT keyword,
+     *  in this case expression used exactly as specified.
+     *  Example: 'Int16 DEFAULT 123+5'
      *
-     * if_exists: 2-drop old table if exists
-     *            1-do nothing if table already exists
-     *            0-return error if table already exists
-     *
-     * @param string  $table_name
-     * @param array   $fields_arr
-     * @param integer $if_exists
-     * @return boolean
+     * @param string  $table table name
+     * @param array   $fields_arr keys=field names => field_type[ def]
+     * @param integer $if_exists If table exists: 2=drop old table, 1-do nothing, 0-ret error)
+     * @return boolean|string
      */
-    public function createTableQuick($table_name, $fields_arr, $if_exists = 0)
+    public function createTableQuick($table, $fields_arr, $if_exists = 0)
     {
         if ($if_exists == 2) {
-            $ans = $this->queryFalse("DROP TABLE IF EXISTS $table_name");
+            $ans = $this->queryFalse("DROP TABLE IF EXISTS $table");
             if ($ans !== false) {
                 return $ans;
             }
         }
-        $sql = $this->sqlTableQuick($table_name, $fields_arr, $if_exists);
+        $sql = $this->sqlTableQuick($table, $fields_arr, $if_exists);
         return $this->queryFalse($sql);
     }
 
@@ -386,7 +376,7 @@ class ClickHouseFunctions extends ClickHouseQuery
     /**
      * Return server uptime in seconds
      *
-     * @return integer
+     * @return integer|boolean
      */
     public function getUptime()
     {
@@ -413,13 +403,13 @@ class ClickHouseFunctions extends ClickHouseQuery
      */
     public function setCurrentDatabase($db, $sess = null)
     {
-        return $this->queryGood("USE $db", [], $sess);
+        return $this->queryTrue("USE $db", [], $sess);
     }
 
     /**
      * Return Array contained names of existing Databases
      *
-     * @return array|string
+     * @return array|string Array with results or String with error described
      */
     public function getDatabasesList()
     {
@@ -427,11 +417,11 @@ class ClickHouseFunctions extends ClickHouseQuery
     }
 
     /**
-     * Return names of tables from specified database or all like pattern
+     * Return names of tables from specified database and/or like pattern
      *
-     * @param string|null $name
-     * @param string|null $like_pattern
-     * @return array|string
+     * @param string|null $name Database name
+     * @param string|null $like_pattern pattern for search table, example: d%
+     * @return array|string Results in array or string with error describe
      */
     public function getTablesList($name = null, $like_pattern = null)
     {
@@ -441,9 +431,9 @@ class ClickHouseFunctions extends ClickHouseQuery
     }
 
     /**
-     * Return results of request "SHOW PROCESSLIST"
+     * Get results of request "SHOW PROCESSLIST"
      *
-     * @return array|string
+     * @return array|string Results in array or string with error described
      */
     public function getProcessList()
     {
@@ -452,7 +442,8 @@ class ClickHouseFunctions extends ClickHouseQuery
 
     /**
      * Return as Array information about specified table
-     * Array is [Keys - field names] => [Values - field types]
+     *
+     * Result Array is [Keys - field names] => [Values - field types]
      *
      * @param string $table
      * @return array|string
@@ -466,8 +457,8 @@ class ClickHouseFunctions extends ClickHouseQuery
     /**
      * Return array with numbers from ClickHouse server for tests
      *
-     * @param integer $lim
-     * @param boolean $use_mt
+     * @param integer $lim Counts of numbers
+     * @param boolean $use_mt true for using table system.numbers_mt
      * @return array
      */
     public function getNumbers($lim = 100, $use_mt = false)
@@ -479,22 +470,24 @@ class ClickHouseFunctions extends ClickHouseQuery
 
     /**
      * Return information about size of table row by fields definition.
-     * If parameter have string-type, fields array try get from db-table.
+     *
+     * If parameter have string-type, its means as table name.
+     *
      * If parameter is array, it is seen as $fileds_arr with fields definition.
      *
-     * @param string|array $table_name_or_fields_arr
-     * @return array with $fixed_bytes, $fixed_fields, $dynamic_fields, $comment
+     * @param string|array $table_or_fields_arr (string)$table | (array)$fields_arr
+     * @return array [fixed_bytes, fixed_fields, dynamic_fields, comment]
      */
-    public function getTableRowSize($table_name_or_fields_arr)
+    public function getTableRowSize($table_or_fields_arr)
     {
-        if (!\is_array($table_name_or_fields_arr)) {
-            $table_name = $table_name_or_fields_arr;
+        if (!\is_array($table_or_fields_arr)) {
+            $table_name = $table_or_fields_arr;
             $fields_arr = $this->getTableFields($table_name);
             if (!\is_array($fields_arr)) {
                 return $fields_arr;
             }
         } else {
-            $fields_arr = $table_name_or_fields_arr;
+            $fields_arr = $table_or_fields_arr;
             $table_name = null;
         }
         $dynamic_fields = 0;
@@ -509,9 +502,10 @@ class ClickHouseFunctions extends ClickHouseQuery
 
     /**
      * Count and return summary of fixed-size fields by $fields_arr
+     *
      * Addition, in $dynamic_fields (by ref) return count of dynamic-fields.
      *
-     * @param array $fields_arr
+     * @param array $fields_arr Array [field_name]=>[field_type]
      * @param integer $dynamic_fields (by reference)
      * @return integer|string
      */
@@ -541,7 +535,7 @@ class ClickHouseFunctions extends ClickHouseQuery
      * Get information about $table_name from system.columns
      * return array with extra info like [rows_cnt], [uncompressed_bytes], etc.
      *
-     * @param string $table_name
+     * @param string $table_name Table name
      * @return array|string
      */
     public function getTableInfo($table_name)

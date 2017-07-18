@@ -3,6 +3,7 @@ namespace ierusalim\ClickHouse;
 
 /**
  * Class ClickHouseQuery for make queries to ClickHouse database engine.
+ *
  * Functions are a wrapper for ClickHouseAPI and allow to easily send
  * sql-queries to ClickHouse server and parsing answering data.
  *
@@ -15,29 +16,25 @@ namespace ierusalim\ClickHouse;
  *
  * This query-functions recommended for use:
  *
- *  ->queryGood($sql) - for non-returnable data requests (return false if error)
+ *  ->queryTrue($sql) - Return true if SQL-request not return data or false if error.
  *
- *  ->queryFalse($sql) - anti-queryGood, return false if good, string if error.
+ *  ->queryFalse($sql)- Return false if not error, or string with error descr.
  *
- *  ->queryArray(see description) - for queries returning any data.
+ *  ->queryValue($sql, [post]) -  for queries returning data in one string
  *
- *  ->queryInsert($table, $fields_arr, $fields_set) - insert rows into table.
- *
- * In addition, the following functions may be useful:
+ *  ->queryArray($sql) - for queries returning data as array
  *
  *  ->queryKeyValues(see descr.) - for queries returning 2 columns key => value
  *
- *  ->queryValue($sql, [post]) - for send query and receive answer in string
- *          String returned without any transformations (return false if error)
- *
- *  Other functions can be useful for tests and hacks. See descriptions.
+ *  ->queryInsert($table, $fields_arr, $fields_set) - insert data into table.
  *
  */
 class ClickHouseQuery extends ClickHouseAPI
 {
     /**
      * Using JSON-full format or JSON-compact format for transferring arrays.
-     * In my tests JSONCompact always the best than JSON.
+     *
+     * (In my tests JSONCompact always the best than JSON)
      *
      * @var boolean
      */
@@ -45,6 +42,7 @@ class ClickHouseQuery extends ClickHouseAPI
 
     /**
      * Contains array with field-names from received meta-data
+     *
      * Available after calling functions queryFullArray, queryArray, queryArr
      *
      * @var array|null
@@ -53,6 +51,7 @@ class ClickHouseQuery extends ClickHouseAPI
 
     /**
      * Contains array with field-types from received meta-data
+     *
      * Available after calling functions queryFullArray and queryArray
      *
      * @var array|null
@@ -61,7 +60,9 @@ class ClickHouseQuery extends ClickHouseAPI
 
     /**
      * Stored [meta]-section from received data
+     *
      * Available after calling functions queryFullArray and queryArray
+     *
      * (not need because this data already have in $this-keys and $this-types)
      *
      * @var array|null
@@ -70,6 +71,7 @@ class ClickHouseQuery extends ClickHouseAPI
 
     /**
      * Stored [statistics]-section from received data
+     *
      * Available after calling functions queryFullArray and queryArray
      *
      * @var array|null
@@ -77,9 +79,11 @@ class ClickHouseQuery extends ClickHouseAPI
     public $statistics;
 
     /**
-     * Stored [extremes]-section from received data
+     * Stored [extremes]-section from received data.
+     *
      * Available after calling functions queryFullArray, queryArray, queryArr
-     * for use extremes need set flag by $this->setOption('extremes', 1)
+     *
+     * For use extremes need set flag by $this->setOption('extremes', 1)
      *
      * @var array|null
      */
@@ -87,6 +91,7 @@ class ClickHouseQuery extends ClickHouseAPI
 
     /**
      * Stored [rows]-section from received data, contains rows count.
+     *
      * (not need because count(array) is same)
      *
      * @var integer|null
@@ -96,6 +101,7 @@ class ClickHouseQuery extends ClickHouseAPI
     /**
      * Data remaining in the array after remove all known sections-keys
      *  Known keys is ['meta', 'statistics', 'extremes', 'rows']
+     *
      * Available after calling functions queryArray, queryArr
      * (usually contains empty array)
      *
@@ -118,7 +124,10 @@ class ClickHouseQuery extends ClickHouseAPI
     public $last_error_str = '';
 
     /**
-     * Last string-response for request (after functions queryGood, queryValue)
+     * Last string-response for request
+     *
+     * Actually after functions queryTrue, queryFalse, queryValue
+     *
      * without 'trim' executed, so usually contained "\n" in end
      *
      * @var string|null
@@ -127,17 +136,19 @@ class ClickHouseQuery extends ClickHouseAPI
 
     /**
      * For queries that involve either no return value or one string value.
+     *
      * Return true or non-empty string if ok
-     * Return false only if error
      *
-     * queryGood send POST-request by default for clear read_only-flag.
+     * Return false if error
      *
-     * @param string            $sql
-     * @param string|array|null $post_data
-     * @param string|null       $sess
-     * @return boolean|string
+     * queryTrue send POST-request by default for clear read_only-flag.
+     *
+     * @param string            $sql SQL-request
+     * @param string|array|null $post_data any POST-data or null for GET-request
+     * @param string|null       $sess session_id
+     * @return boolean|string false if error | true or string with results if ok
      */
-    public function queryGood($sql, $post_data=[], $sess = null)
+    public function queryTrue($sql, $post_data = [], $sess = null)
     {
         $ans = $this->queryValue($sql, $post_data, $sess);
         if ($ans !== false && empty($ans)) {
@@ -148,18 +159,18 @@ class ClickHouseQuery extends ClickHouseAPI
     }
 
     /**
-     * For queries that involve either no return value or one string value.
-     * Return string with error description if error
-     * Return false if ok (no error)
+     * For queries that involve either no return value or any string data.
+     *
+     * Return false if ok (no error) or string with error description
      *
      * queryFalse send POST-request by default for clear read_only-flag.
      *
-     * @param string            $sql
-     * @param string|array|null $post_data
-     * @param string|null       $sess
-     * @return boolean|string
+     * @param string            $sql SQL-request
+     * @param string|array|null $post_data any POST-data or null for GET-request
+     * @param string|null       $sess session_id
+     * @return boolean|string False if no errors | String error described
      */
-    public function queryFalse($sql, $post_data=[], $sess = null)
+    public function queryFalse($sql, $post_data = [], $sess = null)
     {
         $ans = $this->queryValue($sql, $post_data, $sess);
         if ($ans === false) {
@@ -171,15 +182,16 @@ class ClickHouseQuery extends ClickHouseAPI
 
     /**
      * For queries that involve either no return value or one string value.
-     * Return string if ok
-     * Return false if error
      *
      * Send POST-request if have post_data, send GET-request if no post_data
      *
-     * @param string            $sql
-     * @param array|string|null $post_data
-     * @param string|null       $sess
-     * @return boolean|string
+     * Return string with results if ok, or false if error.
+     * Error describe available in $this->last_error_str
+     *
+     * @param string            $sql SQL-request
+     * @param array|string|null $post_data Post-data or Null for Get-request
+     * @param string|null       $sess session_id
+     * @return boolean|string False if error | String with results
      */
     public function queryValue($sql, $post_data = null, $sess = null)
     {
@@ -202,18 +214,20 @@ class ClickHouseQuery extends ClickHouseAPI
     }
 
     /**
-     * Return strings array (using TabSeparated-format for data transfer)
-     * If return one column, result array no need transformations.
+     * Return strings array (using TabSeparated-formats for data transfer)
+     *
      * If return more of one column, array strings need be explode by tab
+     *
      * If $with_names_types is true, first 2 strings of results in array
      *  contain names and types of returned columns.
-     * Nuances:
-     *  Returned data not unescaped!
-     *  If have option 'extreme' or 'WITH TOTALS' requires filtering extra lines
      *
-     * @param string      $sql
-     * @param string|null $sess
-     * @param boolean     $with_names_types
+     * Nuances:
+     * - Returned data not unescaped!
+     * - If have option 'extreme' or 'WITH TOTALS' requires filtering extra lines
+     *
+     * @param string      $sql SQL-request
+     * @param boolean     $with_names_types true for TabSeparatedWithNamesAndTypes
+     * @param string|null $sess session_id
      * @return array
      */
     public function queryColumnTab($sql, $with_names_types = false, $sess = null)
@@ -235,24 +249,27 @@ class ClickHouseQuery extends ClickHouseAPI
 
     /**
      * Return Array [keys => values]
-     * Request and return data from table by 2 specified field-names,
-     *  or return results of any SQL-query with 2 columns in results.
+     *
+     * Request data from table by 2 specified field-names
+     *
+     * Results of first column interpreted as keys of array, second column as values.
+     *
      * Similar than queryKeyValArr, but using JSONCompact for data transferring.
      *
-     * @param string      $tbl_or_sql
-     * @param string|null $key_name_and_value_name
-     * @param string|null $sess
+     * @param string      $tbl_or_sql Table name (or SQL-request if next parameter is null)
+     * @param string|null $key_and_value_fields field names, example: 'id,name'
+     * @param string|null $sess session_id
      * @return array
      */
     public function queryKeyValues(
         $tbl_or_sql,
-        $key_name_and_value_name = null,
+        $key_and_value_fields = null,
         $sess = null
     ) {
-        if (is_null($key_name_and_value_name)) {
+        if (is_null($key_and_value_fields)) {
             $sql = $tbl_or_sql;
         } else {
-            $sql = "SELECT $key_name_and_value_name FROM $tbl_or_sql";
+            $sql = "SELECT $key_and_value_fields FROM $tbl_or_sql";
         }
         $data = $this->queryArray($sql, true, $sess);
         if (!\is_array($data) || !\count($data)) {
@@ -513,7 +530,7 @@ class ClickHouseQuery extends ClickHouseAPI
             $post_data = [\json_encode($fields_set_arr)];
         } else {
             $post_data = [];
-            if(!$use_json_each_row && !is_array($fields_set_arr[0])) {
+            if (!$use_json_each_row && !is_array($fields_set_arr[0])) {
                 $fields_set_arr=[$fields_set_arr];
             }
             foreach ($fields_set_arr as $row_arr) {

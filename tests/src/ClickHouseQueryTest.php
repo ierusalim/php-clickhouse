@@ -84,14 +84,14 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @covers ierusalim\ClickHouse\ClickHouseQuery::queryGood
+     * @covers ierusalim\ClickHouse\ClickHouseQuery::queryTrue
      * @todo   Implement testQueryGood().
      */
     public function testQueryGood()
     {
         $ch = $this->object;
-        $this->assertEquals($ch->queryGood("SELECT 1"), "1");
-        $this->assertTrue($ch->queryGood("USE system"));
+        $this->assertEquals($ch->queryTrue("SELECT 1"), "1");
+        $this->assertTrue($ch->queryTrue("USE system"));
     }
 
     /**
