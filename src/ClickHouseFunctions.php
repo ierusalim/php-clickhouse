@@ -128,8 +128,8 @@ class ClickHouseFunctions extends ClickHouseQuery
 
     /**
      * Return false if ClickHouse data-type is unknown.
-     * Otherwise return length in bytes for this type.
-     * Return 0 if length is undefined (for String and Array).
+     * Otherwise return length in bytes for specified data-type.
+     * Return 0 if length is not fixed (for String and Array).
      *
      * @param string $type_full
      * @return boolean|int
@@ -181,120 +181,6 @@ class ClickHouseFunctions extends ClickHouseQuery
     }
 
     /**
-     * Return as Array [names=>values] data from system.settings table
-     *
-     * @return array|string
-     */
-    public function getSystemSettings()
-    {
-        return $this->queryKeyValues('system.settings', 'name, value');
-    }
-
-    /**
-     * Return as string version of ClickHouse server
-     *
-     * @return string
-     */
-    public function getVersion()
-    {
-        return $this->queryValue('SELECT version()');
-    }
-
-    /**
-     * Return server uptime in seconds
-     *
-     * @return integer
-     */
-    public function getUptime()
-    {
-        return $this->queryValue('SELECT uptime()');
-    }
-
-    /**
-     * Get current database name for current or specified session
-     *
-     * @param string|null $sess
-     * @return string
-     */
-    public function getCurrentDatabase($sess = null)
-    {
-        return $this->queryValue('SELECT currentDatabase()', null, $sess);
-    }
-
-    /**
-     * Set current database name for current or specified session
-     *
-     * @param string      $db
-     * @param string|null $sess
-     * @return boolean
-     */
-    public function setCurrentDatabase($db, $sess = null)
-    {
-        return $this->queryGood("USE $db", $sess);
-    }
-
-    /**
-     * Return Array contained names of existing Databases
-     *
-     * @return array|string
-     */
-    public function getDatabasesList()
-    {
-        return $this->queryColumnTab('SHOW DATABASES');
-    }
-
-    /**
-     * Return names of tables from specified database or all like pattern
-     *
-     * @param string|null $name
-     * @param string|null $like_pattern
-     * @return array|string
-     */
-    public function getTablesList($name = null, $like_pattern = null)
-    {
-        return $this->queryColumnTab('SHOW TABLES ' .
-                    (empty($name) ? '' : $this->from . $name) .
-                    (empty($like_pattern) ? '' : " LIKE '$like_pattern'"));
-    }
-
-    /**
-     * Return results of request "SHOW PROCESSLIST"
-     *
-     * @return array|string
-     */
-    public function getProcessList()
-    {
-        return $this->queryArray('SHOW PROCESSLIST');
-    }
-
-    /**
-     * Return as Array information about specified table
-     * Array is [Keys - field names] => [Values - field types]
-     *
-     * @param string $table
-     * @return array|string
-     */
-    public function getTableFields($table)
-    {
-        //DESCRIBE TABLE [db.]table
-        return $this->queryKeyValues("DESCRIBE TABLE $table");
-    }
-
-    /**
-     * Return array with numbers from ClickHouse server for tests
-     *
-     * @param integer $lim
-     * @param boolean $use_mt
-     * @return array
-     */
-    public function getNumbers($lim = 100, $use_mt = false)
-    {
-        return $this->queryColumnTab(
-            'SELECT * FROM system.numbers' . ($use_mt ? '_mt' : '') .
-            ' LIMIT ' . $lim);
-    }
-
-    /**
      * Create Table with name $table_name (using MergeTree engine)
      *
      * $fields_arr: array with keys is fields names and values is field types.
@@ -308,8 +194,8 @@ class ClickHouseFunctions extends ClickHouseQuery
      *       ['String'] - is same 'String'. Type "String", no default value.
      *       ['Date', 'now()'] - type "Date", default value = now() function.
      *
-     * Types may be specified as aliases and case insensitive.
-     *  (see list of aliases in $this->type_aliases).
+     * Data-types may be specified as aliases and case insensitive.
+     * See list of aliases in $this->type_aliases and function ->addTypeAlias.
      *
      * Default values may be specified with DEFAULT keyword, for example:
      *    field_type = 'Int16 DEFAULT 123+5' , or ['Int16', 'DEFAULT 123+5']
@@ -336,11 +222,11 @@ class ClickHouseFunctions extends ClickHouseQuery
     }
 
     /**
-     * Make SQL-query for CREATE TABLE $table_name in ClickHouse request format.
+     * Make SQL-query for CREATE TABLE $table_name in ClickHouse format.
      *
      * Parameter $field_arr described in annotation of createTableQuick function.
      *
-     * If $if_not_exist not empty, " IF NOT EXISTS " will be included in request.
+     * If $if_not_exist not empty, "IF NOT EXISTS" will be included in request.
      *
      * @param string          $table_name
      * @param array           $fields_arr
@@ -463,6 +349,119 @@ class ClickHouseFunctions extends ClickHouseQuery
         ) ? $str : json_encode($str);
     }
 
+    /**
+     * Return as Array [names=>values] data from system.settings table
+     *
+     * @return array|string
+     */
+    public function getSystemSettings()
+    {
+        return $this->queryKeyValues('system.settings', 'name, value');
+    }
+
+    /**
+     * Return as string version of ClickHouse server
+     *
+     * @return string
+     */
+    public function getVersion()
+    {
+        return $this->queryValue('SELECT version()');
+    }
+
+    /**
+     * Return server uptime in seconds
+     *
+     * @return integer
+     */
+    public function getUptime()
+    {
+        return $this->queryValue('SELECT uptime()');
+    }
+
+    /**
+     * Get current database name for current or specified session
+     *
+     * @param string|null $sess
+     * @return string
+     */
+    public function getCurrentDatabase($sess = null)
+    {
+        return $this->queryValue('SELECT currentDatabase()', null, $sess);
+    }
+
+    /**
+     * Set current database name for current or specified session
+     *
+     * @param string      $db
+     * @param string|null $sess
+     * @return boolean
+     */
+    public function setCurrentDatabase($db, $sess = null)
+    {
+        return $this->queryGood("USE $db", $sess);
+    }
+
+    /**
+     * Return Array contained names of existing Databases
+     *
+     * @return array|string
+     */
+    public function getDatabasesList()
+    {
+        return $this->queryColumnTab('SHOW DATABASES');
+    }
+
+    /**
+     * Return names of tables from specified database or all like pattern
+     *
+     * @param string|null $name
+     * @param string|null $like_pattern
+     * @return array|string
+     */
+    public function getTablesList($name = null, $like_pattern = null)
+    {
+        return $this->queryColumnTab('SHOW TABLES ' .
+                    (empty($name) ? '' : $this->from . $name) .
+                    (empty($like_pattern) ? '' : " LIKE '$like_pattern'"));
+    }
+
+    /**
+     * Return results of request "SHOW PROCESSLIST"
+     *
+     * @return array|string
+     */
+    public function getProcessList()
+    {
+        return $this->queryArray('SHOW PROCESSLIST');
+    }
+
+    /**
+     * Return as Array information about specified table
+     * Array is [Keys - field names] => [Values - field types]
+     *
+     * @param string $table
+     * @return array|string
+     */
+    public function getTableFields($table)
+    {
+        //DESCRIBE TABLE [db.]table
+        return $this->queryKeyValues("DESCRIBE TABLE $table");
+    }
+
+    /**
+     * Return array with numbers from ClickHouse server for tests
+     *
+     * @param integer $lim
+     * @param boolean $use_mt
+     * @return array
+     */
+    public function getNumbers($lim = 100, $use_mt = false)
+    {
+        return $this->queryColumnTab(
+            'SELECT * FROM system.numbers' . ($use_mt ? '_mt' : '') .
+            ' LIMIT ' . $lim);
+    }
 
     /**
      * Return information about size of table row by fields definition.
@@ -483,13 +482,12 @@ class ClickHouseFunctions extends ClickHouseQuery
             $fields_arr = $table_name_or_fields_arr;
         }
         $dynamic_cnt = 0;
-        $fixed_bytes = $this->countRowFixedSize($fields_arr, $dynamic_cnt);
+        $fixed_bytes = $comment = $this->countRowFixedSize($fields_arr, $dynamic_cnt);
         if (!\is_numeric($fixed_bytes)) {
             return $fixed_bytes;
         }
         $fixed_fields = \count($fields_arr) - $dynamic_cnt;
-        $comment = $fixed_bytes .
-            " bytes in $fixed_fields FIXED FIELDS, $dynamic_cnt DYNAMIC FIELDS";
+        $comment .= " bytes in $fixed_fields FIXED FIELDS, $dynamic_cnt DYNAMIC FIELDS";
         return \compact('fixed_bytes', 'fixed_fields', 'dynamic_cnt', 'comment');
     }
 
