@@ -58,6 +58,50 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
+     * @covers ierusalim\ClickHouse\ClickHouseFunctions::addTypeAlias
+     */
+    public function testAddTypeAlias()
+    {
+        $ch = $this->object;
+
+        $this->assertFalse($ch->addTypeAlias('yyy', 'xxx'));
+
+        $for_type = 'sTrInG';
+        $alias = 'Symbolic';
+
+        $this->assertEquals("String", $ch->addTypeAlias($for_type, $alias));
+        $this->assertArrayHasKey(strtolower($alias), $ch->types_aliases);
+
+        $this->assertEquals("String", $ch->changeIfIsAlias($alias));
+
+        $for_type = 'Uint32';
+        $alias = 'UNSIGNED INTEGER';
+
+        $this->assertEquals("UInt32", $ch->addTypeAlias($for_type, $alias));
+        $this->assertArrayHasKey(strtolower($alias), $ch->types_aliases);
+
+        $this->assertEquals("UInt32", $ch->changeIfIsAlias($alias));
+    }
+
+    /**
+     * @covers ierusalim\ClickHouse\ClickHouseFunctions::delTypeAlias
+     */
+    public function testDelTypeAlias()
+    {
+        $ch = $this->object;
+
+        $this->assertFalse($ch->delTypeAlias('yyy'));
+
+        $alias = 'double';
+        $this->assertArrayHasKey($alias, $ch->types_aliases);
+        $canon = $ch->types_aliases[$alias];
+        $this->assertEquals($canon, $ch->changeIfIsAlias($alias));
+        $this->assertTrue($ch->delTypeAlias($alias));
+        $this->assertArrayNotHasKey($alias, $ch->types_aliases);
+        $this->assertEquals($alias, $ch->changeIfIsAlias($alias));
+    }
+
+    /**
      * @covers ierusalim\ClickHouse\ClickHouseFunctions::getCurrentDatabase
      */
     public function testGetCurrentDatabase()

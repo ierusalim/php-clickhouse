@@ -68,6 +68,119 @@ class ClickHouseFunctions extends ClickHouseQuery
     private $from = ' FROM '; // For stupid code analyzers
 
     /**
+     * Add alias for data-type
+     * Return false if $for_type is unknown data-type.
+     * Return canonical-type (string) if successful.
+     *
+     * @param string $for_type
+     * @param string $add_alias
+     * @return boolean|string
+     */
+    public function addTypeAlias($for_type, $add_alias)
+    {
+        $canon = '';
+        if ($this->parseType($for_type, $canon) === false || empty($add_alias)) {
+            return false;
+        }
+        $this->types_aliases[\strtolower($add_alias)] = $canon;
+        $this->changeIfIsAlias('');
+        return $canon;
+    }
+
+    /**
+     * Delete data-type alias
+     * Return false if alias not exist
+     * Return true if successful removed.
+     *
+     * @param string $alias
+     * @return boolean
+     */
+    public function delTypeAlias($alias)
+    {
+        $key = strtolower($alias);
+        if (isset($this->types_aliases[$key])) {
+            unset($this->types_aliases[$key]);
+            $this->changeIfIsAlias('');
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Returns canonical-type for specified $type_src data-type if alias found
+     * or return value unchanged.
+     *
+     * @param string $type_src
+     * @return string
+     */
+    public function changeIfIsAlias($type_src)
+    {
+        static $aliases_arr = false;
+        $t_lower = \strtolower($type_src);
+        if (!$aliases_arr || empty($type_src)) {
+            $aliases_arr = $this->types_aliases;
+            foreach ($this->types_fix_size as $canon => $v) {
+                $aliases_arr[strtolower($canon)] = $canon;
+            }
+        }
+        return isset($aliases_arr[$t_lower]) ? $aliases_arr[$t_lower] : $type_src;
+    }
+
+    /**
+     * Return false if ClickHouse data-type is unknown.
+     * Otherwise return length in bytes for this type.
+     * Return 0 if length is undefined (for String and Array).
+     *
+     * @param string $type_full
+     * @return boolean|int
+     */
+    public function parseType(&$type_full, &$name = null, &$to_conv = null)
+    {
+        $i = \strpos($type_full, '(');
+        if ($i) {
+            $name = \substr($type_full, 0, $i);
+        } else {
+            $name = $type_full;
+        }
+        $cano_name = $this->changeIfIsAlias($name);
+        if ($cano_name != $name) {
+            $name = $cano_name;
+            if ($i) {
+                $type_full = $cano_name . \substr($type_full, $i);
+                $i = strlen($cano_name);
+            } else {
+                $type_full = $cano_name;
+            }
+        }
+
+        // function for convertation, like String -> toString(...)
+        $to_conv = ['to' . $name . '(', ')'];
+
+        if (isset($this->types_fix_size[$name])) {
+            if (substr($name, 0, 4) === 'Enum') {
+                $to_conv = false;
+            }
+            return $this->types_fix_size[$name];
+        }
+
+        switch ($name) {
+            case 'Array':
+                $to_conv = false;
+                return 0;
+            case 'String':
+                return 0;
+            case 'FixedString':
+                $j = \strpos($type_full, ')', $i);
+                $j = \substr($type_full, $i + 1, $j - $i - 1);
+                if (\is_numeric($j)) {
+                    $to_conv[1] = ',' . $j . ')';
+                    return (int) $j;
+                }
+        }
+        return false;
+    }
+
+    /**
      * Return as Array [names=>values] data from system.settings table
      *
      * @return array|string
@@ -179,60 +292,6 @@ class ClickHouseFunctions extends ClickHouseQuery
         return $this->queryColumnTab(
             'SELECT * FROM system.numbers' . ($use_mt ? '_mt' : '') .
             ' LIMIT ' . $lim);
-    }
-
-    /**
-     * Return false if ClickHouse data-type is unknown.
-     * Otherwise return length in bytes for this type.
-     * Return 0 if length is undefined (for String and Array).
-     *
-     * @param string $type_full
-     * @return boolean|int
-     */
-    public function parseType(&$type_full, &$name = null, &$to_conv = null)
-    {
-        $i = \strpos($type_full, '(');
-        if ($i) {
-            $name = \substr($type_full, 0, $i);
-        } else {
-            $name = $type_full;
-        }
-        $cano_name = $this->changeIfIsAlias($name);
-        if ($cano_name != $name) {
-            $name = $cano_name;
-            if ($i) {
-                $type_full = $cano_name . \substr($type_full, $i);
-                $i = strlen($cano_name);
-            } else {
-                $type_full = $cano_name;
-            }
-        }
-
-        // function for convertation, like String -> toString(...)
-        $to_conv = ['to' . $name . '(', ')'];
-
-        if (isset($this->types_fix_size[$name])) {
-            if (substr($name, 0, 4) === 'Enum') {
-                $to_conv = false;
-            }
-            return $this->types_fix_size[$name];
-        }
-
-        switch ($name) {
-            case 'Array':
-                $to_conv = false;
-                return 0;
-            case 'String':
-                return 0;
-            case 'FixedString':
-                $j = \strpos($type_full, ')', $i);
-                $j = \substr($type_full, $i + 1, $j - $i - 1);
-                if (\is_numeric($j)) {
-                    $to_conv[1] = ',' . $j . ')';
-                    return (int) $j;
-                }
-        }
-        return false;
     }
 
     /**
@@ -404,24 +463,6 @@ class ClickHouseFunctions extends ClickHouseQuery
         ) ? $str : json_encode($str);
     }
 
-    /**
-     * Returns the value unchanged, if no alias is found, or returns an alias.
-     *
-     * @param string $type_src
-     * @return string
-     */
-    public function changeIfIsAlias($type_src)
-    {
-        static $aliases_arr = false;
-        $type_lower = \strtolower($type_src);
-        if (!$aliases_arr) {
-            $aliases_arr = $this->types_aliases;
-            foreach ($this->types_fix_size as $type_canonic => $v) {
-                $aliases_arr[strtolower($type_canonic)] = $type_canonic;
-            }
-        }
-        return isset($aliases_arr[$type_lower]) ? $aliases_arr[$type_lower] : $type_src;
-    }
 
     /**
      * Return information about size of table row by fields definition.
