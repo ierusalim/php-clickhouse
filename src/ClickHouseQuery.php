@@ -271,15 +271,16 @@ class ClickHouseQuery extends ClickHouseAPI
 
     /**
      * Return Array [keys => values]
+     *
      * Similar than queryKeyValues, but using TabSeparated for data transferring.
      * Provides the best performance on powerful servers,
      *  but, on weak processors it runs slower than queryKeyValues
-     * Returned data not unescaped!
+     * - Returned data not unescaped!
      * If unescape is important, it's best to use queryKeyValues instead.
      *
-     * @param string $tbl_or_sql
-     * @param string|null $key_name_and_value_name
-     * @param string|null $sess
+     * @param string $tbl_or_sql Table name or full sql request
+     * @param string|null $key_name_and_value_name fields like 'id, name'
+     * @param string|null $sess session_id
      * @return array
      */
     public function queryKeyValArr(
@@ -309,17 +310,19 @@ class ClickHouseQuery extends ClickHouseAPI
 
     /**
      * Function for queries returning an array (like SELECT * ...)
+     *
      * Returned array have numeric_keys if $numeric_keys = true,
      *  or have keys as returned field names (when $numeric_keys = false).
+     *
      * Additional,
-     * Information about field names available in $this->keys
-     * Information about field types available in $this->types
+     * - Information about field names available in $this->keys
+     * - Information about field types available in $this->types
      *
      * If error, return non-array data (usually string with error description)
      *
-     * @param string $sql
-     * @param boolean $numeric_keys
-     * @param string|null $sess
+     * @param string $sql SQL-query
+     * @param boolean $numeric_keys if true then array returning with numeric keys
+     * @param string|null $sess session_id
      * @return array
      */
     public function queryArray($sql, $numeric_keys = false, $sess = null)
@@ -345,12 +348,13 @@ class ClickHouseQuery extends ClickHouseAPI
 
     /**
      * Similar as queryArray, but use TabSeparated format for data transferring.
+     *
      * Provides better performance than queryArray, but needed unescape later.
      * If unescape is important, it's best to use queryArray instead queryArr.
      *
-     * @param string      $sql
-     * @param boolean     $numeric_keys
-     * @param string|null $sess
+     * @param string      $sql SQL request
+     * @param boolean     $numeric_keys if true field names set as keys of results array
+     * @param string|null $sess session_id
      * @return array
      */
     public function queryArr($sql, $numeric_keys = false, $sess = null)
@@ -416,19 +420,20 @@ class ClickHouseQuery extends ClickHouseAPI
 
     /**
      * Function for queries returning an array (like SELECT * ...)
+     *
      * The requested data is transmitted through the JSON format or JSONCompact.
-     * If $data_only flag is false, return full array with [meta],[data], etc.
-     * If $data_only is true, return only [data]-section from received array.
-     * If got error, return non-array data (usually string error description)
+     * - If $data_only flag is false, return full array with [meta],[data], etc.
+     * - If $data_only is true, return only [data]-section from received array.
+     * - If got error, return non-array data (usually string error description)
      *
      * In $data_only mode using only JSONCompact format and returning data
      *  array have numeric keys (but field names available in $this->keys array)
      *
      * When not $data_only mode, returning data-array have keys as field names.
      *
-     * @param string $sql
-     * @param boolean $data_only
-     * @param string|null $sess
+     * @param string $sql SQL-query
+     * @param boolean $data_only if false return full array, if true only data-key
+     * @param string|null $sess session_id
      * @return array|string|false
      */
     public function queryFullArray($sql, $data_only = false, $sess = null)
@@ -480,7 +485,17 @@ class ClickHouseQuery extends ClickHouseAPI
         }
     }
 
-    public function queryInsert($table_name, $fields_arr, $fields_set_arr, $sess = null)
+    /**
+     * Inserting data into table
+     *
+     * @param type $table_name Table name for inserting data
+     * @param array|null $fields_names Array with names of inserting fields
+     * @param array $fields_set_arr Array with inserting data
+     * @param string|null $sess session_id
+     * @return boolean|string Return false if ok, or string if error
+     * @throws \Exception
+     */
+    public function queryInsert($table_name, $fields_names, $fields_set_arr, $sess = null)
     {
         if (!\is_array($fields_set_arr) || !\count($fields_set_arr)) {
             return false;
@@ -500,18 +515,18 @@ class ClickHouseQuery extends ClickHouseAPI
             $use_json_each_row = true;
         }
 
-        if (\is_null($fields_arr)) {
+        if (\is_null($fields_names)) {
             if (!isset($in_arr_fields_arr)) {
-                $fields_arr = $this->keys;
+                $fields_names = $this->keys;
             } else {
-                $fields_arr = $in_arr_fields_arr;
+                $fields_names = $in_arr_fields_arr;
             }
         }
-        if (\is_null($fields_arr)) {
+        if (\is_null($fields_names)) {
             throw new \Exception("Inserting fields undefined");
         }
 
-        $sql = "INSERT INTO $table_name (" . implode(",", $fields_arr) . ") " .
+        $sql = "INSERT INTO $table_name (" . implode(",", $fields_names) . ") " .
            "FORMAT " . ($use_json_each_row ? 'JSONEachRow' : 'TabSeparated');
 
         if (!isset($fields_set_arr[0])) {
@@ -597,6 +612,7 @@ class ClickHouseQuery extends ClickHouseAPI
      * @param array $columns_up Columns (from bindings) for move to up level of results
      * @param array $colums_del Columns (from bindings) for delete from results
      * @param string|null $keys_from_field null for set numeric keys in columns_arr
+     * @param string|null $sess session_id
      * @return array|string Results in array or string with error described
      */
     public function queryTableSubstract(
@@ -611,7 +627,8 @@ class ClickHouseQuery extends ClickHouseAPI
         $not_found_pattern = "No information about {t} {dbtb} in {s}",
         $columns_up = ['t', 'd'],
         $colums_del = ['t', 'd', 'n'],
-        $keys_from_field = 'name'
+        $keys_from_field = 'name',
+        $sess = null
     ) {
         $i = \strpos($table, '.');
         if ($i) {
@@ -627,7 +644,7 @@ class ClickHouseQuery extends ClickHouseAPI
 
         $sql = $this->bindPars($sql_pattern, $bindings);
 
-        $columns_arr = $this->queryArr($sql);
+        $columns_arr = $this->queryArr($sql, false, $sess);
         if (is_array($columns_arr)) {
             if (!\count($columns_arr)) {
                 return $this->bindPars($not_found_pattern, $bindings);
