@@ -538,7 +538,7 @@ class ClickHouseFunctions extends ClickHouseQuery
         if (!is_array($columns_arr)) {
             return $columns_arr;
         }
-        \extract($columns_arr); //Get $database, $table, $columns_arr
+        \extract($columns_arr); //Keys is [database], [table], [columns_arr]
 
         $fields_arr = [];
         $sum_compressed_bytes = $sum_uncompressed_bytes = 0;
