@@ -96,13 +96,26 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
 
     /**
      * @covers ierusalim\ClickHouse\ClickHouseQuery::queryFalse
-     * @todo   Implement testQueryBad().
+     * @todo   Implement testQueryFalse().
      */
-    public function testQueryBad()
+    public function testQueryFalse()
     {
         $ch = $this->object;
         $this->assertFalse($ch->queryFalse("SELECT 1"), "1");
         $this->assertTrue(is_string($ch->queryFalse("SELECT err")));
+    }
+
+    /**
+     * @covers ierusalim\ClickHouse\ClickHouseQuery::bindPars
+     * @todo   Implement testBindPars().
+     */
+    public function testBindPars()
+    {
+        $ch = $this->object;
+        $sql = $ch->bindPars("SELECT {x},{y}", ['x'=>123, 'y'=>"4"]);
+        $this->assertEquals("SELECT 123,4", $sql);
+        $sql = $ch->bindPars("SELECT {nm} FROM {tb}", ['nm'=>'name', 'tb'=>'table']);
+        $this->assertEquals("SELECT name FROM table", $sql);
     }
 
     /**
@@ -226,5 +239,52 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
 
         $str = $ch->queryColumnTab("SELECT * FROM notfoundtable LIMIT 1");
         $this->assertNotEquals(200, $ch->last_code);
+    }
+
+
+    /**
+     * @covers ierusalim\ClickHouse\ClickHouseQuery::quotePar
+     */
+    public function testQuotePar()
+    {
+        $ch = $this->object;
+        $this->assertEquals(123, $ch->quotePar(123));
+        $this->assertEquals("'a'", $ch->quotePar('a'));
+        $this->assertEquals('"a"', $ch->quotePar('"a"'));
+        $this->assertEquals("'a'", $ch->quotePar("'a'"));
+        $this->assertEquals("now()", $ch->quotePar("now()"));
+        $str = "test\tttt";
+        $this->assertEquals("'test\\tttt'", $ch->quotePar($str));
+    }
+
+    /**
+     * @covers ierusalim\ClickHouse\ClickHouseQuery::queryTableSubstract
+     */
+    public function testQueryTableSubstract()
+    {
+        $ch = $this->object;
+
+        $tbl = "system.columns";
+        $arr = $ch->queryTableSubstract($tbl);
+        $this->assertArrayHasKey('columns_arr', $arr);
+        $arr = $arr['columns_arr'];
+        $arr = $ch->queryTableSubstract("notfound'\nthistable");
+        $this->assertFalse(\is_array($arr));
+    }
+
+    /**
+     * @covers ierusalim\ClickHouse\ClickHouseQuery::queryTableSys
+     */
+    public function testQueryTableSys()
+    {
+        $ch = $this->object;
+
+        $tbl = "system.columns";
+        $arr = $ch->queryTableSys($tbl, 'columns');
+        $this->assertEquals($arr, $ch->queryTableSubstract($tbl));
+        $arr = $ch->queryTableSys($tbl, 'tables');
+        $this->assertEquals($arr, $ch->queryTableSys($tbl));
+        $arr = $ch->queryTableSys($tbl, 'replicas');
+        $this->assertTrue(is_string($arr));
     }
 }

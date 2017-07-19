@@ -536,4 +536,162 @@ class ClickHouseQuery extends ClickHouseAPI
         }
         return $this->queryFalse($sql, \implode("\n", $post_data) . "\n", $sess);
     }
+
+
+    /**
+     * Add quotes and slashes if need
+     *
+     * Examples:
+     * - ("123")   => 123    (No changes because is_numeric)
+     * - ('"aaa"') => "aaa"  (No changes because have begin-final quotes)
+     * - ("'aaa'") => 'aaa'  (No changes because have begin-final quotes)
+     * - ("fn(x)") => fn(x)  (No changes because have final ")" and "(" within)
+     * - ("aaa")   => 'aaa'  (add $quote-quotes and slashes for [ ' \t \n \r ] )
+     *
+     * @param string $str
+     * @return string
+     */
+    public function quotePar($str, $quote = "'")
+    {
+        $fc = substr($str, 0, 1);
+        $lc = substr($str, -1);
+        return (is_numeric($str) ||
+           (($fc === '"' || $fc === "'") && ($fc === $lc)) ||
+           (($lc === ')' && strpos($str, '(') !== false))
+        ) ? $str : $quote . addcslashes($str, "'\t\n\r\0") . $quote;
+    }
+
+    /**
+     * Binding variables to string pattern
+     *
+     * Example:
+     * - ->bindPars("SELECT {n} FROM {t}", ['n'=>'name','t'=>'table'])
+     * - Result: "SELECT name FROM table"
+     *
+     * @param string $pattern String pattern with places for binding variables
+     * @param array $bindings Array of variables for binding [name]=>value
+     * @param string|null $e_pre Pattern-prefix for binding var
+     * @param string|null $e_pos Pattern-postfix for binding var
+     * @return string
+     */
+    public function bindPars($pattern, $bindings, $e_pre = '{', $e_pos = '}')
+    {
+        $search_arr = array_map(function ($s) use ($e_pre, $e_pos) {
+            return $e_pre . $s . $e_pos;
+        }, array_keys($bindings));
+        $replace_arr = array_values($bindings);
+        return str_replace($search_arr, $replace_arr, $pattern);
+    }
+
+    /**
+     * Execute SQL by pattern with bindings and return array with filtered results
+     *
+     * For understanding, see the default values as example.
+     *
+     * By default returns information from system.columns about specified table.
+     *
+     * @param type $table Table name [db.]table (set into ['db','table','dbtb'] bindings)
+     * @param type $sql_pattern Pattern for SQL-request
+     * @param type $bindings Array with binding of values for patterns
+     * @param type $not_found_pattern Pattern for return if request got empty results
+     * @param type $columns_up Columns (from bindings) for move to up level of results
+     * @param type $colums_del Columns (from bindings) for delete from results
+     * @param string|null $keys_from_field null for set numeric keys in columns_arr
+     * @return array|string Results in array or string with error described
+     */
+    public function queryTableSubstract(
+        $table,
+        $sql_pattern = "SELECT * FROM {s} WHERE {t}={table} AND {d}={db}",
+        $bindings = [
+            's' => 'system.columns',
+            'd' => 'database',
+            't' => 'table',
+            'n' => 'name'
+            ],
+        $not_found_pattern = "No information about {t} {dbtb} in {s}",
+        $columns_up = ['t', 'd'],
+        $colums_del = ['t', 'd', 'n'],
+        $keys_from_field = 'name'
+    ) {
+        $i = \strpos($table, '.');
+        if ($i) {
+            $db = \substr($table, 0, $i);
+            $table = \substr($table, $i+1);
+        } else {
+            $db = "currentDatabase()";
+        }
+
+        $bindings['db'] = $this->quotePar($db);
+        $bindings['table'] = $this->quotePar($table);
+        $bindings['dbtb'] = $db . '.' . $table;
+
+        $sql = $this->bindPars($sql_pattern, $bindings);
+
+        $columns_arr = $this->queryArr($sql);
+        if (is_array($columns_arr)) {
+            if (!\count($columns_arr)) {
+                return $this->bindPars($not_found_pattern, $bindings);
+            }
+            $ret_arr = [];
+            foreach ($columns_up as $b) {
+                $b = $bindings[$b];
+                $ret_arr[$b] = $columns_arr[0][$b];
+            }
+            $ret_arr['columns_arr']=[];
+            foreach ($columns_arr as $k => $col_arr) {
+                if (!empty($keys_from_field)) {
+                    $k = $col_arr[$keys_from_field];
+                }
+                foreach ($colums_del as $b) {
+                    unset($col_arr[$bindings[$b]]);
+                }
+                $ret_arr['columns_arr'][$k] = $col_arr;
+            }
+            $columns_arr = $ret_arr;
+        }
+        return $columns_arr;
+    }
+
+    /**
+     * Get all information from system.$sys about specified table.
+     *
+     * Known system.tables with information about [db.]tables is:
+     * - system.columns
+     * - system.tables
+     * - system.merges
+     * - system.parts
+     * - system.replicas
+     *
+     * By default using 'system.tables' and result contains [engine], etc.
+     *
+     * @param string $table Table name [db.]table
+     * @param string $sys Table in system database, by default 'system.tables'
+     * @param array $columns_del Array with columns aliases to remove from results
+     * @return array|string Return results array or string with error described.
+     */
+    public function queryTableSys($table, $sys = 'tables', $columns_del = ['n'])
+    {
+        switch ($sys) {
+            case 'columns':
+                return $this->queryTableSubstract($table);
+            case 'tables':
+                $sql = "SELECT {n} as {t}, * FROM {s} WHERE {n}={table} AND {d}={db}";
+                break;
+            default:
+                $sql = "SELECT * FROM {s} WHERE {t}={table} AND {d}={db}";
+        }
+        $arr = $this->queryTableSubstract($table, $sql, [
+            's' => 'system.' . $sys,
+            'd' => 'database',
+            'n' => 'name',
+            't' => 'table'
+            ], "No information about {dbtb} in {s}", [], $columns_del, null
+        );
+        if (\is_array($arr)) {
+            if (count($arr['columns_arr']) == 1) {
+                $arr = $arr['columns_arr'][0];
+            }
+        }
+        return $arr;
+    }
 }

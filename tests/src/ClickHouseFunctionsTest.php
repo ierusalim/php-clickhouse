@@ -339,21 +339,6 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @covers ierusalim\ClickHouse\ClickHouseFunctions::fnQuote
-     */
-    public function testFnQuote()
-    {
-        $ch = $this->object;
-        $this->assertEquals(123, $ch->fnQuote(123));
-        $this->assertEquals("'a'", $ch->fnQuote('a'));
-        $this->assertEquals('"a"', $ch->fnQuote('"a"'));
-        $this->assertEquals("'a'", $ch->fnQuote("'a'"));
-        $this->assertEquals("now()", $ch->fnQuote("now()"));
-        $str = "test\tttt";
-        $this->assertEquals("'test\\tttt'", $ch->fnQuote($str));
-    }
-
-    /**
      * @covers ierusalim\ClickHouse\ClickHouseFunctions::createTableQuick
      */
     public function testCreateTableQuick()

@@ -1,4 +1,5 @@
 <?php
+
 namespace ierusalim\ClickHouse;
 
 /**
@@ -308,7 +309,7 @@ class ClickHouseFunctions extends ClickHouseQuery
 
             if (strlen($default)) {
                 if (\substr($default, 0, 8) !== 'DEFAULT ') {
-                    $default = $this->fnQuote($default);
+                    $default = $this->quotePar($default);
                     if ($to_conv) {
                         $default = $to_conv[0] . $default . $to_conv[1];
                         $create = 'DEFAULT ' . $default;
@@ -331,32 +332,6 @@ class ClickHouseFunctions extends ClickHouseQuery
             );
         }
         return $fields_arr;
-    }
-
-    /**
-     * Add quotes and slashes if need
-     *
-     *  123  => 123    (No changes because is_numeric)
-     *
-     * "aaa" => "aaa"  (No changes because have begin-final quotes)
-     *
-     * 'aaa' => 'aaa'  (No changes because have begin-final quotes)
-     *
-     * fn(x) => fn(x)  (No changes because have final ")" and "(" within)
-     *
-     *  aaa  => "aaa"  (add $quote-quotes and slashes for [ ' \t \n \r ] )
-     *
-     * @param string $str
-     * @return string
-     */
-    public function fnQuote($str, $quote = "'")
-    {
-        $fc = substr($str, 0, 1);
-        $lc = substr($str, -1);
-        return (is_numeric($str) ||
-           (($fc === '"' || $fc === "'") && ($fc === $lc)) ||
-           (($lc === ')' && strpos($str, '(') !== false))
-        ) ? $str : $quote . addcslashes($str, "'\t\n\r") . $quote;
     }
 
     /**
@@ -392,6 +367,12 @@ class ClickHouseFunctions extends ClickHouseQuery
     /**
      * Get current database name for current or specified session
      *
+     * Function use SQL-query 'SELECT currentDatabase()'
+     *
+     * Keep in mind that current database can be set in two ways:
+     *  - by setCurrentDatabase() via SQL-request 'USE $db'
+     *  - by setOption('database', $db), in this case may use getOption('database')
+     *
      * @param string|null $sess session_id
      * @return string|boolean String with current db-name or false if error
      */
@@ -401,7 +382,12 @@ class ClickHouseFunctions extends ClickHouseQuery
     }
 
     /**
-     * Set current database by name for current or specified session
+     * Set current database by name for current or specified session.
+     *
+     * Function send SQL-query 'USE $db'
+     *
+     * However, one must know that there is another way to specified
+     * current database for any query ->setOption('database', $db)
      *
      * @param string      $db   Database name
      * @param string|null $sess session_id
@@ -542,36 +528,20 @@ class ClickHouseFunctions extends ClickHouseQuery
      *
      * return array with extra info like [rows_cnt], [uncompressed_bytes], etc.
      *
-     * @param string $table_name Table name
+     * @param string $table Table name [db.]table
      * @return array|string Results in array or string with error described
      */
-    public function getTableInfo($table_name)
+    public function getTableInfo($table, $extended_info = true)
     {
-        $i = \strpos($table_name, '.');
-        if ($i) {
-            $db = \substr($table_name, 0, $i);
-            $table_name = substr($table_name, $i+1);
-        } else {
-            $db = "currentDatabase()";
+        $columns_arr = $this->queryTableSubstract($table);
+        if (!is_array($columns_arr)) {
+            return $columns_arr;
         }
-        $where = "WHERE table='$table_name' AND database=" . $this->fnQuote($db);
-        $columnts_arr = $this->queryArr("SELECT * FROM system.columns $where");
-        if (!is_array($columnts_arr)) {
-            return $columnts_arr;
-        }
-        if (!count($columnts_arr)) {
-            return "Not found info about table $table_name";
-        }
-        $field_names = \array_column($columnts_arr, 'name');
-        $columnts_arr = \array_combine($field_names, $columnts_arr);
+        \extract($columns_arr); //Get $database, $table, $columns_arr
+
         $fields_arr = [];
         $sum_compressed_bytes = $sum_uncompressed_bytes = 0;
-        foreach ($columnts_arr as $col_name => $col_arr) {
-            $database = $col_arr['database'];
-            $table = $col_arr['table'];
-            unset($col_arr['database']);
-            unset($col_arr['table']);
-            unset($col_arr['name']);
+        foreach ($columns_arr as $col_name => $col_arr) {
             $sum_compressed_bytes += $col_arr['data_compressed_bytes'];
             $column_bytes = $col_arr['data_uncompressed_bytes'];
             $sum_uncompressed_bytes += $column_bytes;
@@ -582,16 +552,22 @@ class ClickHouseFunctions extends ClickHouseQuery
                 $rows_cnt = $col_rows_cnt;
                 $col_arr['rows_cnt'] = $col_rows_cnt;
             }
-            $columnts_arr[$col_name] = $col_arr;
+            $columns_arr[$col_name] = $col_arr;
             $fields_arr[$col_name] = $col_arr['type'];
         }
         $ret_arr = $this->getTableRowSize($fields_arr);
-        $ret_arr['table_name'] = $database . '.' . $table;
+        $ret_arr['table_name'] = $dbtb = $database . '.' . $table;
         $ret_arr['uncompressed_bytes'] = $sum_uncompressed_bytes;
         $ret_arr['compressed_bytes'] = $sum_compressed_bytes;
         $ret_arr['rows_cnt'] = is_null($rows_cnt) ? "Unknown" : $rows_cnt;
-        $ret_arr['columns_cnt'] = \count($columnts_arr);
-        $ret_arr['columns'] = $columnts_arr;
+        $ret_arr['columns_cnt'] = \count($columns_arr);
+        if ($extended_info) {
+            foreach (['tables', 'merges', 'parts', 'replicas'] as $sys) {
+                $ret_arr['system.'.$sys] = $this->queryTableSys($dbtb, $sys, ['d', 't', 'n']);
+            }
+        }
+        $ret_arr['columns'] = $columns_arr;
+
         return $ret_arr;
     }
 }
