@@ -565,7 +565,7 @@ class ClickHouseFunctions extends ClickHouseQuery
         $ret_arr['columns'] = $columns_arr;
         if ($extended_info) {
             foreach (['tables', 'merges', 'parts', 'replicas'] as $sys) {
-                $ret_arr['system.'.$sys] = $this->queryTableSys($dbtb, $sys, ['d', 't', 'n']);
+                $ret_arr['system.' . $sys] = $this->queryTableSys($dbtb, $sys, ['d', 't', 'n']);
             }
             $ret_arr['create'] = $this->queryValue("SHOW CREATE TABLE $dbtb");
         }
