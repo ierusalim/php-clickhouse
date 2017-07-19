@@ -590,12 +590,12 @@ class ClickHouseQuery extends ClickHouseAPI
      *
      * By default returns information from system.columns about specified table.
      *
-     * @param type $table Table name [db.]table (set into ['db','table','dbtb'] bindings)
-     * @param type $sql_pattern Pattern for SQL-request
-     * @param type $bindings Array with binding of values for patterns
-     * @param type $not_found_pattern Pattern for return if request got empty results
-     * @param type $columns_up Columns (from bindings) for move to up level of results
-     * @param type $colums_del Columns (from bindings) for delete from results
+     * @param string $table Table name [db.]table (set into ['db','table','dbtb'] bindings)
+     * @param string $sql_pattern Pattern for SQL-request
+     * @param array $bindings Array with binding of values for patterns
+     * @param string $not_found_pattern Pattern for return if request got empty results
+     * @param array $columns_up Columns (from bindings) for move to up level of results
+     * @param array $colums_del Columns (from bindings) for delete from results
      * @param string|null $keys_from_field null for set numeric keys in columns_arr
      * @return array|string Results in array or string with error described
      */
