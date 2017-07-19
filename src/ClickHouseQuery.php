@@ -429,7 +429,7 @@ class ClickHouseQuery extends ClickHouseAPI
      * @param string $sql
      * @param boolean $data_only
      * @param string|null $sess
-     * @return array|string
+     * @return array|string|false
      */
     public function queryFullArray($sql, $data_only = false, $sess = null)
     {
