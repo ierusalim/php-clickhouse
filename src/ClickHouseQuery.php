@@ -488,7 +488,7 @@ class ClickHouseQuery extends ClickHouseAPI
     /**
      * Inserting data into table
      *
-     * @param type $table_name Table name for inserting data
+     * @param string $table_name Table name for inserting data
      * @param array|null $fields_names Array with names of inserting fields
      * @param array $fields_set_arr Array with inserting data
      * @param string|null $sess session_id
