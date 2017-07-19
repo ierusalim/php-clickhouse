@@ -524,11 +524,12 @@ class ClickHouseFunctions extends ClickHouseQuery
     }
 
     /**
-     * Get information about $table_name from system.columns
-     *
-     * return array with extra info like [rows_cnt], [uncompressed_bytes], etc.
+     * Return information about $table_name from ClickHosue server system tables.
+     * - If $extended_info is false, do only one request from system.columns table
+     * - If $extended_info is true, try to grab all system information about table.
      *
      * @param string $table Table name [db.]table
+     * @param boolean $extended_info if false make 1 sql-query, if true 6 queries
      * @return array|string Results in array or string with error described
      */
     public function getTableInfo($table, $extended_info = true)
@@ -561,12 +562,13 @@ class ClickHouseFunctions extends ClickHouseQuery
         $ret_arr['compressed_bytes'] = $sum_compressed_bytes;
         $ret_arr['rows_cnt'] = is_null($rows_cnt) ? "Unknown" : $rows_cnt;
         $ret_arr['columns_cnt'] = \count($columns_arr);
+        $ret_arr['columns'] = $columns_arr;
         if ($extended_info) {
             foreach (['tables', 'merges', 'parts', 'replicas'] as $sys) {
                 $ret_arr['system.'.$sys] = $this->queryTableSys($dbtb, $sys, ['d', 't', 'n']);
             }
+            $ret_arr['create'] = $this->queryValue("SHOW CREATE TABLE $dbtb");
         }
-        $ret_arr['columns'] = $columns_arr;
 
         return $ret_arr;
     }
