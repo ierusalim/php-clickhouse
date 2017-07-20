@@ -7,14 +7,14 @@ namespace ierusalim\ClickHouse;
  * Functions are a wrapper for ClickHouseAPI and allow to easily send
  * sql-queries to ClickHouse server and parsing answering data.
  *
- *
  * Main query-functions for use:
  * - >queryTrue($sql, [post]) - Return false only if error, otherwise return true or data
  * - >queryFalse($sql, [post])- Return false only if NOT error, otherwise string with error.
  * - >queryValue($sql, [post]) - Send query and receive data in one string (false if error)
  * - >queryArray($sql) - for queries returning multi-rows data
  * - >queryKeyValues(see descr.) - for queries returning 2 columns key => value
- * - >queryInsert($table, $fields_arr, $fields_set) - for inserting data into table.
+ * - >queryInsertArray($table, $fields_names, $fields_set) - insert data into table
+ * - >queryInsertFile($table, $file, $structure) - insert data from file into table
  *
  * PHP Version >= 5.4
  *

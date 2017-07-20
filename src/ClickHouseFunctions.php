@@ -5,6 +5,22 @@ namespace ierusalim\ClickHouse;
 /**
  * This class contains functions for simple operations with ClickHouse
  *
+ * Functions:
+ * - >createTableQuick($table, $fields_arr) - create table with specified fields
+ * - >getTableFields($table [, $sess]) - returns [field_name=>field_type] array
+ * - >getTableInfo($table [, $extended]) - returns array with info about table
+ *
+ * - >getTablesList([$db] [,$pattern]) - returns tables list by SHOW TABLES request
+ *
+ * - >getDatabasesList() - returns array contained names of existing Databases
+ * - >setCurrentDatabase($db [, $sess]) - set current database by 'USE db' request
+ * - >getCurrentDatabase([$sess]) - return results of 'SELECT currentDatabase()'
+ *
+ * - >getVersion() - return version of ClickHouse server
+ * - >getUptime() - return server uptime in seconds
+ * - >getSystemSettings() - get information from system.settings as array [name=>value]
+ *
+ *
  * PHP Version >=5.4
  *
  * @package    ierusalim\ClickHouseFunctions
@@ -345,7 +361,7 @@ class ClickHouseFunctions extends ClickHouseQuery
     }
 
     /**
-     * Return as string version of ClickHouse server
+     * Return version of ClickHouse server
      *
      * @return string|boolean String version or false if error
      */
@@ -438,12 +454,13 @@ class ClickHouseFunctions extends ClickHouseQuery
      * Result Array is [Keys - field names] => [Values - field types]
      *
      * @param string $table Table name
+     * @param string|null $sess session_id
      * @return array|string Results in array or string with error described
      */
-    public function getTableFields($table)
+    public function getTableFields($table, $sess = null)
     {
         //DESCRIBE TABLE [db.]table
-        return $this->queryKeyValues("DESCRIBE TABLE $table");
+        return $this->queryKeyValues("DESCRIBE TABLE $table", null, $sess);
     }
 
     /**

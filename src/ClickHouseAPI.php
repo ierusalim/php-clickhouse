@@ -7,6 +7,18 @@ namespace ierusalim\ClickHouse;
  *
  * No dependency, nothing extra.
  *
+ * API functions:
+ * - >setServerUrl($url) - set ClickHouse server parameters by url (host, port, etc.)
+ * - >getQuery($h_query [, $sess]) - send GET request
+ * - >postQuery($h_query, $post_data [, $sess]) - send POST request
+ * Sessions functions:
+ * - >getSession() - get current session_id from options
+ * - >setSession([$sess]) - set session_id or generate new session_id
+ * Options functions:
+ * - >setOption($key, $value) - set http-option for requests
+ * - >getOption($key) - get http-option value
+ * - >delOption($key) - delete http-option (same ->setOption($key, null)
+ *
  * PHP Version >= 5.4
  *
  * This file is a part of packet php-clickhouse, but it may be used independently.
@@ -259,18 +271,18 @@ class ClickHouseAPI
      * Send Post API-query
      *
      * @param string|null $h_query
-     * @param array|string|null $post_fields
+     * @param array|string|null $post_data
      * @param string|null $sess
      * @param string|null $file
      * @return array
      */
     public function postQuery(
         $h_query = null,
-        $post_fields = null,
+        $post_data = null,
         $sess = null,
         $file = null
     ) {
-        return $this->doQuery($h_query, true, $post_fields, $sess, $file);
+        return $this->doQuery($h_query, true, $post_data, $sess, $file);
     }
 
     /**
@@ -278,7 +290,7 @@ class ClickHouseAPI
      *
      * @param string $query SQL-query for send to ClickHouse server
      * @param boolean $is_post true for send POST-request, false for GET
-     * @param array|string|null $post_fields for send in POST-request body
+     * @param array|string|null $post_data for send in POST-request body
      * @param string|null $session_id session_id
      * @param string|null $file file name (full name with path) for send
      * @return array
@@ -286,7 +298,7 @@ class ClickHouseAPI
     public function doQuery(
         $query = null,
         $is_post = false,
-        $post_fields = null,
+        $post_data = null,
         $session_id = null,
         $file = null
     ) {
@@ -320,7 +332,7 @@ class ClickHouseAPI
             $this->server_url,
             $h_parameters,
             $is_post,
-            $post_fields,
+            $post_data,
             $file
         );
 
@@ -338,7 +350,7 @@ class ClickHouseAPI
      * @param string $api_url Full URL of server
      * @param array $h_params Parameter after "?"
      * @param boolean $post_mode true for POST request, false for GET request
-     * @param array|string|null $post_fields Data for send in body of POST-request
+     * @param array|string|null $post_data Data for send in body of POST-request
      * @param string|null $file file name (full name with path) for send
      * @return array
      */
@@ -346,7 +358,7 @@ class ClickHouseAPI
         $api_url,
         $h_params,
         $post_mode = false,
-        $post_fields = null,
+        $post_data = null,
         $file = null
     ) {
         $api_url .= "?" . \http_build_query($h_params);
@@ -362,19 +374,19 @@ class ClickHouseAPI
         $ch = curl_init($api_url);
 
         if ($post_mode) {
-            if (empty($post_fields)) {
-                $post_fields = array();
+            if (empty($post_data)) {
+                $post_data = array();
             }
 
             if (!empty($file) && \file_exists($file)) {
                 if (function_exists('\curl_file_create')) {
-                    $post_fields['file'] = \curl_file_create($file);
+                    $post_data['file'] = \curl_file_create($file);
                 } else {
-                    $post_fields['file'] = "@$file;filename=" . basename($file);
+                    $post_data['file'] = "@$file;filename=" . basename($file);
                 }
             }
             \curl_setopt($ch, \CURLOPT_POST, true);
-            \curl_setopt($ch, \CURLOPT_POSTFIELDS, $post_fields);
+            \curl_setopt($ch, \CURLOPT_POSTFIELDS, $post_data);
         }
 
         \curl_setopt($ch, \CURLOPT_SSL_VERIFYPEER, false);
