@@ -507,7 +507,7 @@ class ClickHouseQuery extends ClickHouseAPI
         $fs = 'file_structure';
         $old_fs = $this->setOption($fs, $structure_excactly, true);
         $sql ="INSERT INTO $table SELECT * FROM file";
-        $ans = $this->doQuery($sql, true, [], null, $file);
+        $ans = $this->doQuery($sql, true, [], $sess, $file);
         $this->setOption($fs, $old_fs, true);
         return $ans;
     }
