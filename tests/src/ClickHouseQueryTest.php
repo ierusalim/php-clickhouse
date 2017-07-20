@@ -29,9 +29,9 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @covers ierusalim\ClickHouse\ClickHouseQuery::queryInsert
+     * @covers ierusalim\ClickHouse\ClickHouseQuery::queryInsertArray
      */
-    public function testQueryInsert()
+    public function testQueryInsertArray()
     {
         $ch = $this->object;
 
@@ -46,25 +46,25 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
             "ENGINE = MergeTree(dt, (b, dt), 8192)");
         $this->assertFalse($ans);
 
-        $arr = $ch->queryInsert($tmp, ['b', 'x'], ['a', 'hello-a']);
+        $arr = $ch->queryInsertArray($tmp, ['b', 'x'], ['a', 'hello-a']);
         $this->assertFalse($arr);
 
-        $arr = $ch->queryInsert($tmp, ['b', 'x'], [['b', 'hello-b']]);
+        $arr = $ch->queryInsertArray($tmp, ['b', 'x'], [['b', 'hello-b']]);
         $this->assertFalse($arr);
 
-        $arr = $ch->queryInsert($tmp, ['b', 'x'], [
+        $arr = $ch->queryInsertArray($tmp, ['b', 'x'], [
             ['c', 'hello-c'],
             ['d', 'hello-d']
         ]);
         $this->assertFalse($arr);
 
-        $arr = $ch->queryInsert($tmp, null, ['b'=>'e', 'x'=>'hello-e']);
+        $arr = $ch->queryInsertArray($tmp, null, ['b'=>'e', 'x'=>'hello-e']);
         $this->assertFalse($arr);
 
-        $arr = $ch->queryInsert($tmp, null, [['b'=>'f', 'x'=>'hello-f']]);
+        $arr = $ch->queryInsertArray($tmp, null, [['b'=>'f', 'x'=>'hello-f']]);
         $this->assertFalse($arr);
 
-        $arr = $ch->queryInsert($tmp, ['b','x','f'], [
+        $arr = $ch->queryInsertArray($tmp, ['b','x','f'], [
             ['b'=>'g', 'x'=>'hello-g'],
             ['b'=>'h', 'x'=>'hello-h'],
             ['b'=>'h', 'x'=>'hello-h', 'f'=>'ahha']
@@ -75,11 +75,11 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
         $this->assertTrue(count($arr)>7);
 
         // test bad parameters
-        $arr = $ch->queryInsert($tmp, ['b', 'x'], []);
+        $arr = $ch->queryInsertArray($tmp, ['b', 'x'], []);
 
         $this->setExpectedException("\Exception");
         $ch->names = null;
-        $arr = $ch->queryInsert($tmp, null, ['x', 'hello-x']);
+        $arr = $ch->queryInsertArray($tmp, null, ['x', 'hello-x']);
         $this->assertFalse($arr);
     }
 

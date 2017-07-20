@@ -289,7 +289,7 @@ class ClickHouseQuery extends ClickHouseAPI
             $sql = "SELECT $key_name_and_value_name FROM $tbl_or_sql";
         }
         $data = $this->queryStrings($sql, false, $sess);
-        
+
         if (!\is_array($data) || !\count($data) || !\strpos($data[0], "\t")) {
             return $data;
         }
@@ -481,12 +481,13 @@ class ClickHouseQuery extends ClickHouseAPI
     /**
      * Inserting data into table from file by one request.
      *
+     * TabSeparated format supported only
+     *
      * Low-level function, using undocumented features, be careful
      *
      * @param string $table Table for inserting data
      * @param string $file File for send
      * @param string $structure_excactly Structure of file exactly as in table
-     * @param string $file_format TabSeparated, JSONEachRow, etc.
      * @param string|null $sess session_id
      * @return array
      * @throws \Exception
@@ -495,7 +496,6 @@ class ClickHouseQuery extends ClickHouseAPI
         $table,
         $file,
         $structure_excactly = 'id UInt32, dt Date, s String',
-        $file_format = 'TabSeparated',
         $sess = null
     ) {
         if (empty($structure_excactly) || empty($table) || empty($file)) {
@@ -521,7 +521,7 @@ class ClickHouseQuery extends ClickHouseAPI
      * @return boolean|string Return false if ok, or string with error describe
      * @throws \Exception
      */
-    public function queryInsert($table_name, $fields_names, $fields_set_arr, $sess = null)
+    public function queryInsertArray($table_name, $fields_names, $fields_set_arr, $sess = null)
     {
         if (!\is_array($fields_set_arr) || !\count($fields_set_arr)) {
             return "Illegal parameters";
