@@ -299,7 +299,7 @@ class ClickHouseQuery extends ClickHouseAPI
                 break;
             }
             $i = strpos($s, "\t");
-            $ret[substr($s, 0, $i)] = substr($s, $i+1);
+            $ret[substr($s, 0, $i)] = substr($s, $i + 1);
         }
         return $ret;
     }
@@ -506,7 +506,7 @@ class ClickHouseQuery extends ClickHouseAPI
         }
         $fs = 'file_structure';
         $old_fs = $this->setOption($fs, $structure_excactly, true);
-        $sql ="INSERT INTO $table SELECT * FROM file";
+        $sql = "INSERT INTO $table SELECT * FROM file";
         $ans = $this->doQuery($sql, true, [], $sess, $file);
         $this->setOption($fs, $old_fs, true);
         return $ans;
@@ -560,7 +560,7 @@ class ClickHouseQuery extends ClickHouseAPI
         } else {
             $post_data = [];
             if (!$use_json_each_row && !is_array($fields_set_arr[0])) {
-                $fields_set_arr=[$fields_set_arr];
+                $fields_set_arr = [$fields_set_arr];
             }
             foreach ($fields_set_arr as $row_arr) {
                 if ($use_json_each_row) {
@@ -659,7 +659,7 @@ class ClickHouseQuery extends ClickHouseAPI
         $i = \strpos($table, '.');
         if ($i) {
             $db = \substr($table, 0, $i);
-            $table = \substr($table, $i+1);
+            $table = \substr($table, $i + 1);
         } else {
             $db = "currentDatabase()";
         }
@@ -680,7 +680,7 @@ class ClickHouseQuery extends ClickHouseAPI
                 $b = $bindings[$b];
                 $ret_arr[$b] = $columns_arr[0][$b];
             }
-            $ret_arr['columns_arr']=[];
+            $ret_arr['columns_arr'] = [];
             foreach ($columns_arr as $k => $col_arr) {
                 if (!empty($keys_from_field)) {
                     $k = $col_arr[$keys_from_field];
