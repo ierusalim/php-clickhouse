@@ -567,7 +567,7 @@ class ClickHouseQuery extends ClickHouseAPI
                     $post_data[] = \json_encode($row_arr);
                 } else {
                     $row_arr = array_map(
-                        function ($s) {
+                        function($s) {
                             return \addcslashes($s, "\t\\\n\0");
                         },
                         $row_arr);
@@ -617,7 +617,7 @@ class ClickHouseQuery extends ClickHouseAPI
      */
     public function bindPars($pattern, $bindings, $e_pre = '{', $e_pos = '}')
     {
-        $search_arr = array_map(function ($s) use ($e_pre, $e_pos) {
+        $search_arr = array_map(function($s) use ($e_pre, $e_pos) {
             return $e_pre . $s . $e_pos;
         }, array_keys($bindings));
         $replace_arr = array_values($bindings);
