@@ -486,7 +486,40 @@ class ClickHouseQuery extends ClickHouseAPI
     }
 
     /**
-     * Inserting data into table
+     * Inserting data into table from file by one request.
+     *
+     * Low-level function, using undocumented features, be careful
+     *
+     * @param string $table Table for inserting data
+     * @param string $file File for send
+     * @param string $structure_excactly Structure of file exactly as in table
+     * @param string $file_format TabSeparated, JSONEachRow, etc.
+     * @param string|null $sess session_id
+     * @return array
+     * @throws \Exception
+     */
+    public function queryInsertFile(
+        $table,
+        $file,
+        $structure_excactly = 'id UInt32, dt Date, s String',
+        $file_format = 'TabSeparated',
+        $sess = null
+    ) {
+        if(empty($structure_excactly) || empty($table) || empty($file)) {
+            throw new \Exception("Illegal parameter");
+        }
+        if(!is_file($file)) {
+            throw new \Exception("File not found");
+        }
+        $fs = 'file_structure';
+        $old_fs = $this->setOption($fs, $structure_excactly, true);
+        $sql ="INSERT INTO $table SELECT * FROM file";
+        $ans = $this->doQuery($sql,true,[],null, $file);
+        $this->setOption($fs, $old_fs, true);
+        return $ans;
+    }
+    /**
+     * Inserting data into table from array
      *
      * @param string $table_name Table name for inserting data
      * @param array|null $fields_names Array with names of inserting fields

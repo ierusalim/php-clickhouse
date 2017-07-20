@@ -185,6 +185,8 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
         $ch->setOption('user', 'default');
         $user = $ch->getOption('user');
         $this->assertEquals($user, 'default');
+        $user = $ch->setOption('user', null);
+        $this->assertFalse(isset($this->options['user']));
     }
 
     /**

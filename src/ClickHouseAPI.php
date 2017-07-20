@@ -410,7 +410,11 @@ class ClickHouseAPI
     {
         $old_value = isset($this->options[$key]) ? $this->options[$key] : null;
         if (is_null($old_value) || $overwrite) {
-            $this->options[$key] = $value;
+            if (is_null($value)) {
+                unset($this->options[$key]);
+            } else {
+                $this->options[$key] = $value;
+            }
         }
         return $old_value;
     }

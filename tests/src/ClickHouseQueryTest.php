@@ -95,6 +95,66 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
+     * @covers ierusalim\ClickHouse\ClickHouseQuery::queryInsertFile
+     * @todo   Implement testQueryInsertFile().
+     */
+    public function testQueryInsertFile()
+    {
+        $ch = $this->object;
+
+        $table = "anytabletmp";
+
+        $file = 'anyfile.txt';
+
+        $file_data = "1\t2017-12-12\tAny string data\n";
+        $file_data .= "2\t2017-12-11\tNext row\n";
+
+        $this->assertTrue(file_put_contents($file, $file_data)>0);
+
+        $structure_excactly = 'id UInt32, dt Date, s String';
+
+        $fs = "file_structure";
+
+        $this->assertFalse($ch->queryFalse("DROP TABLE IF EXISTS $table"));
+
+        $ans = $ch->queryFalse("CREATE TABLE $table" .
+            "( $structure_excactly )" .
+            "ENGINE = MergeTree(dt, (id, dt), 8192)");
+        $this->assertFalse($ans);
+
+        $ans = $ch->queryInsertFile($table, $file, $structure_excactly);
+        $this->assertEquals(200, $ans['code']);
+
+        $this->assertFalse(isset($ch->options[$fs]));
+
+        $ans = $ch->queryColumnTab("SELECT * FROM $table");
+
+        $this->assertEquals($file_data, implode("\n",$ans)."\n");
+
+        $ch->setOption($fs, 'What');
+        $ans = $ch->queryInsertFile($table, $file, $structure_excactly);
+        $this->assertEquals(200, $ans['code']);
+        $this->assertEquals("What", $ch->getOption($fs));
+        $ch->delOption($fs);
+
+        $this->assertFalse($ch->queryFalse("DROP TABLE $table"));
+        unlink($file);
+
+        $this->setExpectedException("\Exception");
+        // exception file not found
+        $ans = $ch->queryInsertFile($table, $file, $structure_excactly);
+    }
+
+    public function testQueryInsertFileBadpar()
+    {
+        $ch = $this->object;
+
+        $this->setExpectedException("\Exception");
+        // exception illegal parameters
+        $ans = $ch->queryInsertFile('table', '');
+    }
+
+    /**
      * @covers ierusalim\ClickHouse\ClickHouseQuery::queryFalse
      * @todo   Implement testQueryFalse().
      */
