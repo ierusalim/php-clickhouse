@@ -487,8 +487,8 @@ class ClickHouseQuery extends ClickHouseAPI
      *
      * @param string $table Table for inserting data
      * @param string $file File for send
-     * @param string $structure_excactly Structure of file exactly as in table
-     * @param string $selector any SELECT expressions *, field names, etc.
+     * @param string $file_structure Structure of file exactly as in table
+     * @param string $selector any SELECT expressions, field names, *, etc.
      * @param string|null $sess session_id
      * @return array
      * @throws \Exception
@@ -496,18 +496,18 @@ class ClickHouseQuery extends ClickHouseAPI
     public function queryInsertFile(
         $table,
         $file,
-        $structure_excactly = 'id UInt32, dt Date, s String',
+        $file_structure = 'id UInt32, dt Date, s String',
         $selector = '*',
         $sess = null
     ) {
-        if (empty($structure_excactly) || empty($table) || empty($file)) {
+        if (empty($file_structure) || empty($table) || empty($file)) {
             throw new \Exception("Illegal parameter");
         }
         if (!is_file($file)) {
             throw new \Exception("File not found");
         }
         $fs = 'file_structure';
-        $old_fs = $this->setOption($fs, $structure_excactly, true);
+        $old_fs = $this->setOption($fs, $file_structure, true);
         $sql = "INSERT INTO $table SELECT $selector FROM file";
         $ans = $this->doQuery($sql, true, [], $sess, $file);
         $this->setOption($fs, $old_fs, true);
