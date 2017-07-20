@@ -7,26 +7,21 @@ namespace ierusalim\ClickHouse;
  * Functions are a wrapper for ClickHouseAPI and allow to easily send
  * sql-queries to ClickHouse server and parsing answering data.
  *
+ *
+ * Main query-functions for use:
+ * - >queryTrue($sql, [post]) - Return false only if error, otherwise return true or data
+ * - >queryFalse($sql, [post])- Return false only if NOT error, otherwise string with error.
+ * - >queryValue($sql, [post]) - Send query and receive data in one string (false if error)
+ * - >queryArray($sql) - for queries returning multi-rows data
+ * - >queryKeyValues(see descr.) - for queries returning 2 columns key => value
+ * - >queryInsert($table, $fields_arr, $fields_set) - for inserting data into table.
+ *
  * PHP Version >= 5.4
  *
  * @package    ierusalim/php-clickhouse
  * @author     Alexander Jer <alex@ierusalim.com>
  * @copyright  2017, Ierusalim
  * @license    https://opensource.org/licenses/Apache-2.0 Apache-2.0
- *
- * This query-functions recommended for use:
- *
- *  ->queryTrue($sql, [post]) - Return true if no errors and no return data, false if error.
- *
- *  ->queryFalse($sql, [post])- Return false if not error, or string with error described.
- *
- *  ->queryValue($sql, [post]) - for queries returning data in one string
- *
- *  ->queryArray($sql) - for queries returning data as array
- *
- *  ->queryKeyValues(see descr.) - for queries returning 2 columns key => value
- *
- *  ->queryInsert($table, $fields_arr, $fields_set) - insert data into table.
  *
  */
 class ClickHouseQuery extends ClickHouseAPI
@@ -47,7 +42,7 @@ class ClickHouseQuery extends ClickHouseAPI
      *
      * @var array|null
      */
-    public $keys;
+    public $names;
 
     /**
      * Contains array with field-types from received meta-data
@@ -117,7 +112,9 @@ class ClickHouseQuery extends ClickHouseAPI
     public $totals;
 
     /**
-     * String contained last error which returned by CURL or in server response
+     * String contained last error which returned by CURL or server response
+     *
+     * Set by function queryValue
      *
      * @var string
      */
@@ -157,7 +154,7 @@ class ClickHouseQuery extends ClickHouseAPI
      * @param string            $sql SQL-request
      * @param string|array|null $post_data any POST-data or null for GET-request
      * @param string|null       $sess session_id
-     * @return boolean|string False if no errors | String error described
+     * @return boolean|string False if no errors | string if error with describe
      */
     public function queryFalse($sql, $post_data = [], $sess = null)
     {
@@ -175,12 +172,15 @@ class ClickHouseQuery extends ClickHouseAPI
      * Send POST-request if have post_data, send GET-request if no post_data
      *
      * Return string with results if ok, or false if error.
-     * Error describe available in $this->last_error_str
+     *
+     * Nuances:
+     * - Error describe available in $this->last_error_str (or empty string if no error)
+     * - To results are applied to the trim function (for removing \n from end)
      *
      * @param string            $sql SQL-request
      * @param array|string|null $post_data Post-data or Null for Get-request
      * @param string|null       $sess session_id
-     * @return boolean|string False if error | String with results
+     * @return boolean|string False if error | String with results if ok
      */
     public function queryValue($sql, $post_data = null, $sess = null)
     {
@@ -194,6 +194,7 @@ class ClickHouseQuery extends ClickHouseAPI
         }
 
         if ($ans['code'] == 200) {
+            $this->last_error_str = '';
             return isset($ans['response']) ? trim($ans['response']) : null;
         } else {
             $this->last_error_str = $ans['response'];
@@ -204,7 +205,7 @@ class ClickHouseQuery extends ClickHouseAPI
     /**
      * Return strings array (using TabSeparated-formats for data transfer)
      *
-     * If return more of one column, array strings need be explode by tab
+     * If results have more of one column, strings need be explode by tab
      *
      * If $with_names_types is true, first 2 strings of results in array
      *  contain names and types of returned columns.
@@ -216,23 +217,17 @@ class ClickHouseQuery extends ClickHouseAPI
      * @param string      $sql SQL-request
      * @param boolean     $with_names_types true for TabSeparatedWithNamesAndTypes
      * @param string|null $sess session_id
-     * @return array
+     * @return array|string Returns array if ok, or string with error describe
      */
-    public function queryColumnTab($sql, $with_names_types = false, $sess = null)
+    public function queryStrings($sql, $with_names_types = false, $sess = null)
     {
-        $data = $this->getQuery(
-            $sql .
+        $arr = $this->queryValue($sql .
             ' FORMAT TabSeparated' . ($with_names_types ? 'WithNamesAndTypes' : ''),
-            $sess);
-        if ($data['code'] != 200) {
-            return $data['response'];
-        }
-        $data = explode("\n", $data['response']);
-        $c = count($data);
-        if ($c && empty($data[$c - 1])) {
-            unset($data[$c - 1]);
-        }
-        return $data;
+            null, $sess);
+
+        $arr = (!$arr) ?: \explode("\n", $arr);
+
+        return is_array($arr) ? $arr : $this->last_error_str;
     }
 
     /**
@@ -247,7 +242,7 @@ class ClickHouseQuery extends ClickHouseAPI
      * @param string      $tbl_or_sql Table name (or SQL-request if next parameter is null)
      * @param string|null $key_and_value_fields field names, example: 'id,name'
      * @param string|null $sess session_id
-     * @return array
+     * @return array|string Returns array if ok, or string with error describe
      */
     public function queryKeyValues(
         $tbl_or_sql,
@@ -281,7 +276,7 @@ class ClickHouseQuery extends ClickHouseAPI
      * @param string $tbl_or_sql Table name or full sql request
      * @param string|null $key_name_and_value_name fields like 'id, name'
      * @param string|null $sess session_id
-     * @return array
+     * @return array|string Return array if ok, or string with error describe
      */
     public function queryKeyValArr(
         $tbl_or_sql,
@@ -293,7 +288,8 @@ class ClickHouseQuery extends ClickHouseAPI
         } else {
             $sql = "SELECT $key_name_and_value_name FROM $tbl_or_sql";
         }
-        $data = $this->queryColumnTab($sql, false, $sess);
+        $data = $this->queryStrings($sql, false, $sess);
+        
         if (!\is_array($data) || !\count($data) || !\strpos($data[0], "\t")) {
             return $data;
         }
@@ -309,13 +305,13 @@ class ClickHouseQuery extends ClickHouseAPI
     }
 
     /**
-     * Function for queries returning an array (like SELECT * ...)
+     * Function for queries returning multi-row data in array
      *
-     * Returned array have numeric_keys if $numeric_keys = true,
-     *  or have keys as returned field names (when $numeric_keys = false).
+     * Results array have numeric_keys if $numeric_keys = true,
+     * otherwise keys named as field names.
      *
      * Additional,
-     * - Information about field names available in $this->keys
+     * - Information about field names available in $this->names
      * - Information about field types available in $this->types
      *
      * If error, return non-array data (usually string with error description)
@@ -323,7 +319,7 @@ class ClickHouseQuery extends ClickHouseAPI
      * @param string $sql SQL-query
      * @param boolean $numeric_keys if true then array returning with numeric keys
      * @param string|null $sess session_id
-     * @return array
+     * @return array|string Returns array if ok, or string with error describe
      */
     public function queryArray($sql, $numeric_keys = false, $sess = null)
     {
@@ -355,14 +351,14 @@ class ClickHouseQuery extends ClickHouseAPI
      * @param string      $sql SQL request
      * @param boolean     $numeric_keys if true field names set as keys of results array
      * @param string|null $sess session_id
-     * @return array
+     * @return array|string Return array if ok, or string with error describe
      */
     public function queryArr($sql, $numeric_keys = false, $sess = null)
     {
         $this->extra = [];
         $this->totals = $this->meta = $this->types = null;
 
-        $data = $this->queryColumnTab($sql, !$numeric_keys, $sess);
+        $data = $this->queryStrings($sql, !$numeric_keys, $sess);
         if (!\is_array($data)) {
             return $data;
         }
@@ -382,7 +378,7 @@ class ClickHouseQuery extends ClickHouseAPI
                         $this->types = $x;
                     } else {
                         $keys = $x;
-                        $this->keys = $x;
+                        $this->names = $x;
                     }
                 } else {
                     $ret[] = \array_combine($keys, $x);
@@ -400,7 +396,7 @@ class ClickHouseQuery extends ClickHouseAPI
                         $this->totals = $this->extra[0];
                     }
                     if (\count($this->extra) == 2) {
-                        $this->extremes = array_combine(
+                        $this->extremes = \array_combine(
                             ['min', 'max'],
                             $this->extra);
                     }
@@ -419,40 +415,37 @@ class ClickHouseQuery extends ClickHouseAPI
     }
 
     /**
-     * Function for queries returning an array (like SELECT * ...)
+     * Sends a SQL query and returns data in an array in the format ClickHouse.
      *
      * The requested data is transmitted through the JSON format or JSONCompact.
      * - If $data_only flag is false, return full array with [meta],[data], etc.
      * - If $data_only is true, return only [data]-section from received array.
-     * - If got error, return non-array data (usually string error description)
+     * - If error return false
      *
-     * In $data_only mode using only JSONCompact format and returning data
-     *  array have numeric keys (but field names available in $this->keys array)
-     *
-     * When not $data_only mode, returning data-array have keys as field names.
+     * In $data_only=true then using JSONCompact and returning array with
+     *  numeric keys (but field names available in array $this->names)
      *
      * @param string $sql SQL-query
      * @param boolean $data_only if false return full array, if true only data-key
      * @param string|null $sess session_id
-     * @return array|string|false
+     * @return array|string Returns array if ok, or string with error describe
      */
     public function queryFullArray($sql, $data_only = false, $sess = null)
     {
-        $data = $this->getQuery($sql . ' FORMAT JSON' .
+        $arr = $this->queryValue($sql . ' FORMAT JSON' .
             (($this->json_compact || $data_only) ? 'Compact' : ''),
-            $sess
-            );
+            null, $sess);
 
-        $arr = ($data['code'] == 200) ? \json_decode($data['response'], true) : 0;
+        $arr = (!$arr) ?: \json_decode($arr, true);
 
         if (!is_array($arr)) {
-            return isset($data['response']) ? $data['response'] : false;
+            return $this->last_error_str;
         }
 
         foreach (['meta', 'statistics', 'extremes', 'rows', 'totals'] as $key) {
             $this->$key = isset($arr[$key]) ? $arr[$key] : null;
         }
-        $this->keys = $keys = (is_array($this->meta) && count($this->meta)) ?
+        $this->names = $keys = (is_array($this->meta) && count($this->meta)) ?
             array_column($this->meta, 'name') : null;
         $this->types = is_array($keys) ?
             array_column($this->meta, 'type') : null;
@@ -505,16 +498,16 @@ class ClickHouseQuery extends ClickHouseAPI
         $file_format = 'TabSeparated',
         $sess = null
     ) {
-        if(empty($structure_excactly) || empty($table) || empty($file)) {
+        if (empty($structure_excactly) || empty($table) || empty($file)) {
             throw new \Exception("Illegal parameter");
         }
-        if(!is_file($file)) {
+        if (!is_file($file)) {
             throw new \Exception("File not found");
         }
         $fs = 'file_structure';
         $old_fs = $this->setOption($fs, $structure_excactly, true);
         $sql ="INSERT INTO $table SELECT * FROM file";
-        $ans = $this->doQuery($sql,true,[],null, $file);
+        $ans = $this->doQuery($sql, true, [], null, $file);
         $this->setOption($fs, $old_fs, true);
         return $ans;
     }
@@ -525,13 +518,13 @@ class ClickHouseQuery extends ClickHouseAPI
      * @param array|null $fields_names Array with names of inserting fields
      * @param array $fields_set_arr Array with inserting data
      * @param string|null $sess session_id
-     * @return boolean|string Return false if ok, or string if error
+     * @return boolean|string Return false if ok, or string with error describe
      * @throws \Exception
      */
     public function queryInsert($table_name, $fields_names, $fields_set_arr, $sess = null)
     {
         if (!\is_array($fields_set_arr) || !\count($fields_set_arr)) {
-            return false;
+            return "Illegal parameters";
         }
 
         // Resolve $fields_arr
@@ -550,7 +543,7 @@ class ClickHouseQuery extends ClickHouseAPI
 
         if (\is_null($fields_names)) {
             if (!isset($in_arr_fields_arr)) {
-                $fields_names = $this->keys;
+                $fields_names = $this->names;
             } else {
                 $fields_names = $in_arr_fields_arr;
             }

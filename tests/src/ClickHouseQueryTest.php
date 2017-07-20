@@ -71,14 +71,14 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
         ]);
         $this->assertFalse($arr);
 
-        $arr = $ch->queryColumnTab("SELECT * FROM $tmp LIMIT 10");
+        $arr = $ch->queryStrings("SELECT * FROM $tmp LIMIT 10");
         $this->assertTrue(count($arr)>7);
 
         // test bad parameters
         $arr = $ch->queryInsert($tmp, ['b', 'x'], []);
 
         $this->setExpectedException("\Exception");
-        $ch->keys = null;
+        $ch->names = null;
         $arr = $ch->queryInsert($tmp, null, ['x', 'hello-x']);
         $this->assertFalse($arr);
     }
@@ -127,7 +127,7 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
 
         $this->assertFalse(isset($ch->options[$fs]));
 
-        $ans = $ch->queryColumnTab("SELECT * FROM $table");
+        $ans = $ch->queryStrings("SELECT * FROM $table");
 
         $this->assertEquals($file_data, implode("\n",$ans)."\n");
 
@@ -281,23 +281,23 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
 
         $ch->setOption("extremes", 1);
 
-        $arr = $ch->queryKeyValArr("system.settings", "name, value");
+        $arr = $ch->queryKeyValArr("system.settings", "*");
         $this->assertTrue(count($arr)>10);
 
         $err = $ch->queryKeyValArr("SELECT blablabla()");
         $this->assertFalse(is_array($err));
     }
     /**
-     * @covers ierusalim\ClickHouse\ClickHouseQuery::queryColumnTab
+     * @covers ierusalim\ClickHouse\ClickHouseQuery::queryStrings
      */
-    public function testQueryColumnTab()
+    public function testQueryStrings()
     {
         $ch = $this->object;
 
-        $arr = $ch->queryColumnTab("SELECT * FROM system.numbers LIMIT 100");
+        $arr = $ch->queryStrings("SELECT * FROM system.numbers LIMIT 100");
         $this->assertTrue(\count($arr)==100);
 
-        $str = $ch->queryColumnTab("SELECT * FROM notfoundtable LIMIT 1");
+        $str = $ch->queryStrings("SELECT * FROM notfoundtable LIMIT 1");
         $this->assertNotEquals(200, $ch->last_code);
     }
 
