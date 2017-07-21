@@ -665,7 +665,7 @@ class ClickHouseFunctions extends ClickHouseQuery
             if (empty($sql)) {
                 $sql = "RENAME TABLE ";
             } else {
-                $sql .=", ";
+                $sql .= ", ";
             }
             $sql .= "`$from_name` TO `$to_name`";
         }
