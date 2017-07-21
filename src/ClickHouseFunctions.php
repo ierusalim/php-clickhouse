@@ -224,7 +224,7 @@ class ClickHouseFunctions extends ClickHouseQuery
      * Each of field type may be specified in this formats:
      *  'Int16'      - String without spaces.
      *  'Int16 1234' - String field_type[space default_value]
-     *  ['field_type' [, 'default_value']] - array, for example
+     *   ['field_type' [, 'default_value']] - array, for example
      *    ['Int16', '1234'] - is same 'Int16 1234'.
      *
      * Data-types case insensitive and may be specified via aliases.
@@ -236,7 +236,7 @@ class ClickHouseFunctions extends ClickHouseQuery
      * @param string $table table name
      * @param array $fields_arr keys=field names => field_type[ def]
      * @param integer $if_exists If table exists: 2=drop old table, 1-do nothing, 0-ret error)
-     * @param string if not null, table will create with engine ReplacingMergeTree
+     * @param string $ver if not null, table will create with engine ReplacingMergeTree
      * @return boolean|string
      */
     public function createTableQuick($table, $fields_arr, $if_exists = 0, $ver = null)
@@ -299,12 +299,12 @@ class ClickHouseFunctions extends ClickHouseQuery
                 7 => '(',
                 8 => $date_field,
                 9 => ', (',
-               10 => $primary_field,
-               11 => ', ',
-               12 => $date_field,
-               13 => ')',
-               14 => ', 8192',
-               15 => ')'];
+                10 => $primary_field,
+                11 => ', ',
+                12 => $date_field,
+                13 => ')',
+                14 => ', 8192',
+                15 => ')'];
     }
 
     /**
