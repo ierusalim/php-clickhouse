@@ -28,7 +28,7 @@ send queries to ClickHouse server and parsing answering data.
 * **queryValue**($sql, [post]) - Send query and receive data in one string (false if error)
 * **queryArray**($sql) - for queries returning multi-rows data
 * **queryKeyValues**(see descr.) - for queries returning 2 columns key => value
-* **queryInsertArray**($table, $fields_names, $fields_set) - insert data into table
+* **queryInsertArray**($table, $fields_names, $fields_set) - insert data into table from array
 * **queryInsertFile**($table, $file, $structure) - insert data from file into table
 
 ### Class **ClickHouseFunctions**

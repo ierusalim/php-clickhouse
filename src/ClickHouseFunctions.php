@@ -321,9 +321,9 @@ class ClickHouseFunctions extends ClickHouseQuery
                 }
             }
 
-            // make $type_full, $default, $create strings from $create array
+            // make type_full, default, create strings from $create array
             $type_full = $type_src = $create[0];
-            // make $type_full, $type_name, $to_conv, $bytes (from $type_full)
+            // make type_full, type_name, to_conv, bytes (from type_full)
             $type_name = $to_conv = null;
             $bytes = $this->parseType($type_full, $type_name, $to_conv);
             if ($bytes === false) {
