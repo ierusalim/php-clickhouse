@@ -324,8 +324,8 @@ class ClickHouseFunctions extends ClickHouseQuery
             // make $type_full, $default, $create strings from $create array
             $type_full = $type_src = $create[0];
             // make $type_full, $type_name, $to_conv, $bytes (from $type_full)
-            $type_name = $to_conv = 0;
-            $bytes = $this->parseType($type_full, $type_name, $to_conv, $field_name);
+            $type_name = $to_conv = null;
+            $bytes = $this->parseType($type_full, $type_name, $to_conv);
             if ($bytes === false) {
                 throw new \Exception("Unrecognized data type '$type_full'");
             }
@@ -670,7 +670,7 @@ class ClickHouseFunctions extends ClickHouseQuery
         }
         $file_structure = [];
         $selector = [];
-        $type_name = $to_conv = '';
+        $type_name = $to_conv = null;
         $n = 0;
         foreach ($fields_arr as $field_name => $to_type) {
             $this->parseType($to_type, $type_name, $to_conv);
