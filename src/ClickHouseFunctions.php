@@ -638,6 +638,9 @@ class ClickHouseFunctions extends ClickHouseQuery
     }
 
     /**
+     * Send request-attached-file to ClickHouse-server and insert into table
+     *
+     * File must have TabSeparated format and number of columns must match the table.
      *
      * @param string $file File with TabSeparated data
      * @param string $table Table for inserting data
