@@ -649,15 +649,14 @@ class ClickHouseFunctions extends ClickHouseQuery
      */
     public function sendFileInsert($file, $table, $only_return_structure = false)
     {
-        if (empty($file) || !\is_file($file)) {
-            return "No file";
-        }
         $fields_arr = $this->getTableFields($table, false);
         if (!\is_array($fields_arr)) {
             return $fields_arr;
         }
         // Read first line from file
-        if ($f = @\fopen($file, 'r')) {
+        if (empty($file) || !\is_file($file) || !($f = \fopen($file, 'r'))) {
+            return "Can't read file $file";
+        } else {
             $fs = \fgets($f, 65535);
             \fclose($f);
             $fs = \explode("\t", trim($fs));
@@ -666,8 +665,6 @@ class ClickHouseFunctions extends ClickHouseQuery
                     count($fs) . ' col. found in first line of file, must have ' .
                     count($fields_arr) . " tab-separated columns (as in $table)";
             }
-        } else {
-            return "Can't read file $file";
         }
         $file_structure = [];
         $selector = [];
