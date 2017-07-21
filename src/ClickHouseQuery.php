@@ -202,14 +202,12 @@ class ClickHouseQuery extends ClickHouseAPI
 
     /**
      * Return strings array (using TabSeparated-formats for data transfer)
-     *
-     * If results have more of one column, strings need be explode by tab
-     *
-     * If $with_names_types is true, first 2 strings of results in array
-     *  contain names and types of returned columns.
+     * - If results have more of one column, strings need be explode by tab
+     * - If $with_names_types is true, first 2 strings of results
+     *   contains names and types of returned columns.
      *
      * Nuances:
-     * - Returned data not unescaped!
+     * - Returned data not unescaped
      * - If have option 'extreme' or 'WITH TOTALS' requires filtering extra lines
      *
      * @param string      $sql SQL-request

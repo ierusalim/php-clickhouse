@@ -353,6 +353,62 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
+     * @covers ierusalim\ClickHouse\ClickHouseFunctions::renameTable
+     */
+    public function testRenameTable()
+    {
+        $ch = $this->object;
+
+        $prefix = 'tempren';
+        $postfix = 'xxx';
+
+        $table_from = $prefix . 'from';
+        $table_next = $prefix . 'next';
+        $table_to = $prefix . 'to';
+
+        $ans = $ch->createTableQuick($table_from, [
+            'id' => 'Int16',
+            'dt' => ['Date', 'now()']
+        ], 2);
+        $this->assertFalse($ans);
+
+        $ans = $ch->renameTable($table_from, $table_to);
+
+        $arr = $ch->getTablesList(null, $table_to);
+        $this->assertEquals($table_to, $arr[0]);
+
+        $ans = $ch->createTableQuick($table_next, [
+            'id' => 'Int16',
+            'dt' => ['Date', 'now()']
+        ], 2);
+        $this->assertFalse($ans);
+
+        $arr = $ch->getTablesList(null, $prefix .'%');
+
+        $ren_arr = [];
+        foreach ($arr as $table) {
+            if (substr($table, -strlen($postfix)) != $postfix) {
+                $ren_arr[$table] = $table . $postfix;
+            }
+        }
+        $ans = $ch->renameTable($ren_arr);
+
+        $arr = $ch->getTablesList(null, $prefix . '%');
+        $drop_count = 0;
+        foreach ($arr as $drop_table) {
+            if (\substr($table, -\strlen($postfix)) != $postfix) {
+                $this->assertFalse($ch->dropTable($drop_table));
+                $drop_count++;
+            }
+        }
+        $this->assertGreaterThan(1, $drop_count);
+        $this->assertEquals(\count($arr), $drop_count);
+
+        // test bad param
+        $this->assertTrue(\is_string($ch->renameTable($table_from)));
+    }
+
+    /**
      * @covers ierusalim\ClickHouse\ClickHouseFunctions::clearTable
      */
     public function testClearTable()

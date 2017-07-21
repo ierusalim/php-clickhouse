@@ -39,6 +39,7 @@ contains functions for simple operations with ClickHouse.
 * **sendFileInsert**($file, $table) - send TabSeparated-file into table (structure autodetect)
 * **clearTable**($table [, $sess]) - clear table (DROP and re-create)
 * **dropTable**($table [, $sess]) - drop specified table
+* **renameTable**($from_name_or_arr [, $to_name] [, $sess]) - rename tables
 * **getTableFields**($table, ...) - returns [field_name=>field_type] array
 * **getTableInfo**($table [, $extended]) - returns array with info about table
 * **getTablesList**([$db] [,$pattern]) - returns tables list by SHOW TABLES request

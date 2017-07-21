@@ -10,6 +10,7 @@ namespace ierusalim\ClickHouse;
  * - >sendFileInsert($file, $table) - send TabSeparated-file into table
  * - >dropTable($table [, $sess]) - drop table
  * - >clearTable($table [, $sess]) - clear table (DROP and re-create)
+ * - >renameTable($from_name_or_arr [, $to_name] [, $sess]) - rename tables
  * - >getTableFields($table [, $sess]) - returns [field_name=>field_type] array
  * - >getTableInfo($table [, $extended]) - returns array with info about table
  *
@@ -442,13 +443,15 @@ class ClickHouseFunctions extends ClickHouseQuery
      *
      * @param string|null $name Database name
      * @param string|null $like_pattern pattern for search table, example: d%
+     * @param string|null $sess session_id
      * @return array|string Results in array or string with error description
      */
-    public function getTablesList($name = null, $like_pattern = null)
+    public function getTablesList($name = null, $like_pattern = null, $sess = null)
     {
         return $this->queryStrings('SHOW TABLES ' .
                     (empty($name) ? '' : $this->from . $name) .
-                    (empty($like_pattern) ? '' : " LIKE '$like_pattern'"));
+                    (empty($like_pattern) ? '' : " LIKE '$like_pattern'"),
+                    false, $sess);
     }
 
     /**
@@ -635,6 +638,38 @@ class ClickHouseFunctions extends ClickHouseQuery
         }
         $this->queryFalse("DROP TABLE IF EXISTS $table", [], $sess);
         return $this->queryFalse($create_request, [], $sess);
+    }
+
+    /**
+     * Rename one table(from_name, to_name) or array of tables
+     *
+     * To rename many tables with one query, need to set an array, example:
+     * - >renameTable(['from_name1' => 'to_name1', 'from_name2' => 'to_name2'])
+     *
+     * @param string|array $from_name_or_arr Old name or array [oldname=>newname,...]
+     * @param string|null $to_name New name, or ignored if first parameter is array
+     * @param string|null $sess session_id
+     * @return boolean|string Return false if ok, or string with error description
+     */
+    public function renameTable($from_name_or_arr, $to_name = null, $sess = null)
+    {
+        if (!\is_array($from_name_or_arr)) {
+            if (empty($to_name)) {
+                return "table name not specified";
+            } else {
+                $from_name_or_arr = [$from_name_or_arr => $to_name];
+            }
+        }
+        $sql = '';
+        foreach ($from_name_or_arr as $from_name => $to_name) {
+            if (empty($sql)) {
+                $sql = "RENAME TABLE ";
+            } else {
+                $sql .=", ";
+            }
+            $sql .= "`$from_name` TO `$to_name`";
+        }
+        return $this->queryFalse($sql, [], $sess);
     }
 
     /**
