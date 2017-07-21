@@ -600,7 +600,8 @@ class ClickHouseQuery extends ClickHouseAPI
         $lc = substr($str, -1);
         return (is_numeric($str) ||
            (($fc === '"' || $fc === "'") && ($fc === $lc)) ||
-           (($lc === ')' && strpos($str, '(') !== false))
+           (($lc === ')' && strpos($str, '(') !== false)) ||
+           (($fc === '[' && $lc ===']'))
         ) ? $str : $quote . addcslashes($str, "'\t\n\r\0") . $quote;
     }
 

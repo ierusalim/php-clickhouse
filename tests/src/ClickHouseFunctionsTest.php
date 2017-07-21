@@ -567,6 +567,16 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
             'bytes' => 1
         ]], $arr);
 
+        $arr = $ch->parseFieldsArr(['id' => ["Array(UInt8)",'[1]']]);
+        $this->assertEquals(['id' => [
+            'create' => "id Array(UInt8) DEFAULT [1]",
+            'type_full' => "Array(UInt8)",
+            'type_name' => 'Array',
+            'type_src' => "Array(UInt8)",
+            'default' => "[1]",
+            'bytes' => 0
+        ]], $arr);
+
         $this->setExpectedException("\Exception");
         $arr = $ch->parseFieldsArr(['id' => 'UnknownType']);
         $this->assertFalse("This line will not be executed");
