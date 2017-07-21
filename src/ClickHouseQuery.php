@@ -513,8 +513,7 @@ class ClickHouseQuery extends ClickHouseAPI
         $this->setOption($fs, $old_fs, true);
 
         // Return string if curl_error or server answer is not 200
-        return $ans['curl_error'] ?:
-            (($ans['code'] == 200) ? false : $ans['response']);
+        return $ans['curl_error'] ?: (($ans['code'] == 200) ? false : $ans['response']);
     }
     /**
      * Inserting data into table from array
@@ -558,7 +557,7 @@ class ClickHouseQuery extends ClickHouseAPI
         }
 
         $sql = "INSERT INTO $table_name (" . implode(",", $fields_names) . ") " .
-           "FORMAT " . ($use_json_each_row ? 'JSONEachRow' : 'TabSeparated');
+            "FORMAT " . ($use_json_each_row ? 'JSONEachRow' : 'TabSeparated');
 
         if (!isset($fields_set_arr[0])) {
             $post_data = [\json_encode($fields_set_arr)];

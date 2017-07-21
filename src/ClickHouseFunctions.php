@@ -93,7 +93,7 @@ class ClickHouseFunctions extends ClickHouseQuery
      *
      * @var array of $fields_arr about fields of tables
      */
-    public $table_structure_cached=[];
+    public $table_structure_cached = [];
 
     private $from = ' FROM '; // For stupid code analyzers
 
@@ -683,7 +683,7 @@ class ClickHouseFunctions extends ClickHouseQuery
             }
             if ($need_conv) {
                 if (($type_name == 'Date' || $type_name == 'DateTime') &&
-                    \is_numeric($fs[$n]) && $fs[$n]>65536) {
+                    \is_numeric($fs[$n]) && $fs[$n] > 65536) {
                     $from_type = 'UInt32';
                 } else {
                     $from_type = "String";
