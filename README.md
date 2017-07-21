@@ -74,17 +74,17 @@ contains functions for simple operations with ClickHouse.
         'email'  => 'string'
     ]);
     
-    $ch->queryInsert("temptab", null, [
+    $ch->queryInsertArray("temptab", null, [
         'id' => 1,
         'email' => 'noreply@github.com'
     ]);
     
-    $ch->queryInsert("temptab", ['id', 'email', 'name'], [
+    $ch->queryInsertArray("temptab", ['id', 'email', 'name'], [
         [2, 'reply@github.com', 'Andy'],
         [3, null , 'Donald'],
     ]);
 
-    $ch->queryInsert("temptab", null, [
+    $ch->queryInsertArray("temptab", null, [
         ['id'=>4, 'name'=>'Ronald', 'email'=>'no'],
         ['id'=>5, 'name'=>'', 'email'=>'yes'],
     ]);
