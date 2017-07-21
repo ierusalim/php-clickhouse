@@ -145,9 +145,9 @@ class ClickHouseFunctions extends ClickHouseQuery
      */
     public function changeIfIsAlias($type_src)
     {
-        static $aliases_arr = false;
+        static $aliases_arr = [];
         $t_lower = \strtolower($type_src);
-        if (!$aliases_arr || empty($type_src)) {
+        if (empty($aliases_arr) || empty($type_src)) {
             $aliases_arr = $this->types_aliases;
             foreach ($this->types_fix_size as $canon => $v) {
                 $aliases_arr[strtolower($canon)] = $canon;
@@ -519,13 +519,13 @@ class ClickHouseFunctions extends ClickHouseQuery
             $fields_arr = $table_or_fields_arr;
             $table_name = null;
         }
-        $dynamic_fields = 0;
-        $fixed_bytes = $comment = $this->countRowFixedSize($fields_arr, $dynamic_fields);
-        if (!\is_numeric($fixed_bytes)) {
+        $fixed_bytes = $this->countRowFixedSize($fields_arr);
+        if (!\is_array($fixed_bytes)) {
             return $fixed_bytes;
         }
+        \extract($fixed_bytes); // fixed_bytes, dynamic_fields
         $fixed_fields = \count($fields_arr) - $dynamic_fields;
-        $comment .= " bytes in $fixed_fields FIXED FIELDS, $dynamic_fields DYNAMIC FIELDS";
+        $comment = "$fixed_bytes bytes in $fixed_fields FIXED FIELDS, $dynamic_fields DYNAMIC FIELDS";
         return \compact('table_name', 'fixed_bytes', 'fixed_fields', 'dynamic_fields', 'comment');
     }
 
@@ -536,9 +536,9 @@ class ClickHouseFunctions extends ClickHouseQuery
      *
      * @param array $fields_arr Array [field_name]=>[field_type]
      * @param integer $dynamic_fields (by reference)
-     * @return integer|string Integer of fixed_bytes or string with error description
+     * @return array|string Array of [fixed_bytes,dynamic_fields] or string with error description
      */
-    public function countRowFixedSize($fields_arr, &$dynamic_fields = 0)
+    public function countRowFixedSize($fields_arr)
     {
         if (!\is_array($fields_arr) || !\count($fields_arr)) {
             return "Need array";
@@ -549,15 +549,15 @@ class ClickHouseFunctions extends ClickHouseQuery
         } catch (\Exception $e) {
             return $e->getMessage();
         }
-        $sum = 0;
+        $fixed_bytes = $dynamic_fields = 0;
         foreach (\array_column($parsed_arr, 'bytes') as $bytes) {
             if ($bytes) {
-                $sum += $bytes;
+                $fixed_bytes += $bytes;
             } else {
                 $dynamic_fields++;
             }
         }
-        return $sum;
+        return compact('fixed_bytes', 'dynamic_fields');
     }
 
     /**

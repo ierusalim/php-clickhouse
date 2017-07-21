@@ -601,7 +601,7 @@ class ClickHouseQuery extends ClickHouseAPI
         return (is_numeric($str) ||
            (($fc === '"' || $fc === "'") && ($fc === $lc)) ||
            (($lc === ')' && strpos($str, '(') !== false)) ||
-           (($fc === '[' && $lc ===']'))
+           (($fc === '[' && $lc === ']'))
         ) ? $str : $quote . addcslashes($str, "'\t\n\r\0") . $quote;
     }
 

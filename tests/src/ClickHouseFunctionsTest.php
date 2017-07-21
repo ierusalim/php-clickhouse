@@ -221,17 +221,17 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
     public function testCountRowFixedSize()
     {
         $ch = $this->object;
-        $dyna = 0;
-        $sum = $ch->countRowFixedSize(['int16', 'int32', 'int64', 'String'], $dyna);
-        $this->assertEquals(14, $sum);
-        $this->assertEquals(1, $dyna);
+        $fixed_bytes = $ch->countRowFixedSize(['int16', 'int32', 'int64', 'String']);
+        \extract($fixed_bytes); // fixed_bytes, dynamic_fields
+        $this->assertEquals(14, $fixed_bytes);
+        $this->assertEquals(1, $dynamic_fields);
 
         // exceptions
-        $sum = $ch->countRowFixedSize([]);
-        $this->assertTrue(is_string($sum));
+        $fixed_bytes = $ch->countRowFixedSize([]);
+        $this->assertTrue(is_string($fixed_bytes));
 
-        $sum = $ch->countRowFixedSize(['int16','badtype']);
-        $this->assertTrue(is_string($sum));
+        $fixed_bytes = $ch->countRowFixedSize(['int16','badtype']);
+        $this->assertTrue(is_string($fixed_bytes));
     }
 
     /**
