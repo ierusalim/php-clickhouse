@@ -293,10 +293,10 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
     {
         $ch = $this->object;
 
-        $sql = $ch->sqlTableQuick('temp', [
+        $sql = implode($ch->sqlTableQuick('temp', [
             'id' => 'Int16',
             'dt' => ['Date','now()']
-        ]);
+        ]));
 
         $this->assertEquals(
             'CREATE TABLE IF NOT EXISTS temp (' .
@@ -304,24 +304,12 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
             ') ENGINE = MergeTree(dt, (id, dt), 8192)',
         $sql);
 
-        $sql = $ch->sqlTableQuick('temp', [
-            'id' => 'Int16',
-            'dt' => ['Date','now()'],
-            'ver' => 'int'
-        ]);
-
-        $this->assertEquals(
-            'CREATE TABLE IF NOT EXISTS temp (' .
-            ' id Int16, dt DEFAULT toDate(now()), ver Int32 ' .
-            ') ENGINE = ReplacingMergeTree(dt, (id, dt), 8192 ,ver)',
-        $sql);
-
         $this->setExpectedException("\Exception");
         // No date field exception
-        $sql = $ch->sqlTableQuick('temp', [
+        $sql = implode($ch->sqlTableQuick('temp', [
             'id' => 'Int16',
             'dt' => ['Int32','toInt32(now())']
-        ]);
+        ]));
     }
 
     /**
@@ -506,9 +494,9 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
         $this->setExpectedException("\Exception");
 
         // No primary field
-        $sql = $ch->sqlTableQuick('temp', [
+        $sql = implode($ch->sqlTableQuick('temp', [
             'dt' => ['Int32','toInt32(now())']
-        ]);
+        ]));
         $this->assertFalse("This line will not be executed");
     }
 
@@ -530,6 +518,20 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
         $fields_arr = $ch->getTableFields($table);
 
         $this->assertEquals(['id'=>'Int16', 'dt'=>'Date'], $fields_arr);
+
+        $this->assertFalse($ch->dropTable($table));
+
+        $ans = $ch->createTableQuick($table, [
+            'id' => 'Int16',
+            'dt' => ['Date', 'now()'],
+            'ver' => 'UInt8'
+        ], 2);
+        $this->assertFalse($ans);
+
+        $engine = $ch->queryTableSys($table, "tables");
+        $this->assertEquals('ReplacingMergeTree', $engine['engine']);
+
+        $this->assertFalse($ch->dropTable($table));
 
         $ans = $ch->createTableQuick("broken'\nname", [
             'id' => 'Int16',

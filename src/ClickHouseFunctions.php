@@ -246,8 +246,15 @@ class ClickHouseFunctions extends ClickHouseQuery
                 return $ans;
             }
         }
-        $sql = $this->sqlTableQuick($table, $fields_arr, $if_exists);
-        return $this->queryFalse($sql);
+        $sql_arr = $this->sqlTableQuick($table, $fields_arr, $if_exists);
+
+        // If have field named "ver", then change engine to ReplacingMergeTree
+        if (isset($fields_arr['ver'])) {
+            $sql_arr[6] = "ReplacingMergeTree";
+            $sql_arr[14] .= " ,ver";
+        }
+
+        return $this->queryFalse(implode($sql_arr));
     }
 
     /**
@@ -260,7 +267,7 @@ class ClickHouseFunctions extends ClickHouseQuery
      * @param string $table_name Table name for make sql-request
      * @param array $fields_arr Array of fields for table
      * @param integer|boolean $if_not_exist set true for adding "IF NOT EXISTS"
-     * @return string
+     * @return array returned array need implode to string
      * @throws \Exception
      */
     public function sqlTableQuick($table_name, $fields_arr, $if_not_exist = 1)
@@ -283,21 +290,22 @@ class ClickHouseFunctions extends ClickHouseQuery
             throw new \Exception("Table must contain field 'Date' type");
         }
 
-        // If have field named "ver", then ReplacingMergeTree will be used
-        if (isset($fields_arr['ver'])) {
-            $engine = "ReplacingMergeTree";
-            $last_engine_par = ", 8192 ,ver";
-        } else {
-            $engine = "MergeTree";
-            $last_engine_par = ", 8192";
-        }
-
-        return
-            "CREATE TABLE " . ($if_not_exist ? 'IF NOT EXISTS ' : '') .
-            $table_name . ' ( ' .
-            implode(", ", \array_column($fields_arr, 'create')) .
-            ' ) ENGINE = ' . $engine .
-            "($date_field, ($primary_field, $date_field)$last_engine_par)";
+        return [0 => 'CREATE TABLE ' . ($if_not_exist ? 'IF NOT EXISTS ' : ''),
+                1 => $table_name,
+                2 => ' ( ',
+                3 => implode(", ", \array_column($fields_arr, 'create')),
+                4 => ' ) ',
+                5 => 'ENGINE = ',
+                6 => "MergeTree",
+                7 => '(',
+                8 => $date_field,
+                9 => ', (',
+               10 => $primary_field,
+               11 => ', ',
+               12 => $date_field,
+               13 => ')',
+               14 => ', 8192',
+               15 => ')'];
     }
 
     /**
