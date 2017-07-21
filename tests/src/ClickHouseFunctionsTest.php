@@ -323,6 +323,124 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
             'dt' => ['Int32','toInt32(now())']
         ]);
     }
+
+    /**
+     * @covers ierusalim\ClickHouse\ClickHouseFunctions::dropTable
+     */
+    public function testDropTable()
+    {
+        $ch = $this->object;
+
+        $table = 'testtbl123';
+
+        $ans = $ch->createTableQuick($table, [
+            'id' => 'Int16',
+            'dt' => ['Date', 'now()']
+        ], 2);
+        $this->assertFalse($ans);
+
+        $arr = $ch->queryInsertArray($table, ['id', 'dt'], [111, '2017-10-10']);
+        $this->assertFalse($arr);
+
+        $arr = $ch->queryValue("SELECT id FROM $table");
+        $this->assertEquals(111, $arr);
+
+        $ans = $ch->dropTable($table);
+        $this->assertFalse($ans);
+
+        $arr = $ch->queryValue("SELECT id FROM $table");
+        $this->assertFalse($arr);
+    }
+
+    /**
+     * @covers ierusalim\ClickHouse\ClickHouseFunctions::clearTable
+     */
+    public function testClearTable()
+    {
+        $ch = $this->object;
+
+        $table = 'testtbl123';
+
+        $ans = $ch->createTableQuick($table, [
+            'id' => 'Int16',
+            'dt' => ['Date', 'now()']
+        ], 2);
+        $this->assertFalse($ans);
+
+        $arr = $ch->queryInsertArray($table, ['id', 'dt'], [111, '2017-10-10']);
+        $this->assertFalse($arr);
+
+        $arr = $ch->queryValue("SELECT id FROM $table");
+        $this->assertEquals(111, $arr);
+
+        $ans = $ch->clearTable($table);
+        $this->assertFalse($ans);
+
+        $arr = $ch->queryInsertArray($table, ['id', 'dt'], [222, '2017-10-10']);
+        $this->assertFalse($arr);
+
+        $arr = $ch->queryValue("SELECT id FROM $table");
+        $this->assertEquals(222, $arr);
+
+        $ans = $ch->dropTable($table);
+        $this->assertFalse($ans);
+
+        $ans = $ch->clearTable('system.numbers');
+        $this->assertTrue(\is_string($ans));
+    }
+
+    /**
+     * @covers ierusalim\ClickHouse\ClickHouseFunctions::sendFileInsert
+     */
+    public function testSendFileInsert()
+    {
+        $ch = $this->object;
+
+        $table = 'testtbl123';
+
+        $file = '../forpost.txt';
+
+        $ans = $ch->createTableQuick($table, [
+            'id' => 'Int16',
+            'dt' => ['Date', 'now()'],
+            's' => 'String',
+            'when' => 'Date'
+        ], 2);
+        $this->assertFalse($ans);
+
+        $row = "\t2017-11-05\tString\t1500559231\n";
+        \file_put_contents($file, '1' . $row . '2'. $row);
+
+        $ans = $ch->sendFileInsert($file, $table, true);
+        $exp = [
+            'file_structure' => 'id Int16, dt String, s String, when UInt32',
+            'selector' => 'id, toDate(dt), s, toDate(when)'
+            ];
+        $this->assertEquals($exp, $ans);
+
+        $ans = $ch->sendFileInsert($file, $table);
+        $this->assertFalse($ans);
+
+        $ans = $ch->queryArr("SELECT * FROM $table LIMIT 10", true);
+        $exp = [[ 1	, '2017-11-05', 'String' , '2017-07-20'],
+                [ 2	, '2017-11-05', 'String' , '2017-07-20']];
+        $this->assertEquals($exp, $ans);
+
+        // test errors
+        $ans = $ch->sendFileInsert('','');
+        $this->assertTrue(is_string($ans));
+        $ans = $ch->sendFileInsert($file,'');
+        $this->assertTrue(is_string($ans));
+
+        $row = "\t2017-11-05\n";
+        \file_put_contents($file, '1' . $row . '2'. $row);
+        $ans = $ch->sendFileInsert($file, $table);
+        $this->assertTrue(is_string($ans));
+        \chmod($file, 0222);
+        $ans = $ch->sendFileInsert($file, $table);
+        $this->assertTrue(is_string($ans));
+        unlink($file);
+    }
     /**
      * @covers ierusalim\ClickHouse\ClickHouseFunctions::sqlTableQuick
      */

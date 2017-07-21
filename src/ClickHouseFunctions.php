@@ -7,6 +7,9 @@ namespace ierusalim\ClickHouse;
  *
  * Functions:
  * - >createTableQuick($table, $fields_arr) - create table with specified fields
+ * - >sendFileInsert($file, $table) - send TabSeparated-file into table
+ * - >dropTable($table [, $sess]) - drop table
+ * - >clearTable($table [, $sess]) - clear table (DROP and re-create)
  * - >getTableFields($table [, $sess]) - returns [field_name=>field_type] array
  * - >getTableInfo($table [, $extended]) - returns array with info about table
  *
@@ -81,6 +84,16 @@ class ClickHouseFunctions extends ClickHouseQuery
         'time' => 'DateTime',
         'enum' => 'Enum8',
     ];
+
+    /**
+     * Cached info about field names and types for known tables
+     *
+     * Set in function getTableFields($table)
+     * array keys is table names
+     *
+     * @var array of $fields_arr about fields of tables
+     */
+    public $table_structure_cached=[];
 
     private $from = ' FROM '; // For stupid code analyzers
 
@@ -353,7 +366,7 @@ class ClickHouseFunctions extends ClickHouseQuery
     /**
      * Return as Array [names=>values] data from system.settings table
      *
-     * @return array|string Array with results or String with error described
+     * @return array|string Array with results or String with error description
      */
     public function getSystemSettings()
     {
@@ -417,7 +430,7 @@ class ClickHouseFunctions extends ClickHouseQuery
     /**
      * Return Array contained names of Databases existing on ClickHouse server
      *
-     * @return array|string Array with results or String with error described
+     * @return array|string Array with results or String with error description
      */
     public function getDatabasesList()
     {
@@ -429,7 +442,7 @@ class ClickHouseFunctions extends ClickHouseQuery
      *
      * @param string|null $name Database name
      * @param string|null $like_pattern pattern for search table, example: d%
-     * @return array|string Results in array or string with error describe
+     * @return array|string Results in array or string with error description
      */
     public function getTablesList($name = null, $like_pattern = null)
     {
@@ -441,7 +454,7 @@ class ClickHouseFunctions extends ClickHouseQuery
     /**
      * Get results of request "SHOW PROCESSLIST"
      *
-     * @return array|string Results in array or string with error described
+     * @return array|string Results in array or string with error description
      */
     public function getProcessList()
     {
@@ -454,13 +467,18 @@ class ClickHouseFunctions extends ClickHouseQuery
      * Result Array is [Keys - field names] => [Values - field types]
      *
      * @param string $table Table name
+     * @param boolean $renew_cache True - send query on server, false - can return from cache
      * @param string|null $sess session_id
-     * @return array|string Results in array or string with error described
+     * @return array|string Results in array or string with error description
      */
-    public function getTableFields($table, $sess = null)
+    public function getTableFields($table, $renew_cache = true, $sess = null)
     {
         //DESCRIBE TABLE [db.]table
-        return $this->queryKeyValues("DESCRIBE TABLE $table", null, $sess);
+        if ($renew_cache || !isset($this->table_structure_cached[$table])) {
+            $this->table_structure_cached[$table] =
+                $this->queryKeyValues("DESCRIBE TABLE $table", null, $sess);
+        }
+        return $this->table_structure_cached[$table];
     }
 
     /**
@@ -468,7 +486,7 @@ class ClickHouseFunctions extends ClickHouseQuery
      *
      * @param integer $lim Limit of numbers
      * @param boolean $use_mt true for using table system.numbers_mt
-     * @return array|string Results in array or string with error described
+     * @return array|string Results in array or string with error description
      */
     public function getNumbers($lim = 100, $use_mt = false)
     {
@@ -516,7 +534,7 @@ class ClickHouseFunctions extends ClickHouseQuery
      *
      * @param array $fields_arr Array [field_name]=>[field_type]
      * @param integer $dynamic_fields (by reference)
-     * @return integer|string Integer of fixed_bytes or string with error described
+     * @return integer|string Integer of fixed_bytes or string with error description
      */
     public function countRowFixedSize($fields_arr, &$dynamic_fields = 0)
     {
@@ -546,10 +564,10 @@ class ClickHouseFunctions extends ClickHouseQuery
      * - If $extended_info is true, try to grab all system information about table.
      *
      * @param string $table Table name [db.]table
-     * @param boolean $extended_info if false make 1 sql-query, if true 6 queries
-     * @return array|string Results in array or string with error described
+     * @param boolean $extended if false make 1 sql-query, if true 6 queries
+     * @return array|string Results in array or string with error description
      */
-    public function getTableInfo($table, $extended_info = true)
+    public function getTableInfo($table, $extended = true)
     {
         $columns_arr = $this->queryTableSubstract($table);
         if (!is_array($columns_arr)) {
@@ -580,7 +598,7 @@ class ClickHouseFunctions extends ClickHouseQuery
         $ret_arr['rows_cnt'] = is_null($rows_cnt) ? "Unknown" : $rows_cnt;
         $ret_arr['columns_cnt'] = \count($columns_arr);
         $ret_arr['columns'] = $columns_arr;
-        if ($extended_info) {
+        if ($extended) {
             foreach (['tables', 'merges', 'parts', 'replicas'] as $sys) {
                 $ret_arr['system.' . $sys] = $this->queryTableSys($dbtb, $sys, ['d', 't', 'n']);
             }
@@ -588,5 +606,100 @@ class ClickHouseFunctions extends ClickHouseQuery
         }
 
         return $ret_arr;
+    }
+
+    /**
+     * Drop table
+     *
+     * @param string $table [db.]table for drop
+     * @param string|null $sess session_id
+     * @return boolean|string Return false if ok, or string with error description
+     */
+    public function dropTable($table, $sess = null)
+    {
+        return $this->queryFalse("DROP TABLE $table", [], $sess);
+    }
+
+    /**
+     * Clear table (DROP and CREATE by creation request)
+     *
+     * @param string $table [db.]table for drop and re-create
+     * @param string|null $sess session_id
+     * @return boolean|string Return false if ok, or string with error description
+     */
+    public function clearTable($table, $sess = null)
+    {
+        $create_request = $this->queryValue("SHOW CREATE TABLE $table", null, $sess);
+        if ($create_request === false) {
+            return "Can't clear '$table' because no information about its creation.";
+        }
+        $this->queryFalse("DROP TABLE IF EXISTS $table", [], $sess);
+        return $this->queryFalse($create_request, [], $sess);
+    }
+
+    /**
+     *
+     * @param string $file File with TabSeparated data
+     * @param string $table Table for inserting data
+     * @param boolean $only_return_structure Do not send file if true, only return par.
+     * @return boolean|string Return false if ok, or string with error description
+     */
+    public function sendFileInsert($file, $table, $only_return_structure = false)
+    {
+        if (empty($file) || !\is_file($file)) {
+            return "No file";
+        }
+        $fields_arr = $this->getTableFields($table, false);
+        if (!\is_array($fields_arr)) {
+            return $fields_arr;
+        }
+        // Read first line from file
+        if ($f = \fopen($file, 'r')) {
+            $fs = \fgets($f, 65535);
+            \fclose($f);
+            $fs = \explode("\t", trim($fs));
+            if (\count($fs) != \count($fields_arr)) {
+                return "Can't autodetect format $file , " .
+                    count($fs) . ' col. found in first line of file, must have ' .
+                    count($fields_arr) . " tab-separated columns (as in $table)";
+            }
+        } else {
+            return "Can't read file $file";
+        }
+        $file_structure = [];
+        $selector = [];
+        $type_name = $to_conv = '';
+        $n = 0;
+        foreach ($fields_arr as $field_name => $to_type) {
+            $bytes = $this->parseType($to_type, $type_name, $to_conv);
+            if (\strpos($type_name, 'Int') !== false && \is_numeric($fs[$n])) {
+                $need_conv = false;
+            } elseif ($type_name !== 'String') {
+                $need_conv = \is_array($to_conv);
+            } else {
+                $need_conv = false;
+            }
+            if ($need_conv) {
+                if (($type_name == 'Date' || $type_name == 'DateTime') &&
+                    \is_numeric($fs[$n]) && $fs[$n]>65536) {
+                    $from_type = 'UInt32';
+                } else {
+                    $from_type = "String";
+                }
+                $sel = $to_conv[0] . $field_name . $to_conv[1];
+            } else {
+                $from_type = $to_type;
+                $sel = $field_name;
+            }
+            $selector[] = $sel;
+            $file_structure[] = $field_name . ' ' . $from_type;
+            $n++;
+        }
+        $file_structure = \implode(", ", $file_structure);
+        $selector = \implode(', ', $selector);
+        if ($only_return_structure) {
+            return \compact('file_structure', 'selector');
+        }
+        return $this->queryInsertFile($table, $file, $file_structure, $selector);
     }
 }

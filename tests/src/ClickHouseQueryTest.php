@@ -123,7 +123,7 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
         $this->assertFalse($ans);
 
         $ans = $ch->queryInsertFile($table, $file, $structure_excactly);
-        $this->assertEquals(200, $ans['code']);
+        $this->assertFalse($ans);
 
         $this->assertFalse(isset($ch->options[$fs]));
 
@@ -133,7 +133,7 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
 
         $ch->setOption($fs, 'What');
         $ans = $ch->queryInsertFile($table, $file, $structure_excactly);
-        $this->assertEquals(200, $ans['code']);
+        $this->assertFalse($ans);
         $this->assertEquals("What", $ch->getOption($fs));
         $ch->delOption($fs);
 

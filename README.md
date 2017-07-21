@@ -36,8 +36,11 @@ Class **ClickHouseFunctions** based on ClickHouseQuery and ClickHouseAPI and
 contains functions for simple operations with ClickHouse.
 #### Functions:
 * **createTableQuick**($table, $fields_arr) - create table with specified fields
-* **getTableFields**($table) - returns [field_name=>field_type] array
-* **getTableInfo**($table) - returns array with info about table
+* **sendFileInsert**($file, $table) - send TabSeparated-file into table (structure autodetect)
+* **clearTable**($table [, $sess]) - clear table (DROP and re-create)
+* **dropTable**($table [, $sess]) - drop specified table
+* **getTableFields**($table, ...) - returns [field_name=>field_type] array
+* **getTableInfo**($table [, $extended]) - returns array with info about table
 * **getTablesList**([$db] [,$pattern]) - returns tables list by SHOW TABLES request
 * **getDatabasesList**() - returns array contained names of existing Databases
 * **setCurrentDatabase**($db [, $sess]) - set current database by 'USE db' request

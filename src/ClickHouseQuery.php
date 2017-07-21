@@ -217,7 +217,7 @@ class ClickHouseQuery extends ClickHouseAPI
      * @param string      $sql SQL-request
      * @param boolean     $with_names_types true for TabSeparatedWithNamesAndTypes
      * @param string|null $sess session_id
-     * @return array|string Returns array if ok, or string with error describe
+     * @return array|string Returns array if ok, or string with error description
      */
     public function queryStrings($sql, $with_names_types = false, $sess = null)
     {
@@ -242,7 +242,7 @@ class ClickHouseQuery extends ClickHouseAPI
      * @param string      $tbl_or_sql Table name (or SQL-request if next parameter is null)
      * @param string|null $key_and_value_fields field names, example: 'id,name'
      * @param string|null $sess session_id
-     * @return array|string Returns array if ok, or string with error describe
+     * @return array|string Returns array if ok, or string with error description
      */
     public function queryKeyValues(
         $tbl_or_sql,
@@ -276,7 +276,7 @@ class ClickHouseQuery extends ClickHouseAPI
      * @param string $tbl_or_sql Table name or full sql request
      * @param string|null $key_name_and_value_name fields like 'id, name'
      * @param string|null $sess session_id
-     * @return array|string Return array if ok, or string with error describe
+     * @return array|string Return array if ok, or string with error description
      */
     public function queryKeyValArr(
         $tbl_or_sql,
@@ -319,7 +319,7 @@ class ClickHouseQuery extends ClickHouseAPI
      * @param string $sql SQL-query
      * @param boolean $numeric_keys if true then array returning with numeric keys
      * @param string|null $sess session_id
-     * @return array|string Returns array if ok, or string with error describe
+     * @return array|string Returns array if ok, or string with error description
      */
     public function queryArray($sql, $numeric_keys = false, $sess = null)
     {
@@ -351,7 +351,7 @@ class ClickHouseQuery extends ClickHouseAPI
      * @param string      $sql SQL request
      * @param boolean     $numeric_keys if true field names set as keys of results array
      * @param string|null $sess session_id
-     * @return array|string Return array if ok, or string with error describe
+     * @return array|string Return array if ok, or string with error description
      */
     public function queryArr($sql, $numeric_keys = false, $sess = null)
     {
@@ -428,7 +428,7 @@ class ClickHouseQuery extends ClickHouseAPI
      * @param string $sql SQL-query
      * @param boolean $data_only if false return full array, if true only data-key
      * @param string|null $sess session_id
-     * @return array|string Returns array if ok, or string with error describe
+     * @return array|string Returns array if ok, or string with error description
      */
     public function queryFullArray($sql, $data_only = false, $sess = null)
     {
@@ -487,7 +487,7 @@ class ClickHouseQuery extends ClickHouseAPI
      *
      * @param string $table Table for inserting data
      * @param string $file File for send
-     * @param string $file_structure Structure of file exactly as in table
+     * @param string $file_structure Structure of file columns
      * @param string $selector any SELECT expressions, field names, *, etc.
      * @param string|null $sess session_id
      * @return array
@@ -511,7 +511,10 @@ class ClickHouseQuery extends ClickHouseAPI
         $sql = "INSERT INTO $table SELECT $selector FROM file";
         $ans = $this->doQuery($sql, true, [], $sess, $file);
         $this->setOption($fs, $old_fs, true);
-        return $ans;
+
+        // Return string if curl_error or server answer is not 200
+        return $ans['curl_error'] ?:
+            (($ans['code'] == 200) ? false : $ans['response']);
     }
     /**
      * Inserting data into table from array
@@ -520,7 +523,7 @@ class ClickHouseQuery extends ClickHouseAPI
      * @param array|null $fields_names Array with names of inserting fields
      * @param array $fields_set_arr Array with inserting data
      * @param string|null $sess session_id
-     * @return boolean|string Return false if ok, or string with error describe
+     * @return boolean|string Return false if ok, or string with error description
      * @throws \Exception
      */
     public function queryInsertArray($table_name, $fields_names, $fields_set_arr, $sess = null)
@@ -641,7 +644,7 @@ class ClickHouseQuery extends ClickHouseAPI
      * @param array $colums_del Columns (from bindings) for delete from results
      * @param string|null $keys_from_field null for set numeric keys in columns_arr
      * @param string|null $sess session_id
-     * @return array|string Results in array or string with error described
+     * @return array|string Results in array or string with error description
      */
     public function queryTableSubstract(
         $table,
@@ -712,7 +715,7 @@ class ClickHouseQuery extends ClickHouseAPI
      * @param string $table Table name [db.]table
      * @param string $sys Table in system database, by default 'system.tables'
      * @param array $columns_del Array with columns aliases to remove from results
-     * @return array|string Return results array or string with error described.
+     * @return array|string Return results array or string with error description.
      */
     public function queryTableSys($table, $sys = 'tables', $columns_del = ['n'])
     {
