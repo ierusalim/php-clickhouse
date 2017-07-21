@@ -184,10 +184,8 @@ class ClickHouseQuery extends ClickHouseAPI
      */
     public function queryValue($sql, $post_data = null, $sess = null)
     {
-        // Do query
         $ans = $this->anyQuery($sql, $post_data, $sess);
 
-        // Return false if error
         if (!empty($ans['curl_error'])) {
             $this->last_error_str = $ans['curl_error'];
             return false;
@@ -447,7 +445,7 @@ class ClickHouseQuery extends ClickHouseAPI
         }
         $this->names = $keys = (is_array($this->meta) && count($this->meta)) ?
             array_column($this->meta, 'name') : null;
-        $this->types = is_array($keys) ?
+        $this->types = (\is_array($keys) && \is_array($this->meta)) ?
             array_column($this->meta, 'type') : null;
 
         if ($this->json_compact && !empty($keys)) {
