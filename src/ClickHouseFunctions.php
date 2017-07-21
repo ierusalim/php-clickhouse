@@ -281,8 +281,9 @@ class ClickHouseFunctions extends ClickHouseQuery
 
         $primary_field = \key($fields_arr);
         foreach ($fields_arr as $field_name => $field_par) {
-            if ($field_par['type_name'] === 'Date' && empty($date_field)) {
+            if ($field_par['type_name'] === 'Date') {
                 $date_field = $field_name;
+                break;
             }
         }
         if (empty($date_field)) {
