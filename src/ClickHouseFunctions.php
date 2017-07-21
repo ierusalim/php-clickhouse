@@ -236,9 +236,10 @@ class ClickHouseFunctions extends ClickHouseQuery
      * @param string $table table name
      * @param array $fields_arr keys=field names => field_type[ def]
      * @param integer $if_exists If table exists: 2=drop old table, 1-do nothing, 0-ret error)
+     * @param string if not null, table will create with engine ReplacingMergeTree
      * @return boolean|string
      */
-    public function createTableQuick($table, $fields_arr, $if_exists = 0)
+    public function createTableQuick($table, $fields_arr, $if_exists = 0, $ver = null)
     {
         if ($if_exists == 2) {
             $ans = $this->queryFalse("DROP TABLE IF EXISTS $table");
@@ -249,12 +250,12 @@ class ClickHouseFunctions extends ClickHouseQuery
         $sql_arr = $this->sqlTableQuick($table, $fields_arr, $if_exists);
 
         // If have field named "ver", then change engine to ReplacingMergeTree
-        if (isset($fields_arr['ver'])) {
-            $sql_arr[6] = "ReplacingMergeTree";
-            $sql_arr[14] .= " ,ver";
+        if (!\is_null($ver)) {
+            $sql_arr[6] = 'ReplacingMergeTree';
+            $sql_arr[14] .= $ver;
         }
 
-        return $this->queryFalse(implode($sql_arr));
+        return $this->queryFalse(\implode($sql_arr));
     }
 
     /**
@@ -272,16 +273,14 @@ class ClickHouseFunctions extends ClickHouseQuery
      */
     public function sqlTableQuick($table_name, $fields_arr, $if_not_exist = 1)
     {
-        if (!is_array($fields_arr) || count($fields_arr) < 2) {
+        if (!\is_array($fields_arr) || \count($fields_arr) < 2) {
             throw new \Exception("Table must contain as least 1 field");
         }
 
         $fields_arr = $this->parseFieldsArr($fields_arr);
 
+        $primary_field = \key($fields_arr);
         foreach ($fields_arr as $field_name => $field_par) {
-            if (empty($primary_field)) {
-                $primary_field = $field_name;
-            }
             if ($field_par['type_name'] === 'Date' && empty($date_field)) {
                 $date_field = $field_name;
             }
