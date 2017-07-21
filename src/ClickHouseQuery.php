@@ -490,7 +490,7 @@ class ClickHouseQuery extends ClickHouseAPI
      * @param string $file_structure Structure of file columns
      * @param string $selector any SELECT expressions, field names, *, etc.
      * @param string|null $sess session_id
-     * @return array
+     * @return boolean|string Return false if ok, or string with error description
      * @throws \Exception
      */
     public function queryInsertFile(

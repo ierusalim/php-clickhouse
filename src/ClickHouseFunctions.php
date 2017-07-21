@@ -642,7 +642,7 @@ class ClickHouseFunctions extends ClickHouseQuery
      * @param string $file File with TabSeparated data
      * @param string $table Table for inserting data
      * @param boolean $only_return_structure Do not send file if true, only return par.
-     * @return boolean|string Return false if ok, or string with error description
+     * @return boolean|string|array Return false if ok, or string with error description
      */
     public function sendFileInsert($file, $table, $only_return_structure = false)
     {
@@ -671,7 +671,7 @@ class ClickHouseFunctions extends ClickHouseQuery
         $type_name = $to_conv = '';
         $n = 0;
         foreach ($fields_arr as $field_name => $to_type) {
-            $bytes = $this->parseType($to_type, $type_name, $to_conv);
+            $this->parseType($to_type, $type_name, $to_conv);
             if (\strpos($type_name, 'Int') !== false && \is_numeric($fs[$n])) {
                 $need_conv = false;
             } elseif ($type_name !== 'String') {
