@@ -654,7 +654,7 @@ class ClickHouseFunctions extends ClickHouseQuery
             return $fields_arr;
         }
         // Read first line from file
-        if ($f = \fopen($file, 'r')) {
+        if ($f = @\fopen($file, 'r')) {
             $fs = \fgets($f, 65535);
             \fclose($f);
             $fs = \explode("\t", trim($fs));
