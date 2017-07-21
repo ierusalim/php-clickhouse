@@ -519,13 +519,17 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
 
         $this->assertEquals(['id'=>'Int16', 'dt'=>'Date'], $fields_arr);
 
+
+        $engine = $ch->queryTableSys($table, "tables");
+        $this->assertEquals('MergeTree', $engine['engine']);
+
         $this->assertFalse($ch->dropTable($table));
 
         $ans = $ch->createTableQuick($table, [
             'id' => 'Int16',
             'dt' => ['Date', 'now()'],
             'ver' => 'UInt8'
-        ], 2);
+        ], 2, ', ver');
         $this->assertFalse($ans);
 
         $engine = $ch->queryTableSys($table, "tables");
