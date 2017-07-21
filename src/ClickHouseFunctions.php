@@ -232,8 +232,8 @@ class ClickHouseFunctions extends ClickHouseQuery
      *  in this case expression used exactly as specified.
      *  Example: 'Int16 DEFAULT 123+5'
      *
-     * @param string  $table table name
-     * @param array   $fields_arr keys=field names => field_type[ def]
+     * @param string $table table name
+     * @param array $fields_arr keys=field names => field_type[ def]
      * @param integer $if_exists If table exists: 2=drop old table, 1-do nothing, 0-ret error)
      * @return boolean|string
      */
@@ -256,9 +256,9 @@ class ClickHouseFunctions extends ClickHouseQuery
      *
      * If $if_not_exist not empty, "IF NOT EXISTS" will be included in request.
      *
-     * @param string          $table_name
-     * @param array           $fields_arr
-     * @param integer|boolean $if_not_exist
+     * @param string $table_name Table name for make sql-request
+     * @param array $fields_arr Array of fields for table
+     * @param integer|boolean $if_not_exist set true for adding "IF NOT EXISTS"
      * @return string
      * @throws \Exception
      */
@@ -268,10 +268,8 @@ class ClickHouseFunctions extends ClickHouseQuery
             throw new \Exception("Table must contain as least 1 field");
         }
 
-        // Parse fields array and check types
         $fields_arr = $this->parseFieldsArr($fields_arr);
 
-        // Search Date field
         foreach ($fields_arr as $field_name => $field_par) {
             if (empty($primary_field)) {
                 $primary_field = $field_name;
