@@ -638,7 +638,7 @@ class ClickHouseFunctions extends ClickHouseQuery
     }
 
     /**
-     * Send request-attached-file to ClickHouse-server and insert into table
+     * Send file to ClickHouse-server and insert into table
      *
      * File must have TabSeparated format and number of columns must match the table.
      *
@@ -659,11 +659,11 @@ class ClickHouseFunctions extends ClickHouseQuery
         } else {
             $fs = \fgets($f, 65535);
             \fclose($f);
-            $fs = \explode("\t", trim($fs));
+            $fs = \explode("\t", \trim($fs));
             if (\count($fs) != \count($fields_arr)) {
                 return "Can't autodetect format $file , " .
-                    count($fs) . ' col. found in first line of file, must have ' .
-                    count($fields_arr) . " tab-separated columns (as in $table)";
+                    \count($fs) . ' col. found in first line of file, must have ' .
+                    \count($fields_arr) . " tab-separated columns (as in $table)";
             }
         }
         $file_structure = [];
