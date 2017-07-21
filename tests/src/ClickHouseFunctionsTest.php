@@ -559,11 +559,11 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
 
         $arr = $ch->parseFieldsArr(['id' => ["Enum8('google'=1,'bing'=2)",'google']]);
         $this->assertEquals(['id' => [
-            'create' => "id Enum8('google'=1,'bing'=2) DEFAULT 'google'",
+            'create' => "id DEFAULT CAST('google' AS Enum8('google'=1,'bing'=2))",
             'type_full' => "Enum8('google'=1,'bing'=2)",
             'type_name' => 'Enum8',
             'type_src' => "Enum8('google'=1,'bing'=2)",
-            'default' => "'google'",
+            'default' => "CAST('google' AS Enum8('google'=1,'bing'=2))",
             'bytes' => 1
         ]], $arr);
 
@@ -591,7 +591,7 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
         $type = "enum('google' = 1, 'bing' = 2)";
         $this->assertEquals(1, $ch->parseType($type, $name, $to_conv));
         $this->assertEquals('Enum8', $name);
-        $this->assertFalse($to_conv);
+        $this->assertEquals(['CAST(', " AS Enum8('google' = 1, 'bing' = 2))"], $to_conv);
 
         $type = "Array(1,2,3)";
         $this->assertEquals(0, $ch->parseType($type, $name, $to_conv));
@@ -612,9 +612,9 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
             $this->assertEquals($bytes, $ch->parseType($type, $name, $to_conv));
             $this->assertEquals($type, $name);
             if ($to_conv) {
-                $this->assertEquals(['to' . $type . '(', ')'], $to_conv);
-            } else {
-                $this->assertEquals('Enum', substr($type, 0, 4));
+                if ('Enum' !== substr($type, 0, 4)) {
+                    $this->assertEquals(['to' . $type . '(', ')'], $to_conv);
+                }
             }
         }
     }

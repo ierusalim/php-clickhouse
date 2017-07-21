@@ -161,7 +161,9 @@ class ClickHouseFunctions extends ClickHouseQuery
      * Otherwise return length in bytes for specified data-type.
      * Return 0 if length is not fixed (for String and Array).
      *
-     * @param string $type_full
+     * @param string $type_full (by ref)
+     * @param string|null $name (by ref)
+     * @param array|null $to_conv (by ref)
      * @return boolean|int
      */
     public function parseType(&$type_full, &$name = null, &$to_conv = null)
@@ -188,7 +190,7 @@ class ClickHouseFunctions extends ClickHouseQuery
 
         if (isset($this->types_fix_size[$name])) {
             if (substr($name, 0, 4) === 'Enum') {
-                $to_conv = false;
+                $to_conv = ['CAST(', ' AS ' . $type_full . ')'];
             }
             return $this->types_fix_size[$name];
         }
@@ -323,7 +325,7 @@ class ClickHouseFunctions extends ClickHouseQuery
             $type_full = $type_src = $create[0];
             // make $type_full, $type_name, $to_conv, $bytes (from $type_full)
             $type_name = $to_conv = 0;
-            $bytes = $this->parseType($type_full, $type_name, $to_conv);
+            $bytes = $this->parseType($type_full, $type_name, $to_conv, $field_name);
             if ($bytes === false) {
                 throw new \Exception("Unrecognized data type '$type_full'");
             }
