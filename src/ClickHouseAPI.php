@@ -88,7 +88,7 @@ class ClickHouseAPI
     /**
      * Server URL as scheme://host:port/
      *
-     * @var type string
+     * @var string|null
      */
     private $server_url;
 
@@ -116,7 +116,7 @@ class ClickHouseAPI
     /**
      * HTTP-Code from last server response
      *
-     * @var integer
+     * @var mixed
      */
     public $last_code;
 
@@ -144,7 +144,7 @@ class ClickHouseAPI
     /**
      * Hook on doApiCall executing, before send request.
      *
-     * @var callable|boolean
+     * @var callable|false
      */
     public $hook_before_api_call = false;
 
@@ -176,7 +176,7 @@ class ClickHouseAPI
      *  $h->setServerUrl("https://user:pass@127.0.0.1:8443/");
      *
      * @param string|null $host_or_full_url Host name or Full server URL
-     * @param string|null $port TCP-IP port of ClickHouse server
+     * @param integer|null $port TCP-IP port of ClickHouse server
      * @param string|null $user user for authorization (if need)
      * @param string|null $pass password for authorization (if need)
      */
@@ -315,7 +315,7 @@ class ClickHouseAPI
         if (!empty($session_id) && $this->getSession() != $session_id) {
             $old_session = $this->setSession($session_id);
         } else {
-            if ($this->session_autocreate && !$this->getSession()) {
+            if ($this->session_autocreate && empty($this->getSession())) {
                 $this->setSession();
             }
         }
@@ -379,10 +379,10 @@ class ClickHouseAPI
             }
 
             if (!empty($file) && \file_exists($file)) {
-                if (function_exists('\curl_file_create')) {
+                if (\function_exists('\curl_file_create')) {
                     $post_data['file'] = \curl_file_create($file);
                 } else {
-                    $post_data['file'] = "@$file;filename=" . basename($file);
+                    $post_data['file'] = "@$file;filename=" . \basename($file);
                 }
             }
             \curl_setopt($ch, \CURLOPT_POST, true);
@@ -407,7 +407,7 @@ class ClickHouseAPI
         if ($this->debug) {
             echo "HTTP $code $curl_error \n{\n$response\n}\n";
         }
-        return compact('code', 'curl_error', 'response');
+        return \compact('code', 'curl_error', 'response');
     }
 
     /**

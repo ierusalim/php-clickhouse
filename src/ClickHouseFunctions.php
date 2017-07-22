@@ -267,7 +267,7 @@ class ClickHouseFunctions extends ClickHouseQuery
      * @param string $table_name Table name for make sql-request
      * @param array $fields_arr Array of fields for table
      * @param integer|boolean $if_not_exist set true for adding "IF NOT EXISTS"
-     * @return array returned array need implode to string
+     * @return string[] returned array need implode to string
      * @throws \Exception
      */
     public function sqlTableQuick($table_name, $fields_arr, $if_not_exist = 1)
@@ -394,7 +394,7 @@ class ClickHouseFunctions extends ClickHouseQuery
     /**
      * Return server uptime in seconds
      *
-     * @return integer|boolean Integer of server uptime (seconds) or false if error
+     * @return string|false Integer of server uptime (seconds) or false if error
      */
     public function getUptime()
     {
@@ -428,7 +428,7 @@ class ClickHouseFunctions extends ClickHouseQuery
      *
      * @param string      $db   Database name
      * @param string|null $sess session_id
-     * @return boolean True if ok, false if error
+     * @return string|boolean True if ok, false if error
      */
     public function setCurrentDatabase($db, $sess = null)
     {
