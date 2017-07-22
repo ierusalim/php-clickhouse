@@ -249,7 +249,7 @@ class ClickHouseFunctions extends ClickHouseQuery
         }
         $sql_arr = $this->sqlTableQuick($table, $fields_arr, $if_exists);
 
-        // If have field named "ver", then change engine to ReplacingMergeTree
+        // If $ver defined, then change db-engine to ReplacingMergeTree
         if (!\is_null($ver)) {
             $sql_arr[6] = 'ReplacingMergeTree';
             $sql_arr[14] .= $ver;
@@ -571,14 +571,19 @@ class ClickHouseFunctions extends ClickHouseQuery
 
     /**
      * Return information about $table_name from ClickHosue server system tables.
-     * - If $extended_info is false, do only one request from system.columns table
-     * - If $extended_info is true, try to grab all system information about table.
+     * - If $extended_info is 0, make 1 request (from system.columns table)
+     * - If $extended_info is 1, make 2 requests (+[engine] field from system.tables)
+     * - If $extended_info is 2, make 3 requests (+[create] field)
+     * - If $extended_info is 3, make 4 requests (+[system.merge] field)
+     * - If $extended_info is 4, make 5 requests (+[system.replicas] field)
+     * - If $extended_info is 5, make 6 requests (+[system.parts] field)
+     * - if -1 or >5 then as 5, grab all system information about table (6 req.)
      *
      * @param string $table Table name [db.]table
-     * @param boolean $extended if false make 1 sql-query, if true 6 queries
+     * @param integer $extended if 0 make one sql-query, if 1 add [engine], if 2 full
      * @return array|string Results in array or string with error description
      */
-    public function getTableInfo($table, $extended = true)
+    public function getTableInfo($table, $extended = 2)
     {
         $columns_arr = $this->queryTableSubstract($table);
         if (!is_array($columns_arr)) {
@@ -604,16 +609,28 @@ class ClickHouseFunctions extends ClickHouseQuery
         }
         $ret_arr = $this->getTableRowSize($fields_arr);
         $ret_arr['table_name'] = $dbtb = $database . '.' . $table;
+        if ($extended) {
+            $engine = $this->queryTableSys($dbtb, 'tables', ['d', 't', 'n']);
+            foreach($engine as $col_name => $sys) {
+                $ret_arr[$col_name]= $sys;
+            }
+            if (--$extended) {
+                $ret_arr['create'] = $this->queryValue("SHOW CREATE TABLE $dbtb");
+            }
+        }
+
         $ret_arr['uncompressed_bytes'] = $sum_uncompressed_bytes;
         $ret_arr['compressed_bytes'] = $sum_compressed_bytes;
         $ret_arr['rows_cnt'] = is_null($rows_cnt) ? "Unknown" : $rows_cnt;
         $ret_arr['columns_cnt'] = \count($columns_arr);
         $ret_arr['columns'] = $columns_arr;
         if ($extended) {
-            foreach (['tables', 'merges', 'parts', 'replicas'] as $sys) {
+            foreach (['merges', 'replicas', 'parts'] as $sys) {
+                if(!--$extended) {
+                    break;
+                }
                 $ret_arr['system.' . $sys] = $this->queryTableSys($dbtb, $sys, ['d', 't', 'n']);
             }
-            $ret_arr['create'] = $this->queryValue("SHOW CREATE TABLE $dbtb");
         }
 
         return $ret_arr;

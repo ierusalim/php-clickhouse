@@ -552,9 +552,54 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
         $ch = $this->object;
 
         $tbl = "system.columns";
-        $arr = $ch->getTableInfo($tbl);
+        $arr = $ch->getTableInfo($tbl, 0);
         $this->assertArrayHasKey('table_name', $arr);
         $this->assertEquals($tbl, $arr['table_name']);
+        $this->assertArrayNotHasKey('engine', $arr);
+        $this->assertArrayNotHasKey('create', $arr);
+        $this->assertArrayNotHasKey('system.merges', $arr);
+        $this->assertArrayNotHasKey('system.replicas', $arr);
+        $this->assertArrayNotHasKey('system.parts', $arr);
+
+        $arr = $ch->getTableInfo($tbl, 1);
+        $this->assertArrayHasKey('table_name', $arr);
+        $this->assertEquals($tbl, $arr['table_name']);
+        $this->assertArrayHasKey('engine', $arr);
+        $this->assertEquals('SystemColumns', $arr['engine']);
+        $this->assertArrayNotHasKey('create', $arr);
+        $this->assertArrayNotHasKey('system.merges', $arr);
+        $this->assertArrayNotHasKey('system.replicas', $arr);
+        $this->assertArrayNotHasKey('system.parts', $arr);
+
+        $arr = $ch->getTableInfo($tbl, 2);
+        $this->assertArrayHasKey('engine', $arr);
+        $this->assertArrayHasKey('create', $arr);
+        $this->assertArrayNotHasKey('system.merges', $arr);
+        $this->assertArrayNotHasKey('system.replicas', $arr);
+        $this->assertArrayNotHasKey('system.parts', $arr);
+
+        $arr = $ch->getTableInfo($tbl, 3);
+        $this->assertArrayHasKey('engine', $arr);
+        $this->assertArrayHasKey('create', $arr);
+        $this->assertArrayHasKey('system.merges', $arr);
+        $this->assertArrayNotHasKey('system.replicas', $arr);
+        $this->assertArrayNotHasKey('system.parts', $arr);
+
+        $arr = $ch->getTableInfo($tbl, 4);
+        $this->assertArrayHasKey('engine', $arr);
+        $this->assertArrayHasKey('create', $arr);
+        $this->assertArrayHasKey('system.merges', $arr);
+        $this->assertArrayHasKey('system.replicas', $arr);
+        $this->assertArrayNotHasKey('system.parts', $arr);
+
+        $arr = $ch->getTableInfo($tbl, 5);
+        $this->assertArrayHasKey('engine', $arr);
+        $this->assertArrayHasKey('create', $arr);
+        $this->assertArrayHasKey('system.merges', $arr);
+        $this->assertArrayHasKey('system.replicas', $arr);
+        $this->assertArrayHasKey('system.parts', $arr);
+
+        // not found table request
         $arr = $ch->getTableInfo("notfoundthistable");
         $this->assertFalse(\is_array($arr));
         //broken request
