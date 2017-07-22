@@ -214,18 +214,17 @@ class ClickHouseFunctions extends ClickHouseQuery
     }
 
     /**
-     * Create Table with name $table_name (using MergeTree engine)
+     * Create Table with name $table_name (MergeTree or ReplacingMergeTree engine)
      *
      * $fields_arr: [fields names] => field types[ default].
-     *
-     * First key $fields_arr means as primary key
-     * Must contains 'Date' field
+     * - First key $fields_arr means as primary key
+     * - Must contains 'Date' field
      *
      * Each of field type may be specified in this formats:
-     *  'Int16'      - String without spaces.
-     *  'Int16 1234' - String field_type[space default_value]
-     *   ['field_type' [, 'default_value']] - array, for example
-     *    ['Int16', '1234'] - is same 'Int16 1234'.
+     * - 'Int16'      - String without spaces.
+     * - 'Int16 1234' - String field_type[space default_value]
+     * - ['field_type' [, 'default_value']] - array, for example
+     * - ['Int16', '1234'] - is same 'Int16 1234'.
      *
      * Data-types case insensitive and may be specified via aliases.
      *
@@ -236,7 +235,7 @@ class ClickHouseFunctions extends ClickHouseQuery
      * @param string $table table name
      * @param array $fields_arr keys=field names => field_type[ def]
      * @param integer $if_exists If table exists: 2=drop old table, 1-do nothing, 0-ret error)
-     * @param string $ver if not null, table will create with engine ReplacingMergeTree
+     * @param string $ver if null, table will create with engine MergeTree
      * @return boolean|string
      */
     public function createTableQuick($table, $fields_arr, $if_exists = 0, $ver = null)
@@ -612,7 +611,7 @@ class ClickHouseFunctions extends ClickHouseQuery
         if ($extended) {
             $engine = $this->queryTableSys($dbtb, 'tables', ['d', 't', 'n']);
             foreach ($engine as $col_name => $sys) {
-                $ret_arr[$col_name]= $sys;
+                $ret_arr[$col_name] = $sys;
             }
             if (--$extended) {
                 $ret_arr['create'] = $this->queryValue("SHOW CREATE TABLE $dbtb");
