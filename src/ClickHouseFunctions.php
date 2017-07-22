@@ -611,7 +611,7 @@ class ClickHouseFunctions extends ClickHouseQuery
         $ret_arr['table_name'] = $dbtb = $database . '.' . $table;
         if ($extended) {
             $engine = $this->queryTableSys($dbtb, 'tables', ['d', 't', 'n']);
-            foreach($engine as $col_name => $sys) {
+            foreach ($engine as $col_name => $sys) {
                 $ret_arr[$col_name]= $sys;
             }
             if (--$extended) {
@@ -626,7 +626,7 @@ class ClickHouseFunctions extends ClickHouseQuery
         $ret_arr['columns'] = $columns_arr;
         if ($extended) {
             foreach (['merges', 'replicas', 'parts'] as $sys) {
-                if(!--$extended) {
+                if (!--$extended) {
                     break;
                 }
                 $ret_arr['system.' . $sys] = $this->queryTableSys($dbtb, $sys, ['d', 't', 'n']);
