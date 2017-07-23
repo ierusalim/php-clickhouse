@@ -94,15 +94,11 @@ class ClickHouseQuery extends ClickHouseAPI
     public $rows;
 
     /**
-     * Data remaining in the array after remove all known sections-keys
-     *  Known keys is ['meta', 'statistics', 'extremes', 'rows']
+     * Sometimes returns with JSON | JSONCompact formats
      *
-     * Available after calling functions queryArray, queryArr
-     * (usually contains empty array)
-     *
-     * @var array|null
+     * @var integer|null
      */
-    public $extra;
+    public $rows_before_limit_at_least;
 
     /**
      * Set after calling queryFullArray, queryArry, queryArr when 'WITH TOTALS'
@@ -110,6 +106,17 @@ class ClickHouseQuery extends ClickHouseAPI
      * @var array|null
      */
     public $totals;
+
+    /**
+     * Data remaining in the array after remove all known sections-keys
+     *  Known keys is ['meta', 'statistics', 'extremes', 'rows']
+     *
+     * Available after calling functions queryArray, queryArr
+     * (usually contains empty array)
+     *
+     * @var array
+     */
+    public $extra = [];
 
     /**
      * String contained last error which returned by CURL or server response
@@ -330,6 +337,7 @@ class ClickHouseQuery extends ClickHouseAPI
             'statistics',
             'extremes',
             'rows',
+            'rows_before_limit_at_least',
             'totals'
             ] as $key) {
             unset($arr[$key]);
@@ -453,40 +461,35 @@ class ClickHouseQuery extends ClickHouseAPI
             return $this->last_error_str;
         }
 
-        foreach (['meta', 'statistics', 'extremes', 'rows', 'totals'] as $key) {
-            $this->$key = isset($arr[$key]) ? $arr[$key] : null;
+        foreach (['meta', 'statistics', 'extremes', 'totals'] as $key) {
+            $this->$key = (isset($arr[$key]) && \is_array($arr[$key])) ? $arr[$key] : null;
         }
-        $this->names = $keys = (is_array($this->meta) && count($this->meta)) ?
-            array_column($this->meta, 'name') : null;
-        $this->types = (\is_array($keys) && \is_array($this->meta)) ?
-            array_column($this->meta, 'type') : null;
+        foreach(['rows_before_limit_at_least', 'rows'] as $key) {
+            $this->$key = (isset($arr[$key]) && \is_numeric($arr[$key])) ? $arr[$key] : null;
+        }
+        $this->names = $names = isset($this->meta) ? \array_column($this->meta, 'name') : null;
+        $this->types = \is_array($names) ? \array_column($this->meta, 'type') : null;
 
-        if ($this->json_compact && !empty($keys)) {
+        if ($this->json_compact && !empty($names)) {
             foreach (['data', 'extremes'] as $key) {
                 if ($key == 'data' && $data_only) {
                     continue;
                 }
-                if (!empty($arr[$key])) {
+                if (!empty($arr[$key]) && \is_array($arr[$key])) {
                     foreach ($arr[$key] as $k => $ret) {
-                        $ret = \array_combine($keys, $ret);
-                        $arr[$key][$k] = $ret;
+                        $arr[$key][$k] = \array_combine($names, $ret);
                     }
                     if ($key != 'data') {
                         $this->$key = $arr[$key];
                     }
                 }
             }
-            if (!empty($this->totals)) {
-                $this->totals = \array_combine($keys, $this->totals);
+            if (!empty($this->totals) && \is_array($this->totals)) {
+                $this->totals = \array_combine($names, $this->totals);
                 $arr['totals'] = $this->totals;
             }
         }
-
-        if ($data_only) {
-            return $arr['data'];
-        } else {
-            return $arr;
-        }
+        return $data_only ? $arr['data'] : $arr;
     }
 
     /**
