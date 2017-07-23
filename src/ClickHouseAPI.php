@@ -149,6 +149,19 @@ class ClickHouseAPI
     public $hook_before_api_call = false;
 
     /**
+     * Version of ClickHouse server
+     *
+     * @var string|null
+     */
+    public $server_version;
+    /**
+     * list of support features array
+     *
+     * @var array
+     */
+    public $support_fe=[];
+
+    /**
      * Auto-create session_id and send it with each request
      *
      * @var boolean
@@ -320,6 +333,18 @@ class ClickHouseAPI
             }
         }
 
+        // If need session, check this feature
+        if(!empty($this->options['session_id'])) {
+            if (isset($this->support_fe['session_id'])) {
+                $sess_sup = $this->support_fe['session_id'];
+            } else {
+                $sess_sup = $this->isSupported('session_id');
+            }
+            if (!$sess_sup) {
+                unset($this->options['session_id']);
+            }
+        }
+
         $h_parameters = \array_merge(
             \compact('user', 'password', 'query'),
             $this->options
@@ -364,7 +389,7 @@ class ClickHouseAPI
         $api_url .= "?" . \http_build_query($h_params);
 
         if ($this->hook_before_api_call) {
-            $api_url = call_user_func($this->hook_before_api_call, $api_url);
+            $api_url = call_user_func($this->hook_before_api_call, $api_url, $this);
         }
 
         if ($this->debug) {
@@ -452,7 +477,7 @@ class ClickHouseAPI
      */
     public function setSession($session_id = null, $overwrite = true)
     {
-        if (is_null($session_id)) {
+        if (\is_null($session_id)) {
             $session_id = \md5(\uniqid(\mt_rand(0, \PHP_INT_MAX), true));
         }
         return $this->setOption('session_id', $session_id, $overwrite);
@@ -479,5 +504,56 @@ class ClickHouseAPI
         $old_value = $this->getOption($key);
         unset($this->options[$key]);
         return $old_value;
+    }
+
+    /**
+     * Check supported feature by string name
+     *
+     * @param string $fe_key feature name
+     * @param boolean $re_check set true for check again
+     * @return boolean|null true = supported, false = unsupported, null = unknown feature
+     */
+    public function isSupported($fe_key = 'session_id', $re_check = false)
+    {
+        if (!isset($this->support_fe[$fe_key]) || $re_check) {
+            switch ($fe_key) {
+                case 'session_id':
+                    $this->getVersion($re_check);
+                    break;
+                default:
+                    return null;
+            }
+        }
+        return $this->support_fe[$fe_key];
+    }
+
+    /**
+     * Return version of ClickHouse server by function SELECT version()
+     *
+     * The response is cached
+     *
+     * @param boolean $re_check Set true for re-send query to server
+     * @return string|boolean String version or false if error
+     */
+    public function getVersion($re_check = false)
+    {
+        if (\is_null($this->server_version) || $re_check) {
+            $old_sess = $this->setSession(null, false);
+            $session_id = $this->getSession();
+            $query = 'SELECT version()';
+            $ans = $this->doApiCall($this->server_url, compact('query', 'session_id'));
+            if($ans['code'] == 200) {
+                $this->support_fe['session_id'] = true;
+            } else {
+                // if session_id unsupported send request again
+                $this->support_fe['session_id'] = false;
+                $this->session_autocreate = false;
+                $ans = $this->doApiCall($this->server_url, compact('query'));
+            }
+            $ver = explode("\n", $ans['response']);
+            $this->server_version = (count($ver) == 2) ? $ver[0] : "Unknown";
+            $this->setSession($old_sess);
+        }
+        return $this->server_version;
     }
 }

@@ -256,17 +256,6 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @covers ierusalim\ClickHouse\ClickHouseFunctions::getVersion
-     */
-    public function testGetVersion()
-    {
-        $ch = $this->object;
-        $version = $ch->getVersion();
-        $this->assertTrue(strpos($version, '.') > 0);
-        echo "Version of ClickHouse server: $version\n";
-    }
-
-    /**
      * @covers ierusalim\ClickHouse\ClickHouseFunctions::getUptime
      */
     public function testGetUptime()

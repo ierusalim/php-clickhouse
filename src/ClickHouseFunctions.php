@@ -382,16 +382,6 @@ class ClickHouseFunctions extends ClickHouseQuery
     }
 
     /**
-     * Return version of ClickHouse server
-     *
-     * @return string|boolean String version or false if error
-     */
-    public function getVersion()
-    {
-        return $this->queryValue('SELECT version()');
-    }
-
-    /**
      * Return server uptime in seconds
      *
      * @return string|false Integer of server uptime (seconds) or false if error

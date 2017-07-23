@@ -135,25 +135,69 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
         $this->assertEquals(\trim($ans['response']), 22);
 
         $session_id = $ch->getSession();
-        $this->assertEquals(32, strlen($session_id));
+        if($ch->isSupported('session_id')) {
+            $this->assertEquals(32, strlen($session_id));
+        } else {
+            $this->assertNull($session_id);
+        }
 
         // test previous query SELECT 22
         $ans = $ch->doQuery();
         $this->assertEquals(\trim($ans['response']), 22);
 
-        $sess = $ch->getSession();
-        $this->assertEquals($sess, $session_id);
+        if ($ch->isSupported('session_id')) {
+            $sess = $ch->getSession();
+            $this->assertEquals($sess, $session_id);
 
-        // test temporary session
-        $sess_tmp = md5(microtime());
-        // use temporary session
-        $ans = $ch->doQuery("SELECT 123", false, [], $sess_tmp);
+            // test temporary session
+            $sess_tmp = md5(microtime());
+            // use temporary session
+            $ans = $ch->doQuery("SELECT 123", false, [], $sess_tmp);
 
-        // session_id must not changed
-        $this->assertEquals($session_id, $ch->getSession());
+            // session_id must not changed
+            $this->assertEquals($session_id, $ch->getSession());
 
-        // but last last_used_session_id must be sess_tmp
-        $this->assertEquals($sess_tmp, $ch->last_used_session_id);
+            // but last last_used_session_id must be sess_tmp
+            $this->assertEquals($sess_tmp, $ch->last_used_session_id);
+        }
+    }
+
+
+    /**
+     * @covers ierusalim\ClickHouse\ClickHouseAPI::getVersion
+     */
+    public function testGetVersion()
+    {
+        $ch = $this->object;
+        $version = $ch->getVersion();
+        $this->assertTrue(strpos($version, '.') > 0);
+        echo "Version of ClickHouse server: $version\n";
+        $this->assertEquals($version, $fake_version = $ch->server_version);
+
+        // test get cached version
+        $fake_version = $ch->server_version = 'fake_version';
+        $this->assertEquals($fake_version, $ch->getVersion());
+
+        $ch->session_autocreate = true;
+        // set fake server for emulate session unsupported
+        $ch->hook_before_api_call = function($s, $obj) {
+            return 'http://google.com/';
+        };
+        $version = $ch->getVersion(true);
+        $this->assertFalse($ch->session_autocreate);
+        $this->assertEquals("Unknown", $version);
+    }
+
+    /**
+     * @covers ierusalim\ClickHouse\ClickHouseAPI::isSupported
+     */
+    public function testIsSupported()
+    {
+        $ch = $this->object;
+        $sess_sup = $ch->isSupported('session_id');
+        echo "Sessions " .($sess_sup ? '':'not ') . "supported\n";
+
+        $this->assertNull($ch->isSupported('unknown'));
     }
 
     /**
@@ -164,7 +208,7 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
     {
         $ch = $this->object;
         $ch->debug = true;
-        $ch->hook_before_api_call = function ($url) {
+        $ch->hook_before_api_call = function ($url, $obj) {
             return "https://ierusalim.github.io";
         };
 
