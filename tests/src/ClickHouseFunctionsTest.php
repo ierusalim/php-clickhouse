@@ -108,30 +108,32 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
     {
         $ch = $this->object;
 
-        $ch->setSession();
-        $session_id_1 = $ch->setSession();
-        $session_id_2 = $ch->getSession();
+        if($ch->isSupported('session_id')) {
+            $ch->setSession();
+            $session_id_1 = $ch->setSession();
+            $session_id_2 = $ch->getSession();
 
-        $db_1 = 'default';
-        $db_2 = 'system';
+            $db_1 = 'default';
+            $db_2 = 'system';
 
-        $ans = $ch->setCurrentDatabase($db_1, $session_id_1);
-        $this->assertTrue($ans);
-        $ans = $ch->setCurrentDatabase($db_2, $session_id_2);
-        $this->assertTrue($ans);
+            $ans = $ch->setCurrentDatabase($db_1, $session_id_1);
+            $this->assertTrue($ans);
+            $ans = $ch->setCurrentDatabase($db_2, $session_id_2);
+            $this->assertTrue($ans);
 
-        $ch->setSession($session_id_1);
-        $db_name = $ch->getCurrentDatabase();
-        $this->assertEquals($db_name, $db_1);
+            $ch->setSession($session_id_1);
+            $db_name = $ch->getCurrentDatabase();
+            $this->assertEquals($db_name, $db_1);
 
-        $ch->setSession($session_id_2);
-        $db_name = $ch->getCurrentDatabase();
-        $this->assertEquals($db_name, $db_2);
+            $ch->setSession($session_id_2);
+            $db_name = $ch->getCurrentDatabase();
+            $this->assertEquals($db_name, $db_2);
 
-        $db_name = $ch->getCurrentDatabase($session_id_1);
-        $this->assertEquals($db_name, $db_1);
-        $db_name = $ch->getCurrentDatabase($session_id_2);
-        $this->assertEquals($db_name, $db_2);
+            $db_name = $ch->getCurrentDatabase($session_id_1);
+            $this->assertEquals($db_name, $db_1);
+            $db_name = $ch->getCurrentDatabase($session_id_2);
+            $this->assertEquals($db_name, $db_2);
+        }
     }
 
     /**
@@ -141,22 +143,24 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
     {
         $ch = $this->object;
 
-        $ch->setSession();
-        $session_id_1 = $ch->setSession();
-        $session_id_2 = $ch->getSession();
+        if ($ch->isSupported('session_id')) {
+            $ch->setSession();
+            $session_id_1 = $ch->setSession();
+            $session_id_2 = $ch->getSession();
 
-        $db_1 = 'default';
-        $db_2 = 'system';
+            $db_1 = 'default';
+            $db_2 = 'system';
 
-        $ans = $ch->setCurrentDatabase($db_1, $session_id_1);
-        $this->assertTrue($ans);
-        $ans = $ch->setCurrentDatabase($db_2, $session_id_2);
-        $this->assertTrue($ans);
+            $ans = $ch->setCurrentDatabase($db_1, $session_id_1);
+            $this->assertTrue($ans);
+            $ans = $ch->setCurrentDatabase($db_2, $session_id_2);
+            $this->assertTrue($ans);
 
-        $db_name = $ch->getCurrentDatabase($session_id_1);
-        $this->assertEquals($db_name, $db_1);
-        $db_name = $ch->getCurrentDatabase($session_id_2);
-        $this->assertEquals($db_name, $db_2);
+            $db_name = $ch->getCurrentDatabase($session_id_1);
+            $this->assertEquals($db_name, $db_1);
+            $db_name = $ch->getCurrentDatabase($session_id_2);
+            $this->assertEquals($db_name, $db_2);
+        }
     }
 
     /**
@@ -177,13 +181,16 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
     public function testGetTablesList()
     {
         $ch = $this->object;
-        $sys_tbl_arr = $ch->getTablesList('system');
-        $this->assertTrue(\count($sys_tbl_arr) > 10);
-        $this->assertTrue(\array_search('databases', $sys_tbl_arr) !== false);
 
-        $data_tbl_arr = $ch->getTablesList('system', 'd%');
-        $this->assertTrue(count($data_tbl_arr) > 0);
-        $this->assertTrue(array_search('databases', $data_tbl_arr) !== false);
+        if ($ch->isSupported('session_id')) {
+            $sys_tbl_arr = $ch->getTablesList('system');
+            $this->assertTrue(\count($sys_tbl_arr) > 10);
+            $this->assertTrue(\array_search('databases', $sys_tbl_arr) !== false);
+
+            $data_tbl_arr = $ch->getTablesList('system', 'd%');
+            $this->assertTrue(count($data_tbl_arr) > 0);
+            $this->assertTrue(array_search('databases', $data_tbl_arr) !== false);
+        }
     }
 
     /**
@@ -192,8 +199,10 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
     public function testGetProcessList()
     {
         $ch = $this->object;
-        $proc_arr = $ch->getProcessList();
-        $this->assertTrue(\is_array($proc_arr));
+        if ($ch->isSupported('session_id')) {
+            $proc_arr = $ch->getProcessList();
+            $this->assertTrue(\is_array($proc_arr));
+        }
     }
 
     /**
@@ -202,10 +211,13 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
     public function testGetTableRowSize()
     {
         $ch = $this->object;
-        $sum_arr = $ch->getTableRowSize('system.processes');
-        \extract($sum_arr);
-        $this->assertTrue($fixed_bytes > 10);
-        $this->assertTrue($dynamic_fields > 5);
+
+        if ($ch->isSupported('session_id')) {
+            $sum_arr = $ch->getTableRowSize('system.processes');
+            \extract($sum_arr);
+            $this->assertTrue($fixed_bytes > 10);
+            $this->assertTrue($dynamic_fields > 5);
+        }
 
         //exceptions
         $sum_arr = $ch->getTableRowSize('notfoundtable');
@@ -240,9 +252,11 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
     public function testGetTableFields()
     {
         $ch = $this->object;
-        $desc_tbl_arr = $ch->getTableFields('system.databases');
-        $this->assertArrayHasKey('name', $desc_tbl_arr);
-        $this->assertArrayHasKey('engine', $desc_tbl_arr);
+        if ($ch->isSupported('session_id')) {
+            $desc_tbl_arr = $ch->getTableFields('system.databases');
+            $this->assertArrayHasKey('name', $desc_tbl_arr);
+            $this->assertArrayHasKey('engine', $desc_tbl_arr);
+        }
     }
 
     /**
@@ -251,8 +265,10 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
     public function testGetSystemSettings()
     {
         $ch = $this->object;
-        $arr = $ch->getSystemSettings();
-        $this->assertTrue(count($arr) > 10);
+        if ($ch->isSupported('session_id')) {
+            $arr = $ch->getSystemSettings();
+            $this->assertTrue(count($arr) > 10);
+        }
     }
 
     /**
@@ -336,6 +352,9 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
     {
         $ch = $this->object;
 
+        if (!$ch->isSupported('session_id')) {
+            return;
+        }
         $prefix = 'tempren';
         $postfix = 'xxx';
 
@@ -394,32 +413,34 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
 
         $table = 'testtbl123';
 
-        $ans = $ch->createTableQuick($table, [
-            'id' => 'Int16',
-            'dt' => ['Date', 'now()']
-        ], 2);
-        $this->assertFalse($ans);
+        if ($ch->isSupported('session_id')) {
+            $ans = $ch->createTableQuick($table, [
+                'id' => 'Int16',
+                'dt' => ['Date', 'now()']
+            ], 2);
+            $this->assertFalse($ans);
 
-        $arr = $ch->queryInsertArray($table, ['id', 'dt'], [111, '2017-10-10']);
-        $this->assertFalse($arr);
+            $arr = $ch->queryInsertArray($table, ['id', 'dt'], [111, '2017-10-10']);
+            $this->assertFalse($arr);
 
-        $arr = $ch->queryValue("SELECT id FROM $table");
-        $this->assertEquals(111, $arr);
+            $arr = $ch->queryValue("SELECT id FROM $table");
+            $this->assertEquals(111, $arr);
 
-        $ans = $ch->clearTable($table);
-        $this->assertFalse($ans);
+            $ans = $ch->clearTable($table);
+            $this->assertFalse($ans);
 
-        $arr = $ch->queryInsertArray($table, ['id', 'dt'], [222, '2017-10-10']);
-        $this->assertFalse($arr);
+            $arr = $ch->queryInsertArray($table, ['id', 'dt'], [222, '2017-10-10']);
+            $this->assertFalse($arr);
 
-        $arr = $ch->queryValue("SELECT id FROM $table");
-        $this->assertEquals(222, $arr);
+            $arr = $ch->queryValue("SELECT id FROM $table");
+            $this->assertEquals(222, $arr);
 
-        $ans = $ch->dropTable($table);
-        $this->assertFalse($ans);
+            $ans = $ch->dropTable($table);
+            $this->assertFalse($ans);
 
-        $ans = $ch->clearTable('system.numbers');
-        $this->assertTrue(\is_string($ans));
+            $ans = $ch->clearTable('system.numbers');
+            $this->assertTrue(\is_string($ans));
+        }
     }
 
     /**
@@ -508,11 +529,12 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
 
         $this->assertEquals(['id'=>'Int16', 'dt'=>'Date'], $fields_arr);
 
+        if ($ch->isSupported('session_id')) {
+            $engine = $ch->queryTableSys($table, "tables");
+            $this->assertEquals('MergeTree', $engine['engine']);
 
-        $engine = $ch->queryTableSys($table, "tables");
-        $this->assertEquals('MergeTree', $engine['engine']);
-
-        $this->assertFalse($ch->dropTable($table));
+            $this->assertFalse($ch->dropTable($table));
+        }
 
         $ans = $ch->createTableQuick($table, [
             'id' => 'Int16',
@@ -521,16 +543,18 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
         ], 2, ', ver');
         $this->assertFalse($ans);
 
-        $engine = $ch->queryTableSys($table, "tables");
-        $this->assertEquals('ReplacingMergeTree', $engine['engine']);
+        if ($ch->isSupported('session_id')) {
+            $engine = $ch->queryTableSys($table, "tables");
+            $this->assertEquals('ReplacingMergeTree', $engine['engine']);
 
-        $this->assertFalse($ch->dropTable($table));
+            $this->assertFalse($ch->dropTable($table));
 
-        $ans = $ch->createTableQuick("broken'\nname", [
-            'id' => 'Int16',
-            'dt' => ['Date', 'now()']
-        ], 2);
-        $this->assertTrue(is_string($ans));
+            $ans = $ch->createTableQuick("broken'\nname", [
+                'id' => 'Int16',
+                'dt' => ['Date', 'now()']
+            ], 2);
+            $this->assertTrue(is_string($ans));
+        }
     }
 
     /**
@@ -540,60 +564,62 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
     {
         $ch = $this->object;
 
-        $tbl = "system.columns";
-        $arr = $ch->getTableInfo($tbl, 0);
-        $this->assertArrayHasKey('table_name', $arr);
-        $this->assertEquals($tbl, $arr['table_name']);
-        $this->assertArrayNotHasKey('engine', $arr);
-        $this->assertArrayNotHasKey('create', $arr);
-        $this->assertArrayNotHasKey('system.merges', $arr);
-        $this->assertArrayNotHasKey('system.replicas', $arr);
-        $this->assertArrayNotHasKey('system.parts', $arr);
+        if ($ch->isSupported('session_id')) {
+            $tbl = "system.columns";
+            $arr = $ch->getTableInfo($tbl, 0);
+            $this->assertArrayHasKey('table_name', $arr);
+            $this->assertEquals($tbl, $arr['table_name']);
+            $this->assertArrayNotHasKey('engine', $arr);
+            $this->assertArrayNotHasKey('create', $arr);
+            $this->assertArrayNotHasKey('system.merges', $arr);
+            $this->assertArrayNotHasKey('system.replicas', $arr);
+            $this->assertArrayNotHasKey('system.parts', $arr);
 
-        $arr = $ch->getTableInfo($tbl, 1);
-        $this->assertArrayHasKey('table_name', $arr);
-        $this->assertEquals($tbl, $arr['table_name']);
-        $this->assertArrayHasKey('engine', $arr);
-        $this->assertEquals('SystemColumns', $arr['engine']);
-        $this->assertArrayNotHasKey('create', $arr);
-        $this->assertArrayNotHasKey('system.merges', $arr);
-        $this->assertArrayNotHasKey('system.replicas', $arr);
-        $this->assertArrayNotHasKey('system.parts', $arr);
+            $arr = $ch->getTableInfo($tbl, 1);
+            $this->assertArrayHasKey('table_name', $arr);
+            $this->assertEquals($tbl, $arr['table_name']);
+            $this->assertArrayHasKey('engine', $arr);
+            $this->assertEquals('SystemColumns', $arr['engine']);
+            $this->assertArrayNotHasKey('create', $arr);
+            $this->assertArrayNotHasKey('system.merges', $arr);
+            $this->assertArrayNotHasKey('system.replicas', $arr);
+            $this->assertArrayNotHasKey('system.parts', $arr);
 
-        $arr = $ch->getTableInfo($tbl, 2);
-        $this->assertArrayHasKey('engine', $arr);
-        $this->assertArrayHasKey('create', $arr);
-        $this->assertArrayNotHasKey('system.merges', $arr);
-        $this->assertArrayNotHasKey('system.replicas', $arr);
-        $this->assertArrayNotHasKey('system.parts', $arr);
+            $arr = $ch->getTableInfo($tbl, 2);
+            $this->assertArrayHasKey('engine', $arr);
+            $this->assertArrayHasKey('create', $arr);
+            $this->assertArrayNotHasKey('system.merges', $arr);
+            $this->assertArrayNotHasKey('system.replicas', $arr);
+            $this->assertArrayNotHasKey('system.parts', $arr);
 
-        $arr = $ch->getTableInfo($tbl, 3);
-        $this->assertArrayHasKey('engine', $arr);
-        $this->assertArrayHasKey('create', $arr);
-        $this->assertArrayHasKey('system.merges', $arr);
-        $this->assertArrayNotHasKey('system.replicas', $arr);
-        $this->assertArrayNotHasKey('system.parts', $arr);
+            $arr = $ch->getTableInfo($tbl, 3);
+            $this->assertArrayHasKey('engine', $arr);
+            $this->assertArrayHasKey('create', $arr);
+            $this->assertArrayHasKey('system.merges', $arr);
+            $this->assertArrayNotHasKey('system.replicas', $arr);
+            $this->assertArrayNotHasKey('system.parts', $arr);
 
-        $arr = $ch->getTableInfo($tbl, 4);
-        $this->assertArrayHasKey('engine', $arr);
-        $this->assertArrayHasKey('create', $arr);
-        $this->assertArrayHasKey('system.merges', $arr);
-        $this->assertArrayHasKey('system.replicas', $arr);
-        $this->assertArrayNotHasKey('system.parts', $arr);
+            $arr = $ch->getTableInfo($tbl, 4);
+            $this->assertArrayHasKey('engine', $arr);
+            $this->assertArrayHasKey('create', $arr);
+            $this->assertArrayHasKey('system.merges', $arr);
+            $this->assertArrayHasKey('system.replicas', $arr);
+            $this->assertArrayNotHasKey('system.parts', $arr);
 
-        $arr = $ch->getTableInfo($tbl, 5);
-        $this->assertArrayHasKey('engine', $arr);
-        $this->assertArrayHasKey('create', $arr);
-        $this->assertArrayHasKey('system.merges', $arr);
-        $this->assertArrayHasKey('system.replicas', $arr);
-        $this->assertArrayHasKey('system.parts', $arr);
+            $arr = $ch->getTableInfo($tbl, 5);
+            $this->assertArrayHasKey('engine', $arr);
+            $this->assertArrayHasKey('create', $arr);
+            $this->assertArrayHasKey('system.merges', $arr);
+            $this->assertArrayHasKey('system.replicas', $arr);
+            $this->assertArrayHasKey('system.parts', $arr);
 
-        // not found table request
-        $arr = $ch->getTableInfo("notfoundthistable");
-        $this->assertFalse(\is_array($arr));
-        //broken request
-        $arr = $ch->getTableInfo("notfound'\nthistable");
-        $this->assertFalse(\is_array($arr));
+            // not found table request
+            $arr = $ch->getTableInfo("notfoundthistable");
+            $this->assertFalse(\is_array($arr));
+            //broken request
+            $arr = $ch->getTableInfo("notfound'\nthistable");
+            $this->assertFalse(\is_array($arr));
+        }
     }
 
     /**

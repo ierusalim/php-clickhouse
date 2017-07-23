@@ -111,7 +111,9 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
     {
         $ch = $this->object;
         $this->assertEquals($ch->queryTrue("SELECT 1"), "1");
-        $this->assertTrue($ch->queryTrue("USE system"));
+        if ($ch->isSupported('session_id')) {
+            $this->assertTrue($ch->queryTrue("USE system"));
+        }
     }
 
     /**
@@ -206,7 +208,9 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
     {
         $ch = $this->object;
         $this->assertEquals($ch->queryValue("SELECT 1"), "1");
-        $this->assertEquals($ch->queryValue("USE system"), "");
+        if ($ch->isSupported('session_id')) {
+            $this->assertEquals($ch->queryValue("USE system"), "");
+        }
 
         $this->assertFalse($ch->queryValue("SELECT blablabla()"));
         $this->assertNotEquals(200, $ch->last_code);
@@ -228,15 +232,17 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
         $ans = $ch->queryFullArray("SELECT blablabla()");
         $this->assertFalse(is_array($ans));
 
-        $ch->setOption('extremes', 1);
-        $t_arr = $ch->queryFullArray("SELECT * FROM system.settings WITH TOTALS");
-        $this->assertArrayHasKey('meta', $t_arr);
-        $this->assertArrayHasKey('data', $t_arr);
-        $this->assertArrayHasKey('statistics', $t_arr);
-        $this->assertArrayHasKey('rows', $t_arr);
+        if ($ch->isSupported('session_id')) {
+            $ch->setOption('extremes', 1);
+            $t_arr = $ch->queryFullArray("SELECT * FROM system.settings WITH TOTALS");
+            $this->assertArrayHasKey('meta', $t_arr);
+            $this->assertArrayHasKey('data', $t_arr);
+            $this->assertArrayHasKey('statistics', $t_arr);
+            $this->assertArrayHasKey('rows', $t_arr);
 
-        $t_arr = $ch->queryFullArray("SELECT * FROM system.numbers LIMIT 100", true);
-        $this->assertEquals(100, count($t_arr));
+            $t_arr = $ch->queryFullArray("SELECT * FROM system.numbers LIMIT 100", true);
+            $this->assertEquals(100, count($t_arr));
+        }
     }
 
     /**
@@ -257,13 +263,15 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
     {
         $ch = $this->object;
         $this->assertFalse(is_array($ch->queryArr("SELECT blabla()")));
-        $ch->setOption("extremes", 1);
-        $arr = $ch->queryArr("SELECT * FROM system.settings WITH TOTALS");
-        $this->assertArrayHasKey(10, $arr);
-        $this->assertEquals(2, count($ch->extremes));
-        $this->assertFalse(empty($ch->totals));
-        $arr = $ch->queryArr("SELECT * FROM system.settings", true);
-        $this->assertArrayHasKey(10, $arr);
+        if ($ch->isSupported('session_id')) {
+            $ch->setOption("extremes", 1);
+            $arr = $ch->queryArr("SELECT * FROM system.settings WITH TOTALS");
+            $this->assertArrayHasKey(10, $arr);
+            $this->assertEquals(2, count($ch->extremes));
+            $this->assertFalse(empty($ch->totals));
+            $arr = $ch->queryArr("SELECT * FROM system.settings", true);
+            $this->assertArrayHasKey(10, $arr);
+        }
     }
     /**
      * @covers ierusalim\ClickHouse\ClickHouseQuery::queryKeyValues
@@ -272,21 +280,23 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
     {
         $ch = $this->object;
 
-        $arr = $ch->queryKeyValues("DESCRIBE TABLE system.databases");
-        $this->assertArrayHasKey('name', $arr);
-        $this->assertArrayHasKey('engine', $arr);
+        if ($ch->isSupported('session_id')) {
+            $arr = $ch->queryKeyValues("DESCRIBE TABLE system.databases");
+            $this->assertArrayHasKey('name', $arr);
+            $this->assertArrayHasKey('engine', $arr);
 
-        $arr = $ch->queryKeyValues("system.settings", "name, value");
-        $this->assertTrue(count($arr)>10);
+            $arr = $ch->queryKeyValues("system.settings", "name, value");
+            $this->assertTrue(count($arr)>10);
 
-        $err = $ch->queryKeyValues("SELECT blablabla()");
-        $this->assertFalse(is_array($err));
+            $err = $ch->queryKeyValues("SELECT blablabla()");
+            $this->assertFalse(is_array($err));
 
-        $arr = $ch->queryKeyValues("system.settings", "name");
-        $this->assertTrue(count($arr)>10);
+            $arr = $ch->queryKeyValues("system.settings", "name");
+            $this->assertTrue(count($arr)>10);
 
-        $arr = $ch->queryKeyValues('system.metrics', '*');
-        $this->assertTrue(count($arr)>10);
+            $arr = $ch->queryKeyValues('system.metrics', '*');
+            $this->assertTrue(count($arr)>10);
+        }
     }
     /**
      * @covers ierusalim\ClickHouse\ClickHouseQuery::queryKeyValArr
@@ -295,14 +305,18 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
     {
         $ch = $this->object;
 
-        $arr = $ch->queryKeyValArr("DESCRIBE TABLE system.databases");
-        $this->assertArrayHasKey('name', $arr);
-        $this->assertArrayHasKey('engine', $arr);
+        if ($ch->isSupported('session_id')) {
+            $arr = $ch->queryKeyValArr("DESCRIBE TABLE system.databases");
+            $this->assertArrayHasKey('name', $arr);
+            $this->assertArrayHasKey('engine', $arr);
 
-        $ch->setOption("extremes", 1);
+            $ch->setOption("extremes", 1);
 
-        $arr = $ch->queryKeyValArr("system.settings", "*");
-        $this->assertTrue(count($arr)>10);
+            if($ch->isSupported('session_id')) {
+                $arr = $ch->queryKeyValArr("system.settings", "*");
+                $this->assertTrue(count($arr)>10);
+            }
+        }
 
         $err = $ch->queryKeyValArr("SELECT blablabla()");
         $this->assertFalse(is_array($err));
@@ -314,8 +328,10 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
     {
         $ch = $this->object;
 
-        $arr = $ch->queryStrings("SELECT * FROM system.numbers LIMIT 100");
-        $this->assertTrue(\count($arr)==100);
+        if ($ch->isSupported('session_id')) {
+            $arr = $ch->queryStrings("SELECT * FROM system.numbers LIMIT 100");
+            $this->assertTrue(\count($arr)==100);
+        }
 
         $str = $ch->queryStrings("SELECT * FROM notfoundtable LIMIT 1");
         $this->assertNotEquals(200, $ch->last_code);
@@ -344,10 +360,12 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
     {
         $ch = $this->object;
 
-        $tbl = "system.columns";
-        $arr = $ch->queryTableSubstract($tbl);
-        $this->assertArrayHasKey('columns_arr', $arr);
-        $arr = $arr['columns_arr'];
+        if($ch->isSupported('session_id')) {
+            $tbl = "system.columns";
+            $arr = $ch->queryTableSubstract($tbl);
+            $this->assertArrayHasKey('columns_arr', $arr);
+            $arr = $arr['columns_arr'];
+        }
         $arr = $ch->queryTableSubstract("notfound'\nthistable");
         $this->assertFalse(\is_array($arr));
     }
@@ -359,12 +377,14 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
     {
         $ch = $this->object;
 
-        $tbl = "system.columns";
-        $arr = $ch->queryTableSys($tbl, 'columns');
-        $this->assertEquals($arr, $ch->queryTableSubstract($tbl));
-        $arr = $ch->queryTableSys($tbl, 'tables');
-        $this->assertEquals($arr, $ch->queryTableSys($tbl));
-        $arr = $ch->queryTableSys($tbl, 'replicas');
-        $this->assertTrue(is_string($arr));
+        if ($ch->isSupported('session_id')) {
+            $tbl = "system.columns";
+            $arr = $ch->queryTableSys($tbl, 'columns');
+            $this->assertEquals($arr, $ch->queryTableSubstract($tbl));
+            $arr = $ch->queryTableSys($tbl, 'tables');
+            $this->assertEquals($arr, $ch->queryTableSys($tbl));
+            $arr = $ch->queryTableSys($tbl, 'replicas');
+            $this->assertTrue(is_string($arr));
+        }
     }
 }

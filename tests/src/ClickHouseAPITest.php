@@ -204,6 +204,10 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
         $sess_sup = $ch->isSupported('session_id');
         echo "Sessions " .($sess_sup ? '':'not ') . "supported\n";
 
+        if (!$ch->isSupported('query', true)) {
+            echo "query is not supported!?\n";
+        }
+
         $this->assertNull($ch->isSupported('unknown'));
     }
 

@@ -222,10 +222,8 @@ class ClickHouseAPI
      * Set server connection parameters from url
      *
      * Example:
-     *
-     * Set scheme=http, host=127.0.0.1, port=8123, user=default, pass=[empty]
-     *
-     *  $h->setServerUrl("http://default:@127.0.0.1:8123/");
+     * - Set scheme=http, host=127.0.0.1, port=8123, user=default, pass=[empty]
+     * - ->setServerUrl("http://default:@127.0.0.1:8123/");
      *
      * @param string|null $full_server_url Full server URL
      * @throws \Exception
@@ -247,8 +245,7 @@ class ClickHouseAPI
         ) {
             throw new \Exception("Illegal server parameters");
         }
-        $this->server_url = $this->scheme . '://' . $this->host
-            . ':' . $this->port
+        $this->server_url = $this->scheme . '://' . $this->host . ':' . $this->port
             . (empty($this->path) ? '/' : $this->path);
     }
 
@@ -546,7 +543,7 @@ class ClickHouseAPI
             if ($ans['code'] == 200) {
                 $this->support_fe['session_id'] = true;
             } else {
-                // if session_id unsupported send request again
+                // if session_id unsupported send request again without session_id
                 $this->support_fe['session_id'] = false;
                 $this->session_autocreate = false;
                 $ans = $this->doApiCall($this->server_url, compact('query'));
