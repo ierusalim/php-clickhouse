@@ -546,11 +546,13 @@ class ClickHouseAPI
             if ($ans['code'] == 200) {
                 $this->support_fe['session_id'] = true;
             } else {
-                // if session_id unsupported send request again
                 $this->support_fe['session_id'] = false;
                 $this->session_autocreate = false;
                 unset($h_opt_arr['session_id']);
-                $ans = $this->doApiCall($this->server_url, $h_opt_arr);
+                // if session_id unsupported send request again
+                if ($ans['code'] == 404) {
+                    $ans = $this->doApiCall($this->server_url, $h_opt_arr);
+                }
             }
             $ver = explode("\n", $ans['response']);
             $ver = (count($ver) == 2 && strlen($ver[0]) < 32) ? $ver[0] : "Unknown";

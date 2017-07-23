@@ -188,7 +188,7 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
         $ch->session_autocreate = true;
         // set fake server for emulate session unsupported
         $ch->hook_before_api_call = function($s, $obj) {
-            return 'http://google.com/';
+            return 'http://google.com/notfound';
         };
         $version = $ch->getVersion(true);
         $this->assertFalse($ch->session_autocreate);
