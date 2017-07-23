@@ -57,42 +57,44 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
 
         $tmp = 'tempcreate';
 
-        $ans = $ch->queryFalse("DROP TABLE IF EXISTS $tmp");
-        $this->assertFalse($ans);
+        if ($ch->isSupported('query')) {
+            $ans = $ch->queryFalse("DROP TABLE IF EXISTS $tmp");
+            $this->assertFalse($ans);
 
-        $ans = $ch->queryFalse("CREATE TABLE IF NOT EXISTS $tmp" .
-            "( b FixedString(1), dt DEFAULT toDate(now()), " .
-            " f DEFAULT toString('abc'), x String )" .
-            "ENGINE = MergeTree(dt, (b, dt), 8192)");
-        $this->assertFalse($ans);
+            $ans = $ch->queryFalse("CREATE TABLE IF NOT EXISTS $tmp" .
+                "( b FixedString(1), dt DEFAULT toDate(now()), " .
+                " f DEFAULT toString('abc'), x String )" .
+                "ENGINE = MergeTree(dt, (b, dt), 8192)");
+            $this->assertFalse($ans);
 
-        $arr = $ch->queryInsertArray($tmp, ['b', 'x'], ['a', 'hello-a']);
-        $this->assertFalse($arr);
+            $arr = $ch->queryInsertArray($tmp, ['b', 'x'], ['a', 'hello-a']);
+            $this->assertFalse($arr);
 
-        $arr = $ch->queryInsertArray($tmp, ['b', 'x'], [['b', 'hello-b']]);
-        $this->assertFalse($arr);
+            $arr = $ch->queryInsertArray($tmp, ['b', 'x'], [['b', 'hello-b']]);
+            $this->assertFalse($arr);
 
-        $arr = $ch->queryInsertArray($tmp, ['b', 'x'], [
-            ['c', 'hello-c'],
-            ['d', 'hello-d']
-        ]);
-        $this->assertFalse($arr);
+            $arr = $ch->queryInsertArray($tmp, ['b', 'x'], [
+                ['c', 'hello-c'],
+                ['d', 'hello-d']
+            ]);
+            $this->assertFalse($arr);
 
-        $arr = $ch->queryInsertArray($tmp, null, ['b'=>'e', 'x'=>'hello-e']);
-        $this->assertFalse($arr);
+            $arr = $ch->queryInsertArray($tmp, null, ['b'=>'e', 'x'=>'hello-e']);
+            $this->assertFalse($arr);
 
-        $arr = $ch->queryInsertArray($tmp, null, [['b'=>'f', 'x'=>'hello-f']]);
-        $this->assertFalse($arr);
+            $arr = $ch->queryInsertArray($tmp, null, [['b'=>'f', 'x'=>'hello-f']]);
+            $this->assertFalse($arr);
 
-        $arr = $ch->queryInsertArray($tmp, ['b','x','f'], [
-            ['b'=>'g', 'x'=>'hello-g'],
-            ['b'=>'h', 'x'=>'hello-h'],
-            ['b'=>'h', 'x'=>'hello-h', 'f'=>'ahha']
-        ]);
-        $this->assertFalse($arr);
+            $arr = $ch->queryInsertArray($tmp, ['b','x','f'], [
+                ['b'=>'g', 'x'=>'hello-g'],
+                ['b'=>'h', 'x'=>'hello-h'],
+                ['b'=>'h', 'x'=>'hello-h', 'f'=>'ahha']
+            ]);
+            $this->assertFalse($arr);
 
-        $arr = $ch->queryStrings("SELECT * FROM $tmp LIMIT 10");
-        $this->assertTrue(count($arr)>7);
+            $arr = $ch->queryStrings("SELECT * FROM $tmp LIMIT 10");
+            $this->assertTrue(count($arr)>7);
+        }
 
         // test bad parameters
         $arr = $ch->queryInsertArray($tmp, ['b', 'x'], []);
@@ -110,7 +112,9 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
     public function testQueryGood()
     {
         $ch = $this->object;
-        $this->assertEquals($ch->queryTrue("SELECT 1"), "1");
+        if ($ch->isSupported('query')) {
+            $this->assertEquals($ch->queryTrue("SELECT 1"), "1");
+        }
         if ($ch->isSupported('session_id')) {
             $this->assertTrue($ch->queryTrue("USE system"));
         }
@@ -124,47 +128,49 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
     {
         $ch = $this->object;
 
-        $table = "anytabletmp";
+        if ($ch->isSupported('query')) {
+            $table = "anytabletmp";
 
-        $file = 'anyfile.txt';
+            $file = 'anyfile.txt';
 
-        $file_data = "1\t2017-12-12\tAny string data\n";
-        $file_data .= "2\t2017-12-11\tNext row\n";
+            $file_data = "1\t2017-12-12\tAny string data\n";
+            $file_data .= "2\t2017-12-11\tNext row\n";
 
-        $this->assertTrue(file_put_contents($file, $file_data)>0);
+            $this->assertTrue(file_put_contents($file, $file_data)>0);
 
-        $structure_excactly = 'id UInt32, dt Date, s String';
+            $structure_excactly = 'id UInt32, dt Date, s String';
 
-        $fs = "file_structure";
+            $fs = "file_structure";
 
-        $this->assertFalse($ch->queryFalse("DROP TABLE IF EXISTS $table"));
+            $this->assertFalse($ch->queryFalse("DROP TABLE IF EXISTS $table"));
 
-        $ans = $ch->queryFalse("CREATE TABLE $table" .
-            "( $structure_excactly )" .
-            "ENGINE = MergeTree(dt, (id, dt), 8192)");
-        $this->assertFalse($ans);
+            $ans = $ch->queryFalse("CREATE TABLE $table" .
+                "( $structure_excactly )" .
+                "ENGINE = MergeTree(dt, (id, dt), 8192)");
+            $this->assertFalse($ans);
 
-        $ans = $ch->queryInsertFile($table, $file, $structure_excactly);
-        $this->assertFalse($ans);
+            $ans = $ch->queryInsertFile($table, $file, $structure_excactly);
+            $this->assertFalse($ans);
 
-        $this->assertFalse(isset($ch->options[$fs]));
+            $this->assertFalse(isset($ch->options[$fs]));
 
-        $ans = $ch->queryStrings("SELECT * FROM $table");
+            $ans = $ch->queryStrings("SELECT * FROM $table");
 
-        $this->assertEquals($file_data, implode("\n",$ans)."\n");
+            $this->assertEquals($file_data, implode("\n",$ans)."\n");
 
-        $ch->setOption($fs, 'What');
-        $ans = $ch->queryInsertFile($table, $file, $structure_excactly);
-        $this->assertFalse($ans);
-        $this->assertEquals("What", $ch->getOption($fs));
-        $ch->delOption($fs);
+            $ch->setOption($fs, 'What');
+            $ans = $ch->queryInsertFile($table, $file, $structure_excactly);
+            $this->assertFalse($ans);
+            $this->assertEquals("What", $ch->getOption($fs));
+            $ch->delOption($fs);
 
-        $this->assertFalse($ch->queryFalse("DROP TABLE $table"));
-        unlink($file);
+            $this->assertFalse($ch->queryFalse("DROP TABLE $table"));
+            unlink($file);
 
-        $this->setExpectedException("\Exception");
-        // exception file not found
-        $ans = $ch->queryInsertFile($table, $file, $structure_excactly);
+            $this->setExpectedException("\Exception");
+            // exception file not found
+            $ans = $ch->queryInsertFile($table, $file, $structure_excactly);
+        }
     }
 
     public function testQueryInsertFileBadpar()
@@ -183,8 +189,10 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
     public function testQueryFalse()
     {
         $ch = $this->object;
-        $this->assertFalse($ch->queryFalse("SELECT 1"), "1");
-        $this->assertTrue(is_string($ch->queryFalse("SELECT err")));
+        if ($ch->isSupported('query')) {
+            $this->assertFalse($ch->queryFalse("SELECT 1"), "1");
+            $this->assertTrue(is_string($ch->queryFalse("SELECT err")));
+        }
     }
 
     /**
@@ -194,10 +202,12 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
     public function testBindPars()
     {
         $ch = $this->object;
-        $sql = $ch->bindPars("SELECT {x},{y}", ['x'=>123, 'y'=>"4"]);
-        $this->assertEquals("SELECT 123,4", $sql);
-        $sql = $ch->bindPars("SELECT {nm} FROM {tb}", ['nm'=>'name', 'tb'=>'table']);
-        $this->assertEquals("SELECT name FROM table", $sql);
+        if ($ch->isSupported('query')) {
+            $sql = $ch->bindPars("SELECT {x},{y}", ['x'=>123, 'y'=>"4"]);
+            $this->assertEquals("SELECT 123,4", $sql);
+            $sql = $ch->bindPars("SELECT {nm} FROM {tb}", ['nm'=>'name', 'tb'=>'table']);
+            $this->assertEquals("SELECT name FROM table", $sql);
+        }
     }
 
     /**
@@ -207,18 +217,19 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
     public function testQueryValue()
     {
         $ch = $this->object;
-        $this->assertEquals($ch->queryValue("SELECT 1"), "1");
-        if ($ch->isSupported('session_id')) {
-            $this->assertEquals($ch->queryValue("USE system"), "");
+        if ($ch->isSupported('query')) {
+            $this->assertEquals($ch->queryValue("SELECT 1"), "1");
+            if ($ch->isSupported('session_id')) {
+                $this->assertEquals($ch->queryValue("USE system"), "");
+            }
+
+            $this->assertFalse($ch->queryValue("SELECT blablabla()"));
+            $this->assertNotEquals(200, $ch->last_code);
+
+            $ch->setServerUrl("http://localhost:22");
+            $this->assertFalse($ch->queryValue("SELECT 1"));
+            $this->assertTrue(strlen($ch->last_curl_error_str)>10);
         }
-
-        $this->assertFalse($ch->queryValue("SELECT blablabla()"));
-        $this->assertNotEquals(200, $ch->last_code);
-
-        $ch->curl_timeout = 2;
-        $ch->setServerUrl("http://localhost:22");
-        $this->assertFalse($ch->queryValue("SELECT 1"));
-        $this->assertTrue(strlen($ch->last_curl_error_str)>10);
     }
 
     /**
@@ -229,9 +240,10 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
     {
         $ch = $this->object;
 
-        $ans = $ch->queryFullArray("SELECT blablabla()");
-        $this->assertFalse(is_array($ans));
-
+        if ($ch->isSupported('query')) {
+            $ans = $ch->queryFullArray("SELECT blablabla()");
+            $this->assertFalse(is_array($ans));
+        }
         if ($ch->isSupported('session_id')) {
             $ch->setOption('extremes', 1);
             $t_arr = $ch->queryFullArray("SELECT * FROM system.settings WITH TOTALS");
@@ -251,10 +263,12 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
     public function testQueryArray()
     {
         $ch = $this->object;
-        $arr = $ch->queryArray("SHOW DATABASES", false);
-        $this->assertArrayHasKey('name', $arr[0]);
-        $arr = $ch->queryArray("SHOW DATABASES", true);
-        $this->assertArrayHasKey('0', $arr[0]);
+        if ($ch->isSupported('query')) {
+            $arr = $ch->queryArray("SHOW DATABASES", false);
+            $this->assertArrayHasKey('name', $arr[0]);
+            $arr = $ch->queryArray("SHOW DATABASES", true);
+            $this->assertArrayHasKey('0', $arr[0]);
+        }
     }
     /**
      * @covers ierusalim\ClickHouse\ClickHouseQuery::queryArr
@@ -262,8 +276,8 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
     public function testQueryArr()
     {
         $ch = $this->object;
-        $this->assertFalse(is_array($ch->queryArr("SELECT blabla()")));
         if ($ch->isSupported('session_id')) {
+            $this->assertFalse(is_array($ch->queryArr("SELECT blabla()")));
             $ch->setOption("extremes", 1);
             $arr = $ch->queryArr("SELECT * FROM system.settings WITH TOTALS");
             $this->assertArrayHasKey(10, $arr);
@@ -332,9 +346,10 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
             $arr = $ch->queryStrings("SELECT * FROM system.numbers LIMIT 100");
             $this->assertTrue(\count($arr)==100);
         }
-
-        $str = $ch->queryStrings("SELECT * FROM notfoundtable LIMIT 1");
-        $this->assertNotEquals(200, $ch->last_code);
+        if ($ch->isSupported('query')) {
+            $str = $ch->queryStrings("SELECT * FROM notfoundtable LIMIT 1");
+            $this->assertNotEquals(200, $ch->last_code);
+        }
     }
 
 

@@ -100,11 +100,18 @@ class ClickHouseAPI
     public $ssl_verify_host = 0;
 
     /**
+     * CURL option CURLOPT_CONNECTTIMEOUT
+     *
+     * @var integer 2 sec. by default
+     */
+    public $curl_conn_timeout = 2;
+
+    /**
      * CURL option CURLOPT_TIMEOUT
      *
-     * @var integer 30 sec. by default
+     * @var integer 60 sec. by default
      */
-    public $curl_timeout = 30;
+    public $curl_timeout = 60;
 
     /**
      * Last error reported by CURL or empty string if none
@@ -154,6 +161,7 @@ class ClickHouseAPI
      * @var string|null
      */
     public $server_version;
+
     /**
      * list of support features array
      *
@@ -330,22 +338,15 @@ class ClickHouseAPI
             }
         }
 
-        // If need session, check this feature
-        if (!empty($this->options['session_id'])) {
-            if (isset($this->support_fe['session_id'])) {
-                $sess_sup = $this->support_fe['session_id'];
-            } else {
-                $sess_sup = $this->isSupported('session_id');
-            }
-            if (!$sess_sup) {
-                unset($this->options['session_id']);
-            }
-        }
-
         $h_parameters = \array_merge(
             \compact('user', 'password', 'query'),
             $this->options
         );
+
+        if (isset($h_parameters['session_id']) && !$this->isSupported('session_id')) {
+            unset($h_parameters['session_id']);
+        }
+
 
         $this->last_used_session_id = isset($h_parameters['session_id']) ?
             $h_parameters['session_id'] : null;
@@ -414,6 +415,7 @@ class ClickHouseAPI
         \curl_setopt($ch, \CURLOPT_SSL_VERIFYPEER, false);
         \curl_setopt($ch, \CURLOPT_SSL_VERIFYHOST, $this->ssl_verify_host);
 
+        \curl_setopt($ch, \CURLOPT_CONNECTTIMEOUT, $this->curl_conn_timeout);
         \curl_setopt($ch, \CURLOPT_TIMEOUT, $this->curl_timeout);
         \curl_setopt($ch, \CURLOPT_RETURNTRANSFER, true);
         \curl_setopt($ch, \CURLOPT_USERAGENT, "PHP-ClickHouse");

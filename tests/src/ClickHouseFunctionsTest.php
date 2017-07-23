@@ -169,10 +169,12 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
     public function testGetDatabasesList()
     {
         $ch = $this->object;
-        $db_arr = $ch->queryStrings("SHOW DATABASES");
-        $db_2_arr = $ch->getDatabasesList();
-        $this->assertEquals($db_arr, $db_2_arr);
-        $this->assertTrue(\array_search('system', $db_arr) !== false);
+        if ($ch->isSupported('query')) {
+            $db_arr = $ch->queryStrings("SHOW DATABASES");
+            $db_2_arr = $ch->getDatabasesList();
+            $this->assertEquals($db_arr, $db_2_arr);
+            $this->assertTrue(\array_search('system', $db_arr) !== false);
+        }
     }
 
     /**
@@ -277,8 +279,10 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
     public function testGetUptime()
     {
         $ch = $this->object;
-        $uptime_sec = $ch->getUptime();
-        $this->assertTrue(is_numeric($uptime_sec));
+        if ($ch->isSupported('query')) {
+            $uptime_sec = $ch->getUptime();
+            $this->assertTrue(is_numeric($uptime_sec));
+        }
     }
 
     /**
@@ -287,8 +291,10 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
     public function testGetNumbers()
     {
         $ch = $this->object;
-        $arr = $ch->getNumbers(100);
-        $this->assertEquals(100, count($arr));
+        if ($ch->isSupported('query')) {
+            $arr = $ch->getNumbers(100);
+            $this->assertEquals(100, count($arr));
+        }
     }
 
     /**
@@ -325,24 +331,25 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
         $ch = $this->object;
 
         $table = 'testtbl123';
+        if ($ch->isSupported('query')) {
+            $ans = $ch->createTableQuick($table, [
+                'id' => 'Int16',
+                'dt' => ['Date', 'now()']
+            ], 2);
+            $this->assertFalse($ans);
 
-        $ans = $ch->createTableQuick($table, [
-            'id' => 'Int16',
-            'dt' => ['Date', 'now()']
-        ], 2);
-        $this->assertFalse($ans);
+            $arr = $ch->queryInsertArray($table, ['id', 'dt'], [111, '2017-10-10']);
+            $this->assertFalse($arr);
 
-        $arr = $ch->queryInsertArray($table, ['id', 'dt'], [111, '2017-10-10']);
-        $this->assertFalse($arr);
+            $arr = $ch->queryValue("SELECT id FROM $table");
+            $this->assertEquals(111, $arr);
 
-        $arr = $ch->queryValue("SELECT id FROM $table");
-        $this->assertEquals(111, $arr);
+            $ans = $ch->dropTable($table);
+            $this->assertFalse($ans);
 
-        $ans = $ch->dropTable($table);
-        $this->assertFalse($ans);
-
-        $arr = $ch->queryValue("SELECT id FROM $table");
-        $this->assertFalse($arr);
+            $arr = $ch->queryValue("SELECT id FROM $table");
+            $this->assertFalse($arr);
+        }
     }
 
     /**
@@ -454,31 +461,33 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
 
         $file = '../forpost.txt';
 
-        $ans = $ch->createTableQuick($table, [
-            'id' => 'Int16',
-            'dt' => ['Date', 'now()'],
-            's' => 'String',
-            'when' => 'Date'
-        ], 2);
-        $this->assertFalse($ans);
-
         $row = "\t2017-11-05\tString\t1500559231\n";
         \file_put_contents($file, '1' . $row . '2'. $row);
 
-        $ans = $ch->sendFileInsert($file, $table, true);
-        $exp = [
-            'file_structure' => 'id Int16, dt String, s String, when UInt32',
-            'selector' => 'id, toDate(dt), s, toDate(when)'
-            ];
-        $this->assertEquals($exp, $ans);
+        if ($ch->isSupported('query')) {
+            $ans = $ch->createTableQuick($table, [
+                'id' => 'Int16',
+                'dt' => ['Date', 'now()'],
+                's' => 'String',
+                'when' => 'Date'
+            ], 2);
+            $this->assertFalse($ans);
 
-        $ans = $ch->sendFileInsert($file, $table);
-        $this->assertFalse($ans);
+            $ans = $ch->sendFileInsert($file, $table, true);
+            $exp = [
+                'file_structure' => 'id Int16, dt String, s String, when UInt32',
+                'selector' => 'id, toDate(dt), s, toDate(when)'
+                ];
+            $this->assertEquals($exp, $ans);
 
-        $ans = $ch->queryArr("SELECT * FROM $table LIMIT 10", true);
-        $exp = [[1, '2017-11-05', 'String', '2017-07-20'],
-                [2, '2017-11-05', 'String', '2017-07-20']];
-        $this->assertEquals($exp, $ans);
+            $ans = $ch->sendFileInsert($file, $table);
+            $this->assertFalse($ans);
+
+            $ans = $ch->queryArr("SELECT * FROM $table LIMIT 10", true);
+            $exp = [[1, '2017-11-05', 'String', '2017-07-20'],
+                    [2, '2017-11-05', 'String', '2017-07-20']];
+            $this->assertEquals($exp, $ans);
+        }
 
         // test errors
         $ans = $ch->sendFileInsert('', $table);
@@ -490,9 +499,6 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
         \file_put_contents($file, '1' . $row . '2'. $row);
         $ans = $ch->sendFileInsert($file, $table);
         $this->assertTrue(is_string($ans));
-//        \chmod($file, 0222);
-//        $ans = $ch->sendFileInsert($file, $table);
-//        $this->assertTrue(is_string($ans));
         unlink($file);
     }
     /**
@@ -519,30 +525,31 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
 
         $table = 'tempcreate';
 
-        $ans = $ch->createTableQuick($table, [
-            'id' => 'Int16',
-            'dt' => ['Date', 'now()']
-        ], 2);
-        $this->assertFalse($ans);
+        if ($ch->isSupported('query')) {
+            $ans = $ch->createTableQuick($table, [
+                'id' => 'Int16',
+                'dt' => ['Date', 'now()']
+            ], 2);
+            $this->assertFalse($ans);
 
-        $fields_arr = $ch->getTableFields($table);
+            $fields_arr = $ch->getTableFields($table);
 
-        $this->assertEquals(['id'=>'Int16', 'dt'=>'Date'], $fields_arr);
+            $this->assertEquals(['id'=>'Int16', 'dt'=>'Date'], $fields_arr);
 
-        if ($ch->isSupported('session_id')) {
-            $engine = $ch->queryTableSys($table, "tables");
-            $this->assertEquals('MergeTree', $engine['engine']);
+            if ($ch->isSupported('session_id')) {
+                $engine = $ch->queryTableSys($table, "tables");
+                $this->assertEquals('MergeTree', $engine['engine']);
 
-            $this->assertFalse($ch->dropTable($table));
+                $this->assertFalse($ch->dropTable($table));
+            }
+
+            $ans = $ch->createTableQuick($table, [
+                'id' => 'Int16',
+                'dt' => ['Date', 'now()'],
+                'ver' => 'UInt8'
+            ], 2, ', ver');
+            $this->assertFalse($ans);
         }
-
-        $ans = $ch->createTableQuick($table, [
-            'id' => 'Int16',
-            'dt' => ['Date', 'now()'],
-            'ver' => 'UInt8'
-        ], 2, ', ver');
-        $this->assertFalse($ans);
-
         if ($ch->isSupported('session_id')) {
             $engine = $ch->queryTableSys($table, "tables");
             $this->assertEquals('ReplacingMergeTree', $engine['engine']);

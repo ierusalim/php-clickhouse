@@ -70,117 +70,17 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @covers Ierusalim\ClickHouse\ClickHouseAPI::anyQuery
-     * @todo   Implement testAnyQuery().
-     */
-    public function testAnyQuery()
-    {
-        $ch = $this->object;
-
-        //get mode
-        $ans = $ch->anyQuery("SELECT 123");
-        $this->assertTrue(isset($ans['response']));
-        $this->assertEquals(trim($ans['response']), 123);
-
-        //post mode
-        $ans = $ch->anyQuery("SELECT 123", []);
-        $this->assertTrue(isset($ans['response']));
-        $this->assertEquals(trim($ans['response']), 123);
-    }
-
-    /**
-     * @covers Ierusalim\ClickHouse\ClickHouseAPI::getQuery
-     * @todo   Implement testGetQuery().
-     */
-    public function testGetQuery()
-    {
-        $ch = $this->object;
-        $ans = $ch->getQuery("SELECT 456");
-        $this->assertTrue(isset($ans['response']));
-        $this->assertEquals(trim($ans['response']), '456');
-    }
-
-    /**
-     * @covers Ierusalim\ClickHouse\ClickHouseAPI::postQuery
-     * @todo   Implement testPostQuery().
-     */
-    public function testPostQuery()
-    {
-        $ch = $this->object;
-        $ans = $ch->postQuery("CREATE TABLE t (a UInt8) ENGINE = Memory", []);
-        if ($ans['code'] == 500) {
-            $ans = $ch->postQuery("DROP TABLE t", []);
-        }
-        $this->assertEquals($ans['code'], 200);
-    }
-
-    /**
-     * @covers Ierusalim\ClickHouse\ClickHouseAPI::doQuery
-     * @todo   Implement testDoQuery().
-     */
-    public function testDoQuery()
-    {
-        $ch = $this->object;
-
-        $ch->session_autocreate = false;
-
-        // test default query SELECT 1
-        $ans = $ch->doQuery();
-        $this->assertEquals(\trim($ans['response']), 1);
-
-        $this->assertNull($ch->getSession());
-
-        $ch->session_autocreate = true;
-        $ans = $ch->doQuery("SELECT 22");
-        $this->assertEquals(\trim($ans['response']), 22);
-
-        $session_id = $ch->getSession();
-        if ($ch->isSupported('session_id')) {
-            $this->assertEquals(32, strlen($session_id));
-        } else {
-            $this->assertNull($session_id);
-        }
-
-        // test previous query SELECT 22
-        $ans = $ch->doQuery();
-        $this->assertEquals(\trim($ans['response']), 22);
-
-        if ($ch->isSupported('session_id')) {
-            $sess = $ch->getSession();
-            $this->assertEquals($sess, $session_id);
-
-            // test temporary session
-            $sess_tmp = md5(microtime());
-            // use temporary session
-            $ans = $ch->doQuery("SELECT 123", false, [], $sess_tmp);
-
-            // session_id must not changed
-            $this->assertEquals($session_id, $ch->getSession());
-
-            // but last last_used_session_id must be sess_tmp
-            $this->assertEquals($sess_tmp, $ch->last_used_session_id);
-        }
-
-        // check query if not supported session
-        $ch->support_fe['session_id'] = false;
-        $ch->setOption('session_id', 'test');
-        $ans = $ch->doQuery("SELECT 321");
-        $this->assertEquals(\trim($ans['response']), 321);
-        $this->assertNull($ch->getSession());
-    }
-
-
-    /**
      * @covers ierusalim\ClickHouse\ClickHouseAPI::getVersion
      */
     public function testGetVersion()
     {
         $ch = $this->object;
         $version = $ch->getVersion();
-        $this->assertTrue(strpos($version, '.') > 0);
+        if ($ch->isSupported('query')) {
+            $this->assertTrue(strpos($version, '.') > 0);
+        }
         echo "Version of ClickHouse server: $version\n";
-        $this->assertEquals($version, $fake_version = $ch->server_version);
-
+        $this->assertEquals($version, $ch->server_version);
         // test get cached version
         $fake_version = $ch->server_version = 'fake_version';
         $this->assertEquals($fake_version, $ch->getVersion());
@@ -205,10 +105,115 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
         echo "Sessions " .($sess_sup ? '':'not ') . "supported\n";
 
         if (!$ch->isSupported('query', true)) {
-            echo "query is not supported!?\n";
+            echo "query is not supported; ClickHouse Server is not ready\n";
         }
 
         $this->assertNull($ch->isSupported('unknown'));
+    }
+
+    /**
+     * @covers Ierusalim\ClickHouse\ClickHouseAPI::anyQuery
+     * @todo   Implement testAnyQuery().
+     */
+    public function testAnyQuery()
+    {
+        $ch = $this->object;
+
+        if ($ch->isSupported('query')) {
+            //get mode
+            $ans = $ch->anyQuery("SELECT 123");
+            $this->assertTrue(isset($ans['response']));
+            $this->assertEquals(trim($ans['response']), 123);
+
+            //post mode
+            $ans = $ch->anyQuery("SELECT 123", []);
+            $this->assertTrue(isset($ans['response']));
+            $this->assertEquals(trim($ans['response']), 123);
+        }
+    }
+
+    /**
+     * @covers Ierusalim\ClickHouse\ClickHouseAPI::getQuery
+     * @todo   Implement testGetQuery().
+     */
+    public function testGetQuery()
+    {
+        $ch = $this->object;
+        if ($ch->isSupported('query')) {
+            $ans = $ch->getQuery("SELECT 456");
+            $this->assertTrue(isset($ans['response']));
+            $this->assertEquals(trim($ans['response']), '456');
+        }
+    }
+
+    /**
+     * @covers Ierusalim\ClickHouse\ClickHouseAPI::postQuery
+     * @todo   Implement testPostQuery().
+     */
+    public function testPostQuery()
+    {
+        $ch = $this->object;
+        if ($ch->isSupported('query')) {
+            $ans = $ch->postQuery("CREATE TABLE t (a UInt8) ENGINE = Memory", []);
+            if ($ans['code'] == 500) {
+                $ans = $ch->postQuery("DROP TABLE t", []);
+            }
+            $this->assertEquals($ans['code'], 200);
+        }
+    }
+
+    /**
+     * @covers Ierusalim\ClickHouse\ClickHouseAPI::doQuery
+     * @todo   Implement testDoQuery().
+     */
+    public function testDoQuery()
+    {
+        $ch = $this->object;
+
+        $ch->session_autocreate = false;
+
+        if ($ch->isSupported('query')) {
+             // test default query SELECT 1
+            $ans = $ch->doQuery();
+            $this->assertEquals(\trim($ans['response']), 1);
+
+            $this->assertNull($ch->getSession());
+
+            $ch->session_autocreate = true;
+            $ans = $ch->doQuery("SELECT 22");
+            $this->assertEquals(\trim($ans['response']), 22);
+
+            $session_id = $ch->getSession();
+            if ($ch->isSupported('session_id')) {
+                $this->assertEquals(32, strlen($session_id));
+            }
+
+            // test previous query SELECT 22
+            $ans = $ch->doQuery();
+            $this->assertEquals(\trim($ans['response']), 22);
+        }
+        if ($ch->isSupported('session_id')) {
+            $sess = $ch->getSession();
+            $this->assertEquals($sess, $session_id);
+
+            // test temporary session
+            $sess_tmp = md5(microtime());
+            // use temporary session
+            $ans = $ch->doQuery("SELECT 123", false, [], $sess_tmp);
+
+            // session_id must not changed
+            $this->assertEquals($session_id, $ch->getSession());
+
+            // but last last_used_session_id must be sess_tmp
+            $this->assertEquals($sess_tmp, $ch->last_used_session_id);
+        }
+        if ($ch->isSupported('query')) {
+            // check query if not supported session
+            $ch->support_fe['session_id'] = false;
+            $ch->setOption('session_id', 'test');
+            $ans = $ch->doQuery("SELECT 321");
+            $this->assertEquals(\trim($ans['response']), 321);
+        }
     }
 
     /**

@@ -53,10 +53,16 @@ contains functions for simple operations with ClickHouse.
 ### Example:
 ```php
 <?php
+    namespace ierusalim\ClickHouse;
+
     require "vendor/autoload.php";
+
     $ch = new ClickHouseFunctions("http://127.0.0.1:8123/");
 
     echo "ClickHouse version: " . $ch->getVersion();
+    if (!$ch->isSupported('query')) {
+        die(" Server not ready");
+    }
     echo " Server uptime: " . $ch->getUptime();
     
     echo "\n\nDatabases: ";
