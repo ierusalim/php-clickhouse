@@ -456,11 +456,11 @@ class ClickHouseQuery extends ClickHouseAPI
         foreach (['meta', 'statistics', 'extremes', 'totals'] as $key) {
             $this->$key = (isset($arr[$key]) && \is_array($arr[$key])) ? $arr[$key] : null;
         }
-        foreach(['rows_before_limit_at_least', 'rows'] as $key) {
+        foreach (['rows_before_limit_at_least', 'rows'] as $key) {
             $this->$key = (isset($arr[$key]) && \is_numeric($arr[$key])) ? $arr[$key] : null;
         }
         $this->names = $names = isset($this->meta) ? \array_column($this->meta, 'name') : null;
-        $this->types = \is_array($names) ? \array_column($this->meta, 'type') : null;
+        $this->types = \is_array($this->meta) ? \array_column($this->meta, 'type') : null;
 
         if ($this->json_compact && !empty($names)) {
             foreach (['data', 'extremes'] as $key) {
@@ -628,11 +628,11 @@ class ClickHouseQuery extends ClickHouseAPI
      */
     public function bindPars($pattern, $bindings, $e_pre = '{', $e_pos = '}')
     {
-        $search_arr = array_map(function($s) use ($e_pre, $e_pos) {
+        $search_arr = \array_map(function($s) use ($e_pre, $e_pos) {
             return $e_pre . $s . $e_pos;
-        }, array_keys($bindings));
-        $replace_arr = array_values($bindings);
-        return str_replace($search_arr, $replace_arr, $pattern);
+        }, \array_keys($bindings));
+        $replace_arr = \array_values($bindings);
+        return \str_replace($search_arr, $replace_arr, $pattern);
     }
 
     /**
