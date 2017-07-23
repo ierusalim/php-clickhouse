@@ -128,8 +128,7 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
         $ans = $ch->doQuery();
         $this->assertEquals(\trim($ans['response']), 1);
 
-        $session_id = $ch->getSession();
-        $this->assertNull($session_id);
+        $this->assertNull($ch->getSession());
 
         $ch->session_autocreate = true;
         $ans = $ch->doQuery("SELECT 22");

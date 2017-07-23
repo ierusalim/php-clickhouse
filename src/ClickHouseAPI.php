@@ -315,7 +315,7 @@ class ClickHouseAPI
         if (!empty($session_id) && $this->getSession() != $session_id) {
             $old_session = $this->setSession($session_id);
         } else {
-            if ($this->session_autocreate && !$this->getSession()) {
+            if ($this->session_autocreate && $this->getSession() === null) {
                 $this->setSession();
             }
         }
