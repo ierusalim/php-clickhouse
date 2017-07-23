@@ -102,10 +102,11 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
     {
         $ch = $this->object;
         $sess_sup = $ch->isSupported('session_id');
-        echo "Sessions " .($sess_sup ? '':'not ') . "supported\n";
+        echo "Sessions " .($sess_sup ? '':'is not ') . "supported\n";
 
         if (!$ch->isSupported('query', true)) {
             echo "query is not supported; ClickHouse Server is not ready\n";
+            echo "Server: {$ch->host}:{$ch->port}\n";
         }
 
         $this->assertNull($ch->isSupported('unknown'));
@@ -129,6 +130,8 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
             $ans = $ch->anyQuery("SELECT 123", []);
             $this->assertTrue(isset($ans['response']));
             $this->assertEquals(trim($ans['response']), 123);
+        } else {
+            echo '-';
         }
     }
 
@@ -143,6 +146,8 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
             $ans = $ch->getQuery("SELECT 456");
             $this->assertTrue(isset($ans['response']));
             $this->assertEquals(trim($ans['response']), '456');
+        } else {
+            echo '-';
         }
     }
 
@@ -159,6 +164,8 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
                 $ans = $ch->postQuery("DROP TABLE t", []);
             }
             $this->assertEquals($ans['code'], 200);
+        } else {
+            echo '-';
         }
     }
 
@@ -177,7 +184,7 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
             $ans = $ch->doQuery();
             $this->assertEquals(\trim($ans['response']), 1);
 
-            $this->assertNull($ch->getSession());
+            //$this->assertNull($ch->getSession());
 
             $ch->session_autocreate = true;
             $ans = $ch->doQuery("SELECT 22");
@@ -191,6 +198,8 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
             // test previous query SELECT 22
             $ans = $ch->doQuery();
             $this->assertEquals(\trim($ans['response']), 22);
+        } else {
+            echo '-';
         }
         if ($ch->isSupported('session_id')) {
             $sess = $ch->getSession();

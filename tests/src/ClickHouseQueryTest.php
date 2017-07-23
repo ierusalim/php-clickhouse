@@ -94,6 +94,8 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
 
             $arr = $ch->queryStrings("SELECT * FROM $tmp LIMIT 10");
             $this->assertTrue(count($arr)>7);
+        } else {
+            echo '-';
         }
 
         // test bad parameters
@@ -114,6 +116,8 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
         $ch = $this->object;
         if ($ch->isSupported('query')) {
             $this->assertEquals($ch->queryTrue("SELECT 1"), "1");
+        } else {
+            echo '-';
         }
         if ($ch->isSupported('session_id')) {
             $this->assertTrue($ch->queryTrue("USE system"));
@@ -170,6 +174,8 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
             $this->setExpectedException("\Exception");
             // exception file not found
             $ans = $ch->queryInsertFile($table, $file, $structure_excactly);
+        } else {
+            echo '-';
         }
     }
 
@@ -192,6 +198,8 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
         if ($ch->isSupported('query')) {
             $this->assertFalse($ch->queryFalse("SELECT 1"), "1");
             $this->assertTrue(is_string($ch->queryFalse("SELECT err")));
+        } else {
+            echo '-';
         }
     }
 
@@ -207,6 +215,8 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
             $this->assertEquals("SELECT 123,4", $sql);
             $sql = $ch->bindPars("SELECT {nm} FROM {tb}", ['nm'=>'name', 'tb'=>'table']);
             $this->assertEquals("SELECT name FROM table", $sql);
+        } else {
+            echo '-';
         }
     }
 
@@ -229,6 +239,8 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
             $ch->setServerUrl("http://localhost:22");
             $this->assertFalse($ch->queryValue("SELECT 1"));
             $this->assertTrue(strlen($ch->last_curl_error_str)>10);
+        } else {
+            echo '-';
         }
     }
 
@@ -243,6 +255,8 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
         if ($ch->isSupported('query')) {
             $ans = $ch->queryFullArray("SELECT blablabla()");
             $this->assertFalse(is_array($ans));
+        } else {
+            echo '-';
         }
         if ($ch->isSupported('session_id')) {
             $ch->setOption('extremes', 1);
@@ -268,6 +282,8 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
             $this->assertArrayHasKey('name', $arr[0]);
             $arr = $ch->queryArray("SHOW DATABASES", true);
             $this->assertArrayHasKey('0', $arr[0]);
+        } else {
+            echo '-';
         }
     }
     /**
@@ -285,6 +301,8 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
             $this->assertFalse(empty($ch->totals));
             $arr = $ch->queryArr("SELECT * FROM system.settings", true);
             $this->assertArrayHasKey(10, $arr);
+        } else {
+            echo '-';
         }
     }
     /**
@@ -310,6 +328,8 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
 
             $arr = $ch->queryKeyValues('system.metrics', '*');
             $this->assertTrue(count($arr)>10);
+        } else {
+            echo '-';
         }
     }
     /**
@@ -330,6 +350,8 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
                 $arr = $ch->queryKeyValArr("system.settings", "*");
                 $this->assertTrue(count($arr)>10);
             }
+        } else {
+            echo '-';
         }
 
         $err = $ch->queryKeyValArr("SELECT blablabla()");
@@ -349,6 +371,8 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
         if ($ch->isSupported('query')) {
             $str = $ch->queryStrings("SELECT * FROM notfoundtable LIMIT 1");
             $this->assertNotEquals(200, $ch->last_code);
+        } else {
+            echo '-';
         }
     }
 

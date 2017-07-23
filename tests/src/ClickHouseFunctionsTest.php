@@ -133,6 +133,8 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
             $this->assertEquals($db_name, $db_1);
             $db_name = $ch->getCurrentDatabase($session_id_2);
             $this->assertEquals($db_name, $db_2);
+        } else {
+            echo '-';
         }
     }
 
@@ -160,6 +162,8 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
             $this->assertEquals($db_name, $db_1);
             $db_name = $ch->getCurrentDatabase($session_id_2);
             $this->assertEquals($db_name, $db_2);
+        } else {
+            echo '-';
         }
     }
 
@@ -174,6 +178,8 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
             $db_2_arr = $ch->getDatabasesList();
             $this->assertEquals($db_arr, $db_2_arr);
             $this->assertTrue(\array_search('system', $db_arr) !== false);
+        } else {
+            echo '-';
         }
     }
 
@@ -192,6 +198,8 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
             $data_tbl_arr = $ch->getTablesList('system', 'd%');
             $this->assertTrue(count($data_tbl_arr) > 0);
             $this->assertTrue(array_search('databases', $data_tbl_arr) !== false);
+        } else {
+            echo '-';
         }
     }
 
@@ -204,6 +212,8 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
         if ($ch->isSupported('session_id')) {
             $proc_arr = $ch->getProcessList();
             $this->assertTrue(\is_array($proc_arr));
+        } else {
+            echo '-';
         }
     }
 
@@ -219,6 +229,8 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
             \extract($sum_arr);
             $this->assertTrue($fixed_bytes > 10);
             $this->assertTrue($dynamic_fields > 5);
+        } else {
+            echo '-';
         }
 
         //exceptions
@@ -258,6 +270,8 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
             $desc_tbl_arr = $ch->getTableFields('system.databases');
             $this->assertArrayHasKey('name', $desc_tbl_arr);
             $this->assertArrayHasKey('engine', $desc_tbl_arr);
+        } else {
+            echo '-';
         }
     }
 
@@ -270,6 +284,8 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
         if ($ch->isSupported('session_id')) {
             $arr = $ch->getSystemSettings();
             $this->assertTrue(count($arr) > 10);
+        } else {
+            echo '-';
         }
     }
 
@@ -282,6 +298,8 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
         if ($ch->isSupported('query')) {
             $uptime_sec = $ch->getUptime();
             $this->assertTrue(is_numeric($uptime_sec));
+        } else {
+            echo '-';
         }
     }
 
@@ -294,6 +312,8 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
         if ($ch->isSupported('query')) {
             $arr = $ch->getNumbers(100);
             $this->assertEquals(100, count($arr));
+        } else {
+            echo '-';
         }
     }
 
@@ -349,6 +369,8 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
 
             $arr = $ch->queryValue("SELECT id FROM $table");
             $this->assertFalse($arr);
+        } else {
+            echo '-';
         }
     }
 
@@ -360,6 +382,7 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
         $ch = $this->object;
 
         if (!$ch->isSupported('session_id')) {
+            echo '-';
             return;
         }
         $prefix = 'tempren';
@@ -447,6 +470,8 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
 
             $ans = $ch->clearTable('system.numbers');
             $this->assertTrue(\is_string($ans));
+        } else {
+            echo '-';
         }
     }
 
@@ -487,6 +512,8 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
             $exp = [[1, '2017-11-05', 'String', '2017-07-20'],
                     [2, '2017-11-05', 'String', '2017-07-20']];
             $this->assertEquals($exp, $ans);
+        } else {
+            echo '-';
         }
 
         // test errors
@@ -549,6 +576,8 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
                 'ver' => 'UInt8'
             ], 2, ', ver');
             $this->assertFalse($ans);
+        } else {
+            echo '-';
         }
         if ($ch->isSupported('session_id')) {
             $engine = $ch->queryTableSys($table, "tables");
@@ -626,6 +655,8 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
             //broken request
             $arr = $ch->getTableInfo("notfound'\nthistable");
             $this->assertFalse(\is_array($arr));
+        } else {
+            echo '-';
         }
     }
 
