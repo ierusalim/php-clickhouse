@@ -29,6 +29,26 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
+     * @covers ierusalim\ClickHouse\ClickHouseQuery::jsonDecode
+     */
+    public function testJsonDecodance()
+    {
+        $ch = $this->object;
+        $arr = ['a'=>1,2,3];
+        $json_raw = \json_encode($arr);
+        $dearr = $ch->jsonDecode($json_raw, "Err");
+        $this->assertEquals($arr, $dearr);
+        $dearr = $ch->jsonDecode("Decodance", "Decadance-error");
+        $this->assertEquals("Decadance-error", $dearr);
+        $dearr = $ch->jsonDecode(false, "Decadance-error");
+        $this->assertEquals("Decadance-error", $dearr);
+        $dearr = $ch->jsonDecode(true, "Decadance-error");
+        $this->assertEquals("Decadance-error", $dearr);
+        $dearr = $ch->jsonDecode('', "Decadance-error");
+        $this->assertEquals("Decadance-error", $dearr);
+    }
+
+    /**
      * @covers ierusalim\ClickHouse\ClickHouseQuery::queryInsertArray
      */
     public function testQueryInsertArray()

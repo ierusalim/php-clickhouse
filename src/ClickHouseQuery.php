@@ -177,10 +177,10 @@ class ClickHouseQuery extends ClickHouseAPI
      * - Error describe available in $this->last_error_str (or empty string if no error)
      * - To results are applied to the trim function (for removing \n from end)
      *
-     * @param string            $sql SQL-request
+     * @param string $sql SQL-request
      * @param array|string|null $post_data Post-data or Null for Get-request
-     * @param string|null       $sess session_id
-     * @return boolean|string False if error | String with results if ok
+     * @param string|null $sess session_id
+     * @return false|string False if error | String with results if ok
      */
     public function queryValue($sql, $post_data = null, $sess = null)
     {
@@ -193,7 +193,7 @@ class ClickHouseQuery extends ClickHouseAPI
 
         if ($ans['code'] == 200) {
             $this->last_error_str = '';
-            return isset($ans['response']) ? trim($ans['response']) : null;
+            return isset($ans['response']) ? trim($ans['response']) : false;
         } else {
             $this->last_error_str = $ans['response'];
             return false;
@@ -223,7 +223,7 @@ class ClickHouseQuery extends ClickHouseAPI
 
         $arr = (!$arr) ?: \explode("\n", $arr);
 
-        return is_array($arr) ? $arr : $this->last_error_str;
+        return \is_array($arr) ? $arr : $this->last_error_str;
     }
 
     /**
@@ -411,6 +411,21 @@ class ClickHouseQuery extends ClickHouseAPI
     }
 
     /**
+     * Try to decode json-string and return array if ok, or string $err if error
+     *
+     * @param string $json_raw String for decode
+     * @param string $err Error string for answering if json_decode failed
+     * @return array|string
+     */
+    public function jsonDecode($json_raw, $err = "No json")
+    {
+        if (!\is_string($json_raw)) {
+            return $err;
+        }
+        return \json_decode($json_raw, true) ?: $err;
+    }
+
+    /**
      * Sends a SQL query and returns data in an array in the format ClickHouse.
      *
      * The requested data is transmitted through the JSON format or JSONCompact.
@@ -432,9 +447,9 @@ class ClickHouseQuery extends ClickHouseAPI
             (($this->json_compact || $data_only) ? 'Compact' : ''),
             null, $sess);
 
-        $arr = (!$arr) ?: \json_decode($arr, true);
+        $arr = $this->jsonDecode($arr, 'No json');
 
-        if (!is_array($arr)) {
+        if (!\is_array($arr)) {
             return $this->last_error_str;
         }
 
