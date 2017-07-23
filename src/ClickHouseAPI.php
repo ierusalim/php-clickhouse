@@ -513,13 +513,10 @@ class ClickHouseAPI
     public function isSupported($fe_key = 'session_id', $re_check = false)
     {
         if (!isset($this->support_fe[$fe_key]) || $re_check) {
-            switch ($fe_key) {
-                case 'query':
-                case 'session_id':
-                    $this->getVersion($re_check);
-                    break;
-                default:
-                    return null;
+            if ($fe_key == 'query' || $fe_key == 'session_id') {
+                $this->getVersion($re_check);
+            } else {
+                return null;
             }
         }
         return $this->support_fe[$fe_key];
