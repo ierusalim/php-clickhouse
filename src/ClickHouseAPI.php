@@ -517,6 +517,7 @@ class ClickHouseAPI
     {
         if (!isset($this->support_fe[$fe_key]) || $re_check) {
             switch ($fe_key) {
+                case 'query':
                 case 'session_id':
                     $this->getVersion($re_check);
                     break;
@@ -553,6 +554,9 @@ class ClickHouseAPI
             $ver = explode("\n", $ans['response']);
             $ver = (count($ver) == 2 && strlen($ver[0]) < 32) ? $ver[0] : "Unknown";
             $this->support_fe['query'] = \is_string($ver) && (\count(\explode(".", $ver)) > 2);
+            if (!$this->support_fe['query']) {
+                $this->support_fe['session_id'] = false;
+            }
             $this->server_version = $ver;
             $this->setSession($old_sess);
         }
