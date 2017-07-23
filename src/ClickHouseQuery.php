@@ -413,7 +413,7 @@ class ClickHouseQuery extends ClickHouseAPI
     /**
      * Try to decode json-string and return array if ok, or string $err if error
      *
-     * @param string $json_raw String for decode
+     * @param mixed $json_raw String for decode
      * @param string $err Error string for answering if json_decode failed
      * @return array|string
      */
