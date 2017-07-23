@@ -334,7 +334,7 @@ class ClickHouseAPI
         }
 
         // If need session, check this feature
-        if(!empty($this->options['session_id'])) {
+        if (!empty($this->options['session_id'])) {
             if (isset($this->support_fe['session_id'])) {
                 $sess_sup = $this->support_fe['session_id'];
             } else {
@@ -542,7 +542,7 @@ class ClickHouseAPI
             $session_id = $this->getSession();
             $query = 'SELECT version()';
             $ans = $this->doApiCall($this->server_url, compact('query', 'session_id'));
-            if($ans['code'] == 200) {
+            if ($ans['code'] == 200) {
                 $this->support_fe['session_id'] = true;
             } else {
                 // if session_id unsupported send request again
@@ -551,7 +551,9 @@ class ClickHouseAPI
                 $ans = $this->doApiCall($this->server_url, compact('query'));
             }
             $ver = explode("\n", $ans['response']);
-            $this->server_version = (count($ver) == 2) ? $ver[0] : "Unknown";
+            $ver = (count($ver) == 2 && strlen($ver[0]) < 32) ? $ver[0] : "Unknown";
+            $this->support_fe['query'] = \is_string($ver) && (\count(\explode(".", $ver)) > 2);
+            $this->server_version = $ver;
             $this->setSession($old_sess);
         }
         return $this->server_version;

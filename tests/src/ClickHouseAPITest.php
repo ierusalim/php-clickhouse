@@ -135,7 +135,7 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
         $this->assertEquals(\trim($ans['response']), 22);
 
         $session_id = $ch->getSession();
-        if($ch->isSupported('session_id')) {
+        if ($ch->isSupported('session_id')) {
             $this->assertEquals(32, strlen($session_id));
         } else {
             $this->assertNull($session_id);
@@ -160,6 +160,13 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
             // but last last_used_session_id must be sess_tmp
             $this->assertEquals($sess_tmp, $ch->last_used_session_id);
         }
+
+        // check query if not supported session
+        $ch->support_fe['session_id'] = false;
+        $ch->setOption('session_id', 'test');
+        $ans = $ch->doQuery("SELECT 321");
+        $this->assertEquals(\trim($ans['response']), 321);
+        $this->assertNull($ch->getSession());
     }
 
 
