@@ -539,14 +539,18 @@ class ClickHouseAPI
             $old_sess = $this->setSession(null, false);
             $session_id = $this->getSession();
             $query = 'SELECT version()';
-            $ans = $this->doApiCall($this->server_url, compact('query', 'session_id'));
+            $user = $this->user;
+            $password = $this->pass;
+            $h_opt_arr = \compact('query', 'user', 'password', 'session_id');
+            $ans = $this->doApiCall($this->server_url, $h_opt_arr);
             if ($ans['code'] == 200) {
                 $this->support_fe['session_id'] = true;
             } else {
-                // if session_id unsupported send request again without session_id
+                // if session_id unsupported send request again
                 $this->support_fe['session_id'] = false;
                 $this->session_autocreate = false;
-                $ans = $this->doApiCall($this->server_url, compact('query'));
+                unset($h_opt_arr['session_id']);
+                $ans = $this->doApiCall($this->server_url, $h_opt_arr);
             }
             $ver = explode("\n", $ans['response']);
             $ver = (count($ver) == 2 && strlen($ver[0]) < 32) ? $ver[0] : "Unknown";
