@@ -144,11 +144,7 @@ class ClickHouseQuery extends ClickHouseAPI
     public function queryTrue($sql, $post_data = [], $sess = null)
     {
         $ans = $this->queryValue($sql, $post_data, $sess);
-        if ($ans !== false && empty($ans)) {
-            return true;
-        } else {
-            return $ans;
-        }
+        return ($ans !== false && empty($ans)) ?: $ans;
     }
 
     /**
@@ -166,15 +162,11 @@ class ClickHouseQuery extends ClickHouseAPI
     public function queryFalse($sql, $post_data = [], $sess = null)
     {
         $ans = $this->queryValue($sql, $post_data, $sess);
-        if ($ans === false) {
-            return $this->last_error_str;
-        } else {
-            return false;
-        }
+        return ($ans === false) ? $this->last_error_str : false;
     }
 
     /**
-     * For queries that involve either no return value or one string value.
+     * For queries that involve either no return value or string.
      *
      * Send POST-request if have post_data, send GET-request if no post_data
      *
