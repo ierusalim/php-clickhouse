@@ -441,7 +441,7 @@ class ClickHouseFunctions extends ClickHouseQuery
     /**
      * Drop database and remove all tables inside it.
      *
-     * @param type $db_name database name for drop (delete, remove)
+     * @param string $db_name database name for drop (delete, remove)
      * @param boolean $if_exists Add condition "IF EXISTS"
      * @return false|string false if ok, or string with error description
      */
