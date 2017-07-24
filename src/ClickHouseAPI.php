@@ -11,12 +11,15 @@ namespace ierusalim\ClickHouse;
  * - >setServerUrl($url) - set ClickHouse server parameters by url (host, port, etc.)
  * - >getQuery($h_query [, $sess]) - send GET request
  * - >postQuery($h_query, $post_data [, $sess]) - send POST request
- * Sessions functions:
+ * Special functions:
+ * - >getVersion() - return version of ClickHouse server (and detect server features)
+*  - >isSupported(feature-name) - return true or false depending on server features.
+ * Sessions. Check isSupported('session_id'). Relevant only for new ClickHouse versions.
  * - >getSession() - get current session_id from options
  * - >setSession([$sess]) - set session_id or generate new session_id
  * Options functions:
- * - >setOption($key, $value) - set http-option for requests
- * - >getOption($key) - get http-option value
+ * - >setOption($key, $value) - set http-url-option for all next requests
+ * - >getOption($key) - get current http-option value for specified $key
  * - >delOption($key) - delete http-option (same ->setOption($key, null)
  *
  * PHP Version >= 5.4
