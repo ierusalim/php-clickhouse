@@ -16,6 +16,8 @@ namespace ierusalim\ClickHouse;
  *
  * - >getTablesList([$db] [,$pattern]) - returns tables list by SHOW TABLES request
  *
+ * - >createDatabase($db) - create new database with specified name
+ * - >dropDatabase($db) - drop specified database and remove all tables inside
  * - >getDatabasesList() - returns array contained names of existing Databases
  * - >setCurrentDatabase($db [, $sess]) - set current database by 'USE db' request
  * - >getCurrentDatabase([$sess]) - return results of 'SELECT currentDatabase()'
@@ -436,16 +438,29 @@ class ClickHouseFunctions extends ClickHouseQuery
         }
     }
 
-
+    /**
+     * Drop database and remove all tables inside it.
+     *
+     * @param type $db_name database name for drop (delete, remove)
+     * @param boolean $if_exists Add condition "IF EXISTS"
+     * @return false|string false if ok, or string with error description
+     */
     public function dropDatabase($db_name, $if_exists = false)
     {
-        $sql = "DROP DATABASE " . ($if_exists ? 'IF EXISTS ':'');
+        $sql = "DROP DATABASE " . ($if_exists ? 'IF EXISTS ' : '');
         return $this->queryFalse($sql . $db_name);
     }
 
+    /**
+     * Create new database
+     *
+     * @param string $db_name database name for create
+     * @param boolean $if_not_exists Add condition "IF NOT EXISTS"
+     * @return false|string false if ok, or string with error description
+     */
     public function createDatabase($db_name, $if_not_exists = false)
     {
-        $sql = "CREATE DATABASE " . ($if_not_exists ? 'IF NOT EXISTS ':'');
+        $sql = "CREATE DATABASE " . ($if_not_exists ? 'IF NOT EXISTS ' : '');
         return $this->queryFalse($sql . $db_name);
     }
 

@@ -157,7 +157,7 @@ class ClickHouseQuery extends ClickHouseAPI
      * @param string            $sql SQL-request
      * @param string|array|null $post_data any POST-data or null for GET-request
      * @param string|null       $sess session_id
-     * @return boolean|string False if no errors | string if error with describe
+     * @return string|false False if no errors | string if error with describe
      */
     public function queryFalse($sql, $post_data = [], $sess = null)
     {

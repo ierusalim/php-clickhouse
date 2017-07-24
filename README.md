@@ -43,6 +43,8 @@ contains functions for simple operations with ClickHouse.
 * **getTableFields**($table, ...) - returns [field_name=>field_type] array
 * **getTableInfo**($table [, $extended]) - returns array with info about table
 * **getTablesList**([$db] [,$pattern]) - returns tables list by SHOW TABLES request
+* **createDatabase**($db) - create new database with specified name
+* **dropDatabase**($db) - drop specified database and remove all tables inside
 * **getDatabasesList**() - returns array contained names of existing Databases
 * **setCurrentDatabase**($db [, $sess]) - set current database by 'USE db' request
 * **getCurrentDatabase**([$sess]) - return results of 'SELECT currentDatabase()'
