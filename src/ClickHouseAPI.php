@@ -527,7 +527,10 @@ class ClickHouseAPI
     /**
      * Return version of ClickHouse server by function SELECT version()
      *
-     * The response is cached
+     * Do SELECT version() + session_id to see if a session is supported or not
+     * if session_id not supported, request is send again, but without session_id.
+     * - Depending on result, the isSupported('session_id') is set true or false.
+     * - If server version response unrecognized, isSupported('query') set false.
      *
      * @param boolean $re_check Set true for re-send query to server
      * @return string|boolean String version or false if error
@@ -536,22 +539,10 @@ class ClickHouseAPI
     {
         if (\is_null($this->server_version) || $re_check) {
             $old_sess = $this->setSession(null, false);
-            $session_id = $this->getSession();
             $query = 'SELECT version()';
-            $user = $this->user;
-            $password = $this->pass;
-            $h_opt_arr = \compact('query', 'user', 'password', 'session_id');
-            $ans = $this->doApiCall($this->server_url, $h_opt_arr);
-            if ($ans['code'] == 200) {
-                $this->support_fe['session_id'] = true;
-            } else {
-                $this->support_fe['session_id'] = false;
-                $this->session_autocreate = false;
-                unset($h_opt_arr['session_id']);
-                // if session_id unsupported send request again
-                if ($ans['code'] == 404) {
-                    $ans = $this->doApiCall($this->server_url, $h_opt_arr);
-                }
+            $ans = $this->doGet($query, ['session_id' => $this->getSession()]);
+            if (!($this->support_fe['session_id'] = $ans['code'] != 404)) {
+                $ans = $this->doGet($query);
             }
             $ver = explode("\n", $ans['response']);
             $ver = (count($ver) == 2 && strlen($ver[0]) < 32) ? $ver[0] : "Unknown";
@@ -559,9 +550,29 @@ class ClickHouseAPI
             if (!$this->support_fe['query']) {
                 $this->support_fe['session_id'] = false;
             }
+            if (!$this->support_fe['session_id']) {
+                $this->session_autocreate = false;
+            }
             $this->server_version = $ver;
             $this->setOption('session_id', $old_sess);
         }
         return $this->server_version;
+    }
+
+    /**
+     * Do GET-request with base options (query, user, password) + specified options
+     *
+     * The result array is the same as for the function doApiCall
+     *
+     * @param string $query will be set as an option ?query=...
+     * @param array $h_opt Other in-url-options for make GET-request
+     * @return array
+     */
+    public function doGet($query, $h_opt = [])
+    {
+        $user = $this->user;
+        $password = $this->pass;
+        $h_opt_arr = \array_merge(\compact('query', 'user', 'password'), $h_opt);
+        return $this->doApiCall($this->server_url, $h_opt_arr);
     }
 }

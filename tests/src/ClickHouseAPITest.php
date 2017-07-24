@@ -152,6 +152,23 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
     }
 
     /**
+     * @covers Ierusalim\ClickHouse\ClickHouseAPI::doGet
+     * @todo   Implement testDoGet().
+     */
+    public function testDoGet()
+    {
+        $ch = $this->object;
+        if ($ch->isSupported('query')) {
+            $ans = $ch->doGet("SELECT 567", ['database' => 'default']);
+            $this->assertEquals(200, ($ans['code']));
+            $this->assertTrue(isset($ans['response']));
+            $this->assertEquals(trim($ans['response']), '567');
+        } else {
+            echo '-';
+        }
+    }
+
+    /**
      * @covers Ierusalim\ClickHouse\ClickHouseAPI::postQuery
      * @todo   Implement testPostQuery().
      */

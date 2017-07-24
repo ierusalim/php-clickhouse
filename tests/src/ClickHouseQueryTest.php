@@ -404,9 +404,9 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
             $arr = $ch->queryTableSubstract($tbl);
             $this->assertArrayHasKey('columns_arr', $arr);
             $arr = $arr['columns_arr'];
+            $arr = $ch->queryTableSubstract("notfound'\nthistable");
+            $this->assertFalse(\is_array($arr));
         }
-        $arr = $ch->queryTableSubstract("notfound'\nthistable");
-        $this->assertFalse(\is_array($arr));
     }
 
     /**
