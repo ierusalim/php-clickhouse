@@ -167,7 +167,7 @@ class ClickHouseAPI
      *
      * @var array
      */
-    public $support_fe=[];
+    public $support_fe = [];
 
     /**
      * Auto-create session_id and send it with each request
@@ -510,7 +510,7 @@ class ClickHouseAPI
      *
      * @param string $fe_key feature name
      * @param boolean $re_check set true for check again
-     * @return boolean|null true = supported, false = unsupported, null = unknown feature
+     * @return boolean true = supported, false = unsupported
      */
     public function isSupported($fe_key = 'session_id', $re_check = false)
     {
@@ -518,7 +518,7 @@ class ClickHouseAPI
             if ($fe_key == 'query' || $fe_key == 'session_id') {
                 $this->getVersion($re_check);
             } else {
-                return null;
+                return false;
             }
         }
         return $this->support_fe[$fe_key];

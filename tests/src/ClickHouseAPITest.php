@@ -109,7 +109,7 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
             echo "Server: {$ch->host}:{$ch->port}\n";
         }
 
-        $this->assertNull($ch->isSupported('unknown'));
+        $this->assertFalse($ch->isSupported('unknown'));
     }
 
     /**
