@@ -572,7 +572,8 @@ class ClickHouseAPI
     {
         $user = $this->user;
         $password = $this->pass;
-        $h_opt_arr = \array_merge(\compact('query', 'user', 'password'), $h_opt);
+        $database = $this->getOption('database');
+        $h_opt_arr = \array_merge(\compact('query', 'user', 'password', 'database'), $h_opt);
         return $this->doApiCall($this->server_url, $h_opt_arr);
     }
 }

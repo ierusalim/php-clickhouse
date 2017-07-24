@@ -20,7 +20,7 @@ namespace ierusalim\ClickHouse;
  * - >setCurrentDatabase($db [, $sess]) - set current database by 'USE db' request
  * - >getCurrentDatabase([$sess]) - return results of 'SELECT currentDatabase()'
  *
- * - >getVersion() - return version of ClickHouse server
+ * - >getVersion() - return version of ClickHouse server (function moved to ClickHouseAPI)
  * - >getUptime() - return server uptime in seconds
  * - >getSystemSettings() - get information from system.settings as array [name=>value]
  *
@@ -309,6 +309,7 @@ class ClickHouseFunctions extends ClickHouseQuery
 
     /**
      * Parse source $fields_arr from format [field_names => types[ defaults]]
+     * to format with keys [create, type_full, type_name, type_src, default, bytes]
      *
      * @param array $fields_arr Array of elements [field_name]=>[field_type]
      * @return array Each element contains [create, type_name, default, ...]
@@ -392,37 +393,60 @@ class ClickHouseFunctions extends ClickHouseQuery
     }
 
     /**
-     * Get current database name for current or specified session
+     * Get current database name.
      *
-     * Function use SQL-query 'SELECT currentDatabase()'
+     * if option 'database' is not empty, return database from options.
+     * Otherwise using SQL-query 'SELECT currentDatabase()' for current or specified session
      *
      * Keep in mind that current database can be set in two ways:
-     *  - by setCurrentDatabase() via SQL-request 'USE $db'
-     *  - by setOption('database', $db), in this case may use getOption('database')
+     *  - by option 'database', in this case '&database=...' is sent with each request
+     *  - by SQL-request 'USE $db' - it only makes sense when the sessions supported
      *
-     * @param string|null $sess session_id
-     * @return string|boolean String with current db-name or false if error
+     * @param string|null|true $sess session_id (or true for read only 'database' option)
+     * @return string|false String with current db-name or false if error
      */
     public function getCurrentDatabase($sess = null)
     {
+        $database = $this->getOption('database');
+        if (!empty($database) || $sess === true) {
+            return $database;
+        }
         return $this->queryValue('SELECT currentDatabase()', null, $sess);
     }
 
     /**
      * Set current database by name for current or specified session.
      *
-     * Function send SQL-query 'USE $db'
+     * Function send SQL-query 'USE $db' if sessions supported
      *
-     * However, one must know that there is another way to specified
-     * current database for any query ->setOption('database', $db)
+     * If sessions not supported or parameter $sess is boolean true,
+     *  then set current database by option ->setOption('database', $db)
      *
-     * @param string      $db   Database name
-     * @param string|null $sess session_id
-     * @return string|boolean True if ok, false if error
+     * @param string $db Database name
+     * @param string|null|true $sess session_id or true for use database-option
+     * @return string|false false if ok, or string with error description
      */
     public function setCurrentDatabase($db, $sess = null)
     {
-        return $this->queryTrue("USE $db", [], $sess);
+        if ($sess === true || !$this->isSupported('session_id')) {
+            $this->setOption('database', $db);
+            return false;
+        } else {
+            return $this->queryFalse("USE " . $db, [], $sess);
+        }
+    }
+
+
+    public function dropDatabase($db_name, $if_exists = false)
+    {
+        $sql = "DROP DATABASE " . ($if_exists ? 'IF EXISTS ':'');
+        return $this->queryFalse($sql . $db_name);
+    }
+
+    public function createDatabase($db_name, $if_not_exists = false)
+    {
+        $sql = "CREATE DATABASE " . ($if_not_exists ? 'IF NOT EXISTS ':'');
+        return $this->queryFalse($sql . $db_name);
     }
 
     /**

@@ -102,6 +102,40 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
+     * @covers ierusalim\ClickHouse\ClickHouseFunctions::createDatabase
+     */
+    public function testCreateDatabase()
+    {
+        $ch = $this->object;
+
+        $tmpdb = 'tmpdbfordel';
+
+        $this->assertFalse($ch->createDatabase($tmpdb, true));
+
+        $db_arr = $ch->getDatabasesList();
+
+        $this->assertTrue(array_search($tmpdb, $db_arr) !== false);
+
+       // $this->assertFalse($ch->dropDatabase($tmpdb));
+    }
+
+    /**
+     * @covers ierusalim\ClickHouse\ClickHouseFunctions::dropDatabase
+     */
+    public function testDropDatabase()
+    {
+        $ch = $this->object;
+
+        $tmpdb = 'tmpdbfordel';
+
+//        $this->assertFalse($ch->createDatabase($tmpdb, true));
+
+        $this->assertFalse($ch->dropDatabase($tmpdb));
+        $db_arr = $ch->getDatabasesList();
+        $this->assertFalse(array_search($tmpdb, $db_arr));
+    }
+
+    /**
      * @covers ierusalim\ClickHouse\ClickHouseFunctions::getCurrentDatabase
      */
     public function testGetCurrentDatabase()
@@ -117,9 +151,9 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
             $db_2 = 'system';
 
             $ans = $ch->setCurrentDatabase($db_1, $session_id_1);
-            $this->assertTrue($ans);
+            $this->assertFalse($ans);
             $ans = $ch->setCurrentDatabase($db_2, $session_id_2);
-            $this->assertTrue($ans);
+            $this->assertFalse($ans);
 
             $ch->setSession($session_id_1);
             $db_name = $ch->getCurrentDatabase();
@@ -133,6 +167,11 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
             $this->assertEquals($db_name, $db_1);
             $db_name = $ch->getCurrentDatabase($session_id_2);
             $this->assertEquals($db_name, $db_2);
+
+            $ch->setOption('database', 'system');
+            $this->assertEquals('system', $ch->getCurrentDatabase());
+            $this->assertEquals('system', $ch->getCurrentDatabase(true));
+            $ch->setOption('database', null);
         } else {
             echo '-';
         }
@@ -145,6 +184,14 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
     {
         $ch = $this->object;
 
+        $ch->setCurrentDatabase('system', true);
+        $this->assertEquals('system', $ch->getOption('database'));
+        $this->assertEquals('system', $ch->getCurrentDatabase());
+        if ($ch->isSupported('session_id')) {
+            $this->assertEquals('system', $ch->queryValue('SELECT currentDatabase()'));
+        }
+        $ch->setOption('database', null);
+
         if ($ch->isSupported('session_id')) {
             $ch->setSession();
             $session_id_1 = $ch->setSession();
@@ -154,9 +201,9 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
             $db_2 = 'system';
 
             $ans = $ch->setCurrentDatabase($db_1, $session_id_1);
-            $this->assertTrue($ans);
+            $this->assertFalse($ans);
             $ans = $ch->setCurrentDatabase($db_2, $session_id_2);
-            $this->assertTrue($ans);
+            $this->assertFalse($ans);
 
             $db_name = $ch->getCurrentDatabase($session_id_1);
             $this->assertEquals($db_name, $db_1);
@@ -311,6 +358,10 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
         $ch = $this->object;
         if ($ch->isSupported('query')) {
             $arr = $ch->getNumbers(100);
+            if (count($arr)==1) {
+                echo "Error getNumbers: ";
+                print_r($arr);
+            }
             $this->assertEquals(100, count($arr));
         } else {
             echo '-';
