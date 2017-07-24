@@ -110,13 +110,13 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
 
         $tmpdb = 'tmpdbfordel';
 
-        $this->assertFalse($ch->createDatabase($tmpdb, true));
+        if ($ch->isSupported('query')) {
+            $this->assertFalse($ch->createDatabase($tmpdb, true));
 
-        $db_arr = $ch->getDatabasesList();
+            $db_arr = $ch->getDatabasesList();
 
-        $this->assertTrue(array_search($tmpdb, $db_arr) !== false);
-
-       // $this->assertFalse($ch->dropDatabase($tmpdb));
+            $this->assertTrue(array_search($tmpdb, $db_arr) !== false);
+        }
     }
 
     /**
@@ -128,11 +128,11 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
 
         $tmpdb = 'tmpdbfordel';
 
-//        $this->assertFalse($ch->createDatabase($tmpdb, true));
-
-        $this->assertFalse($ch->dropDatabase($tmpdb));
-        $db_arr = $ch->getDatabasesList();
-        $this->assertFalse(array_search($tmpdb, $db_arr));
+        if ($ch->isSupported('query')) {
+            $this->assertFalse($ch->dropDatabase($tmpdb));
+            $db_arr = $ch->getDatabasesList();
+            $this->assertFalse(array_search($tmpdb, $db_arr));
+        }
     }
 
     /**

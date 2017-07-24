@@ -102,7 +102,7 @@ class ClickHouseAPI
     /**
      * CURL option CURLOPT_CONNECTTIMEOUT
      *
-     * @var integer 2 sec. by default
+     * @var integer 3 sec. by default
      */
     public $curl_conn_timeout = 3;
 
