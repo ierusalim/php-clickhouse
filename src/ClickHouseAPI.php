@@ -560,7 +560,7 @@ class ClickHouseAPI
                 $this->support_fe['session_id'] = false;
             }
             $this->server_version = $ver;
-            $this->setSession($old_sess);
+            $this->setOption('session_id', $old_sess);
         }
         return $this->server_version;
     }

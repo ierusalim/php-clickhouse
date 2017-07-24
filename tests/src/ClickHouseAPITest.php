@@ -184,7 +184,7 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
             $ans = $ch->doQuery();
             $this->assertEquals(\trim($ans['response']), 1);
 
-            //$this->assertNull($ch->getSession());
+            $this->assertNull($ch->getSession());
 
             $ch->session_autocreate = true;
             $ans = $ch->doQuery("SELECT 22");
@@ -198,8 +198,6 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
             // test previous query SELECT 22
             $ans = $ch->doQuery();
             $this->assertEquals(\trim($ans['response']), 22);
-        } else {
-            echo '-';
         }
         if ($ch->isSupported('session_id')) {
             $sess = $ch->getSession();
@@ -215,6 +213,8 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
 
             // but last last_used_session_id must be sess_tmp
             $this->assertEquals($sess_tmp, $ch->last_used_session_id);
+        } else {
+            echo '-';
         }
         if ($ch->isSupported('query')) {
             // check query if not supported session
