@@ -6,7 +6,7 @@
 ### Class **ClickHouseAPI**
 Class **ClickHouseAPI** contains simple http/https connector for ClickHouse server
 and have not dependencies (may be used independently, file src/ClichHouseAPI.php).
-#### API functions:
+#### http/https connector functions:
 * **setServerUrl**($url) - set ClickHouse server parameters by url (host, port, etc.)
 * **getQuery**($h_query [, $sess]) - send GET request
 * **postQuery**($h_query, $post_data [, $sess]) - send POST request
