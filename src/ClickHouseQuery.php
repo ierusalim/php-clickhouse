@@ -8,8 +8,8 @@ namespace ierusalim\ClickHouse;
  * sql-queries to ClickHouse server and parsing answering data.
  *
  * Main query-functions for use:
- * - >queryTrue($sql, [post]) - Return false only if error, otherwise return true or data
  * - >queryFalse($sql, [post])- Return false only if NOT error, otherwise string with error.
+ * - >queryTrue($sql, [post]) - Return false only if error, otherwise return true or data
  * - >queryValue($sql, [post]) - Send query and receive data in one string (false if error)
  * - >queryArray($sql) - for queries returning multi-rows data
  * - >queryKeyValues(see descr.) - for queries returning 2 columns key => value
@@ -85,9 +85,7 @@ class ClickHouseQuery extends ClickHouseAPI
     public $extremes;
 
     /**
-     * Stored [rows]-section from received data, contains rows count.
-     *
-     * (not need because count(array) is same)
+     * Stored [rows]-section from received data, contains data-rows count.
      *
      * @var integer|null
      */
@@ -129,10 +127,8 @@ class ClickHouseQuery extends ClickHouseAPI
 
     /**
      * For queries that involve either no return value or one string value.
-     *
-     * Return true or non-empty string if ok
-     *
-     * Return false if error
+     * - Return true (or non-empty string) if ok
+     * - Return false only if error
      *
      * queryTrue send POST-request by default for clear read_only-flag.
      *
@@ -149,8 +145,8 @@ class ClickHouseQuery extends ClickHouseAPI
 
     /**
      * For queries that involve either no return value or any string data.
-     *
-     * Return false if ok (no error) or string with error description
+     * - Return false only if no errors.
+     * - In case of an error, return string with error description
      *
      * queryFalse send POST-request by default for clear read_only-flag.
      *
@@ -166,15 +162,12 @@ class ClickHouseQuery extends ClickHouseAPI
     }
 
     /**
-     * For queries that involve either no return value or string.
-     *
-     * Send POST-request if have post_data, send GET-request if no post_data
-     *
-     * Return string with results if ok, or false if error.
+     * Sends query and returns response data in one string (return false if error)
      *
      * Nuances:
-     * - Error describe available in $this->last_error_str (or empty string if no error)
+     * - Error description available in $this->last_error_str (contains empty string if no error)
      * - To results are applied to the trim function (for removing \n from end)
+     * - Function send POST-request if have post_data, send GET-request if no post_data
      *
      * @param string $sql SQL-request
      * @param array|string|null $post_data Post-data or Null for Get-request
@@ -226,15 +219,20 @@ class ClickHouseQuery extends ClickHouseAPI
     }
 
     /**
-     * Return Array [keys => values]
+     * For queries returning exactly 2 columns, which can mean key => value
      *
-     * Request data from table by 2 specified field-names
-     *
-     * Results of first column interpreted as keys of array, second column as values.
+     * Data of first column interpreted as array keys, the second column as values.
+     * - If the result contains only 1 column, it returns as an array with numeric keys.
+     * - If return contains more of 2 columns, extra data ignored, only 2 columns used.
+     * - First column as keys must be unique
+     * - if second parameter is null, first parameter must contain full sql-request
+     * - if second parameter not null, first parameter means table name (that after FROM)
+     * - Second parameter means field names (that between SELECT and FROM)
+     * - Returns array only if not error. If error returns string with error description.
      *
      * Similar than queryKeyValArr, but using JSONCompact for data transferring.
      *
-     * @param string      $tbl_or_sql Table name (or SQL-request if next parameter is null)
+     * @param string $tbl_or_sql Table name (or SQL-request if next parameter is null)
      * @param string|null $key_and_value_fields field names, example: 'id,name'
      * @param string|null $sess session_id
      * @return array|string Returns array if ok, or string with error description
@@ -253,20 +251,26 @@ class ClickHouseQuery extends ClickHouseAPI
         if (!\is_array($data) || !\count($data)) {
             return $data;
         }
-        if (count($data[0]) == 1) {
+        if (\count($data[0]) == 1) {
             return \array_column($data, 0);
         }
         return \array_combine(\array_column($data, 0), \array_column($data, 1));
     }
 
     /**
-     * Return Array [keys => values]
+     * Return Array [keys => values], first column of results means keys.
      *
      * Similar than queryKeyValues, but using TabSeparated for data transferring.
-     * Provides the best performance on powerful servers,
+     * Returned data not unescaped. Provides the best performance on powerful servers,
      *  but, on weak processors it runs slower than queryKeyValues
-     * - Returned data not unescaped!
-     * If unescape is important, it's best to use queryKeyValues instead.
+     * - If unescape is important, it's best to use queryKeyValues instead.
+     * - If the result contains only 1 column, it returns as an array with numeric keys.
+     * - If the results contain 2 columns or more, first column as keys must be unique
+     * - If return contains more of 2 columns, values returned in tab-separated format.
+     * - if second parameter is null, first parameter must contain full sql-request
+     * - if second parameter not null, first parameter means table name (that after FROM)
+     * - Second parameter means field names (that between SELECT and FROM), may be '*'
+     * - Returns array only if not error. If error returns string with error description.
      *
      * @param string $tbl_or_sql Table name or full sql request
      * @param string|null $key_name_and_value_name fields like 'id, name'
@@ -524,6 +528,15 @@ class ClickHouseQuery extends ClickHouseAPI
     /**
      * Inserting data into table from array
      *
+     * Array of inserting data may be in following variants of format:
+     * For insert one row:
+     * - [value1, value2, ...] - array without keys. Keys must define in $field_names
+     * - [field1=>value1, field2=>value2 ...] - array with keys.
+     * For insert many rows:
+     * - [[row1value1, row1value2, ...] , [row2value1, row2value2, ...] ...]
+     * - [[row1field1=>row1value1, row1field2=>row1value2, ...] , ...]
+     * When inserting many rows, it is more efficient to pass an array without keys.
+     *
      * @param string $table_name Table name for inserting data
      * @param array|null $fields_names Array with names of inserting fields
      * @param array $fields_set_arr Array with inserting data
@@ -590,14 +603,14 @@ class ClickHouseQuery extends ClickHouseAPI
 
 
     /**
-     * Add quotes and slashes if need
+     * Add quotes and slashes if need for ClickHouse-SQL parameter
      *
      * Examples:
      * - ("123")   => 123    (No changes because is_numeric)
      * - ('"aaa"') => "aaa"  (No changes because have begin-final quotes)
      * - ("'aaa'") => 'aaa'  (No changes because have begin-final quotes)
      * - ("fn(x)") => fn(x)  (No changes because have final ")" and "(" within)
-     * - ("aaa")   => 'aaa'  (add $quote-quotes and slashes for [ ' \t \n \r ] )
+     * - ("aaa")   => 'aaa'  (add $quote-quotes and slashes for [ ` ' \t \n \r ] )
      *
      * @param string $str
      * @return string
@@ -610,7 +623,7 @@ class ClickHouseQuery extends ClickHouseAPI
            (($fc === '"' || $fc === "'") && ($fc === $lc)) ||
            (($lc === ')' && strpos($str, '(') !== false)) ||
            (($fc === '[' && $lc === ']'))
-        ) ? $str : $quote . addcslashes($str, "'\t\n\r\0") . $quote;
+        ) ? $str : $quote . addcslashes($str, "'\t\n\r\0`") . $quote;
     }
 
     /**
@@ -677,7 +690,7 @@ class ClickHouseQuery extends ClickHouseAPI
 
         $bindings['db'] = $this->quotePar($db);
         $bindings['table'] = $this->quotePar($table);
-        $bindings['dbtb'] = $db . '.' . $table;
+        $bindings['dbtb'] = ($i ? $db . '.' : '') . $table;
 
         $sql = $this->bindPars($sql_pattern, $bindings);
 
@@ -742,7 +755,7 @@ class ClickHouseQuery extends ClickHouseAPI
             ], "No information about {dbtb} in {s}", [], $columns_del, null
         );
         if (\is_array($arr)) {
-            if (count($arr['columns_arr']) == 1) {
+            if (\count($arr['columns_arr']) == 1) {
                 $arr = $arr['columns_arr'][0];
             }
         }
