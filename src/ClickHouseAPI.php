@@ -11,6 +11,7 @@ namespace ierusalim\ClickHouse;
  * - >setServerUrl($url) - set ClickHouse server parameters by url (host, port, etc.)
  * - >getQuery($h_query [, $sess]) - send GET request
  * - >postQuery($h_query, $post_data [, $sess]) - send POST request
+ * - >query($sql [,$post_data]) - object-oriented style SQL-query (return $this)
  * Special functions:
  * - >getVersion() - return version of ClickHouse server (and detect server features)
 *  - >isSupported(feature-name) - return true or false depending on server features.
@@ -107,14 +108,14 @@ class ClickHouseAPI
      *
      * @var integer 3 sec. by default
      */
-    public $curl_conn_timeout = 3;
+    public $curl_conn_timeout = 7;
 
     /**
      * CURL option CURLOPT_TIMEOUT
      *
      * @var integer 60 sec. by default
      */
-    public $curl_timeout = 60;
+    public $curl_timeout = 77;
 
     /**
      * Last error reported by CURL or empty string if none
@@ -159,20 +160,6 @@ class ClickHouseAPI
     public $hook_before_api_call = false;
 
     /**
-     * Version of ClickHouse server
-     *
-     * @var string|null
-     */
-    public $server_version;
-
-    /**
-     * list of support features array
-     *
-     * @var array
-     */
-    public $support_fe = [];
-
-    /**
      * Auto-create session_id and send it with each request
      *
      * @var boolean
@@ -185,6 +172,14 @@ class ClickHouseAPI
      * @var string|null
      */
     public $last_used_session_id;
+
+    /**
+     * Results of last ->query(sql) request
+     * Contains string with error description or data response if no errors.
+     *
+     * @var string
+     */
+    public $results;
 
     /**
      * Two formats supported for set server parameters when creating object:
@@ -261,6 +256,42 @@ class ClickHouseAPI
     }
 
     /**
+     * Object-style ->query($sql [,$post_data])->query(...)
+     *
+     * Sends SQL-query to server (always in POST-mode)
+     * - If server response not empty, places results to $this->results.
+     * - Note that there is an empty string at the end of the response line \n
+     * - Note that many queries return an empty result and the value $this->results does not change
+     * - Note that requests are sent only if isSupported('query') is true
+     *
+     * Throws an exception if there is an error, or return $this-object, if not error.
+     *
+     * @param string $sql SQL-query
+     * @param array|string|null $post_data Parameters send in request body
+     * @param string|null $sess session_id
+     * @return $this
+     * @throws \Exception
+     */
+    public function query($sql, $post_data = null, $sess = null)
+    {
+        if (!$this->isSupported('query')) {
+            throw new \Exception("Server does not accept ClickHouse-requests");
+        }
+        $ans = $this->postQuery($sql, $post_data, $sess);
+        if (!empty($ans['curl_error'])) {
+            $this->results = $ans['curl_error'];
+            throw new \Exception($this->results);
+        }
+        if (!empty($ans['response'])) {
+            $this->results = $ans['response'];
+        }
+        if ($ans['code'] != 200) {
+            throw new \Exception(\substr($ans['response'], 0, 2048));
+        }
+        return $this;
+    }
+
+    /**
      * Send Get query if $post_data is empty, otherwise send Post query
      *
      * @param string            $h_query Parameters send in http-request after "?"
@@ -323,7 +354,7 @@ class ClickHouseAPI
         $session_id = null,
         $file = null
     ) {
-        if (is_null($query)) {
+        if (\is_null($query)) {
             $query = $this->query;
         } else {
             $this->query = $query;
@@ -513,18 +544,29 @@ class ClickHouseAPI
      *
      * @param string $fe_key feature name
      * @param boolean $re_check set true for check again
+     * @param boolean|null $set for set is_feature value
      * @return boolean true = supported, false = unsupported
      */
-    public function isSupported($fe_key = 'session_id', $re_check = false)
+    public function isSupported($fe_key = 'session_id', $re_check = false, $set = null)
     {
-        if (!isset($this->support_fe[$fe_key]) || $re_check) {
-            if ($fe_key == 'query' || $fe_key == 'session_id') {
-                $this->getVersion($re_check);
-            } else {
-                return false;
-            }
+        static $support_fe = [];
+        $s_key = $this->server_url;
+        if (!isset($support_fe[$s_key])) {
+            // First connect of server $s_key
+            $support_fe[$s_key] = [];
         }
-        return $this->support_fe[$fe_key];
+        if (\is_null($set)) {
+            if (!isset($support_fe[$s_key][$fe_key]) || $re_check) {
+                if ($fe_key == 'query' || $fe_key == 'session_id') {
+                    $this->getVersion($re_check);
+                } else {
+                    return false;
+                }
+            }
+        } else {
+            $support_fe[$s_key][$fe_key] = $set;
+        }
+        return isset($support_fe[$s_key][$fe_key]) ? $support_fe[$s_key][$fe_key] : false;
     }
 
     /**
@@ -540,26 +582,28 @@ class ClickHouseAPI
      */
     public function getVersion($re_check = false)
     {
-        if (\is_null($this->server_version) || $re_check) {
+        static $server_version = [];
+        $s_key = $this->server_url;
+        if (empty($server_version[$s_key]) || $re_check) {
             $old_sess = $this->setSession(null, false);
             $query = 'SELECT version()';
             $ans = $this->doGet($query, ['session_id' => $this->getSession()]);
-            if (!($this->support_fe['session_id'] = $ans['code'] != 404)) {
+            if (!($this->isSupported('session_id', false, $ans['code'] != 404))) {
                 $ans = $this->doGet($query);
             }
             $ver = explode("\n", $ans['response']);
             $ver = (count($ver) == 2 && strlen($ver[0]) < 32) ? $ver[0] : "Unknown";
-            $this->support_fe['query'] = \is_string($ver) && (\count(\explode(".", $ver)) > 2);
-            if (!$this->support_fe['query']) {
-                $this->support_fe['session_id'] = false;
+            $this->isSupported('query', false, \is_string($ver) && (\count(\explode(".", $ver)) > 2));
+            if (!$this->isSupported('query')) {
+                $this->isSupported('session_id', false, false);
             }
-            if (!$this->support_fe['session_id']) {
+            if (!$this->isSupported('session_id')) {
                 $this->session_autocreate = false;
             }
-            $this->server_version = $ver;
+            $server_version[$s_key] = $ver;
             $this->setOption('session_id', $old_sess);
         }
-        return $this->server_version;
+        return $server_version[$s_key];
     }
 
     /**

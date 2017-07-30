@@ -10,6 +10,7 @@ and have not dependencies (may be used independently, file src/ClichHouseAPI.php
 * **setServerUrl**($url) - set ClickHouse server parameters by url (host, port, etc.)
 * **getQuery**($h_query [, $sess]) - send GET request
 * **postQuery**($h_query, $post_data [, $sess]) - send POST request
+* **query**($sql [,$post_data]) - object-oriented style SQL-query (return $this, throw exceptions)
 #### Special functions
 * **getVersion**() - return version of ClickHouse server (side effect - detect server features)
 * **isSupported**(feature-name) - true or false depending on the server support features.
@@ -49,8 +50,8 @@ contains functions for simple operations with ClickHouse.
 * **createDatabase**($db) - create new database with specified name
 * **dropDatabase**($db) - drop specified database and remove all tables inside
 * **getDatabasesList**() - returns array contained names of existing Databases
-* **setCurrentDatabase**($db [, $sess]) - set current database by 'USE db' request
-* **getCurrentDatabase**([$sess]) - return results of 'SELECT currentDatabase()'
+* **setCurrentDatabase**($db [, $sess]) - set current database by 'USE db' request or by option
+* **getCurrentDatabase**([$sess]) - return results of 'SELECT currentDatabase()' or from option
 * **getUptime**() - return server uptime in seconds
 * **getSystemSettings**() - get information from system.settings as array [name=>value]
 
