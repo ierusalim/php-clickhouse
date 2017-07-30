@@ -167,7 +167,7 @@ class ClickHouseFunctions extends ClickHouseQuery
      * @param string $type_full (by ref)
      * @param string|null $name (by ref)
      * @param array|null $to_conv (by ref)
-     * @return boolean|int
+     * @return false|int Return false for unknown types, or length in bytes for known.
      */
     public function parseType(&$type_full, &$name = null, &$to_conv = null)
     {
@@ -237,7 +237,7 @@ class ClickHouseFunctions extends ClickHouseQuery
      * @param string $table table name
      * @param array $fields_arr keys=field names => field_type[ def]
      * @param integer $if_exists If table exists: 2=drop old table, 1-do nothing, 0-ret error)
-     * @param string $ver if null, table will create with engine MergeTree
+     * @param string $ver if null, table will create as MergeTree, otherwise ReplacingMergeTree
      * @return boolean|string
      */
     public function createTableQuick($table, $fields_arr, $if_exists = 0, $ver = null)
@@ -253,7 +253,7 @@ class ClickHouseFunctions extends ClickHouseQuery
         // If $ver defined, then change db-engine to ReplacingMergeTree
         if (!\is_null($ver)) {
             $sql_arr[6] = 'ReplacingMergeTree';
-            $sql_arr[14] .= $ver;
+            $sql_arr[14] .= (empty($ver) ? '': ", $ver");
         }
 
         return $this->queryFalse(\implode($sql_arr));
@@ -297,7 +297,7 @@ class ClickHouseFunctions extends ClickHouseQuery
                 3 => implode(", ", \array_column($fields_arr, 'create')),
                 4 => ' ) ',
                 5 => 'ENGINE = ',
-                6 => "MergeTree",
+                6 => 'MergeTree',
                 7 => '(',
                 8 => $date_field,
                 9 => ', (',
@@ -349,11 +349,15 @@ class ClickHouseFunctions extends ClickHouseQuery
 
             if (strlen($default)) {
                 if (\substr($default, 0, 8) !== 'DEFAULT ') {
-                    $default = $this->quotePar($default);
                     if ($to_conv) {
-                        $default = $to_conv[0] . $default . $to_conv[1];
+                        $lp = $to_conv[0];
+                        $rp = $to_conv[1];
+                        if (\substr($default,0, \strlen($lp)) != $lp) {
+                            $default = $lp . $this->quotePar($default) . $rp;
+                        }
                         $create = 'DEFAULT ' . $default;
                     } else {
+                        $default = $this->quotePar($default);
                         $create = $type_full . ' DEFAULT ' . $default;
                     }
                 } else {

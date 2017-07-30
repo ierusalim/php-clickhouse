@@ -1,2 +1,6 @@
 /start.php
 /localenv.php
+/src/ClickHouseCRUD.php
+/src/ClickHouseTableType.php
+/src/known_functions.txt
+/tests/src/ClickHouseTableTypeTest.php

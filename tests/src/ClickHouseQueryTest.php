@@ -13,10 +13,9 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
     protected $object;
 
     /**
-     * Sets up the fixture, for example, opens a network connection.
-     * This method is called before a test is executed.
+     * @return Ch[]
      */
-    protected function setUp()
+    public function chProvider()
     {
         $localenv = "../localenv.php";
         if (is_file($localenv)) {
@@ -24,16 +23,17 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
         } else {
             $clickhouse_url = null;
         }
-        $this->object = new ClickHouseQuery($clickhouse_url);
-        $this->object->json_compact = true;
+        return [
+            [new ClickHouseQuery($clickhouse_url)]
+        ];
     }
 
     /**
+     * @dataProvider chProvider
      * @covers ierusalim\ClickHouse\ClickHouseQuery::jsonDecode
      */
-    public function testJsonDecodance()
+    public function testJsonDecodance(ClickHouseQuery $ch)
     {
-        $ch = $this->object;
         $arr = ['a'=>1,2,3];
         $json_raw = \json_encode($arr);
         $dearr = $ch->jsonDecode($json_raw, "Err");
@@ -49,12 +49,11 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
+     * @dataProvider chProvider
      * @covers ierusalim\ClickHouse\ClickHouseQuery::queryInsertArray
      */
-    public function testQueryInsertArray()
+    public function testQueryInsertArray(ClickHouseQuery $ch)
     {
-        $ch = $this->object;
-
         $tmp = 'tempcreate';
 
         if ($ch->isSupported('query')) {
@@ -108,12 +107,12 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
+     * @dataProvider chProvider
      * @covers ierusalim\ClickHouse\ClickHouseQuery::queryTrue
      * @todo   Implement testQueryGood().
      */
-    public function testQueryGood()
+    public function testQueryGood(ClickHouseQuery $ch)
     {
-        $ch = $this->object;
         if ($ch->isSupported('query')) {
             $this->assertEquals($ch->queryTrue("SELECT 1"), "1");
         } else {
@@ -125,13 +124,12 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
+     * @dataProvider chProvider
      * @covers ierusalim\ClickHouse\ClickHouseQuery::queryInsertFile
      * @todo   Implement testQueryInsertFile().
      */
-    public function testQueryInsertFile()
+    public function testQueryInsertFile(ClickHouseQuery $ch)
     {
-        $ch = $this->object;
-
         if ($ch->isSupported('query')) {
             $table = "anytabletmp";
 
@@ -179,22 +177,23 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
         }
     }
 
-    public function testQueryInsertFileBadpar()
+    /**
+     * @dataProvider chProvider
+     */
+    public function testQueryInsertFileBadpar(ClickHouseQuery $ch)
     {
-        $ch = $this->object;
-
         $this->setExpectedException("\Exception");
         // exception illegal parameters
         $ans = $ch->queryInsertFile('table', '');
     }
 
     /**
+     * @dataProvider chProvider
      * @covers ierusalim\ClickHouse\ClickHouseQuery::queryFalse
      * @todo   Implement testQueryFalse().
      */
-    public function testQueryFalse()
+    public function testQueryFalse(ClickHouseQuery $ch)
     {
-        $ch = $this->object;
         if ($ch->isSupported('query')) {
             $this->assertFalse($ch->queryFalse("SELECT 1"), "1");
             $this->assertTrue(is_string($ch->queryFalse("SELECT err")));
@@ -204,12 +203,12 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
+     * @dataProvider chProvider
      * @covers ierusalim\ClickHouse\ClickHouseQuery::bindPars
      * @todo   Implement testBindPars().
      */
-    public function testBindPars()
+    public function testBindPars(ClickHouseQuery $ch)
     {
-        $ch = $this->object;
         if ($ch->isSupported('query')) {
             $sql = $ch->bindPars("SELECT {x},{y}", ['x'=>123, 'y'=>"4"]);
             $this->assertEquals("SELECT 123,4", $sql);
@@ -221,12 +220,12 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
+     * @dataProvider chProvider
      * @covers ierusalim\ClickHouse\ClickHouseQuery::queryValue
      * @todo   Implement testQueryValue().
      */
-    public function testQueryValue()
+    public function testQueryValue(ClickHouseQuery $ch)
     {
-        $ch = $this->object;
         if ($ch->isSupported('query')) {
             $this->assertEquals($ch->queryValue("SELECT 1"), "1");
             if ($ch->isSupported('session_id')) {
@@ -245,13 +244,12 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
+     * @dataProvider chProvider
      * @covers ierusalim\ClickHouse\ClickHouseQuery::queryFullArray
      * @todo   Implement testQueryFullArray().
      */
-    public function testQueryFullArray()
+    public function testQueryFullArray(ClickHouseQuery $ch)
     {
-        $ch = $this->object;
-
         if ($ch->isSupported('query')) {
             $ans = $ch->queryFullArray("SELECT blablabla()");
             $this->assertFalse(is_array($ans));
@@ -272,11 +270,11 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
+     * @dataProvider chProvider
      * @covers ierusalim\ClickHouse\ClickHouseQuery::queryArray
      */
-    public function testQueryArray()
+    public function testQueryArray(ClickHouseQuery $ch)
     {
-        $ch = $this->object;
         if ($ch->isSupported('query')) {
             $arr = $ch->queryArray("SHOW DATABASES", false);
             $this->assertArrayHasKey('name', $arr[0]);
@@ -287,11 +285,11 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
         }
     }
     /**
+     * @dataProvider chProvider
      * @covers ierusalim\ClickHouse\ClickHouseQuery::queryArr
      */
-    public function testQueryArr()
+    public function testQueryArr(ClickHouseQuery $ch)
     {
-        $ch = $this->object;
         if ($ch->isSupported('session_id')) {
             $this->assertFalse(is_array($ch->queryArr("SELECT blabla()")));
             $ch->setOption("extremes", 1);
@@ -306,12 +304,11 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
         }
     }
     /**
+     * @dataProvider chProvider
      * @covers ierusalim\ClickHouse\ClickHouseQuery::queryKeyValues
      */
-    public function testQueryKeyValues()
+    public function testQueryKeyValues(ClickHouseQuery $ch)
     {
-        $ch = $this->object;
-
         if ($ch->isSupported('session_id')) {
             $arr = $ch->queryKeyValues("DESCRIBE TABLE system.databases");
             $this->assertArrayHasKey('name', $arr);
@@ -333,12 +330,11 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
         }
     }
     /**
+     * @dataProvider chProvider
      * @covers ierusalim\ClickHouse\ClickHouseQuery::queryKeyValArr
      */
-    public function testQueryKeyValArr()
+    public function testQueryKeyValArr(ClickHouseQuery $ch)
     {
-        $ch = $this->object;
-
         if ($ch->isSupported('session_id')) {
             $arr = $ch->queryKeyValArr("DESCRIBE TABLE system.databases");
             $this->assertArrayHasKey('name', $arr);
@@ -358,12 +354,11 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
         $this->assertFalse(is_array($err));
     }
     /**
+     * @dataProvider chProvider
      * @covers ierusalim\ClickHouse\ClickHouseQuery::queryStrings
      */
-    public function testQueryStrings()
+    public function testQueryStrings(ClickHouseQuery $ch)
     {
-        $ch = $this->object;
-
         if ($ch->isSupported('session_id')) {
             $arr = $ch->queryStrings("SELECT * FROM system.numbers LIMIT 100");
             $this->assertTrue(\count($arr)==100);
@@ -378,11 +373,11 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
 
 
     /**
+     * @dataProvider chProvider
      * @covers ierusalim\ClickHouse\ClickHouseQuery::quotePar
      */
-    public function testQuotePar()
+    public function testQuotePar(ClickHouseQuery $ch)
     {
-        $ch = $this->object;
         $this->assertEquals(123, $ch->quotePar(123));
         $this->assertEquals("'a'", $ch->quotePar('a'));
         $this->assertEquals('"a"', $ch->quotePar('"a"'));
@@ -393,12 +388,11 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
+     * @dataProvider chProvider
      * @covers ierusalim\ClickHouse\ClickHouseQuery::queryTableSubstract
      */
-    public function testQueryTableSubstract()
+    public function testQueryTableSubstract(ClickHouseQuery $ch)
     {
-        $ch = $this->object;
-
         if($ch->isSupported('session_id')) {
             $tbl = "system.columns";
             $arr = $ch->queryTableSubstract($tbl);
@@ -410,12 +404,11 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
+     * @dataProvider chProvider
      * @covers ierusalim\ClickHouse\ClickHouseQuery::queryTableSys
      */
-    public function testQueryTableSys()
+    public function testQueryTableSys(ClickHouseQuery $ch)
     {
-        $ch = $this->object;
-
         if ($ch->isSupported('session_id')) {
             $tbl = "system.columns";
             $arr = $ch->queryTableSys($tbl, 'columns');

@@ -553,7 +553,7 @@ class ClickHouseQuery extends ClickHouseAPI
         // Resolve $fields_arr
         $use_json_each_row = false;
         if (isset($fields_set_arr[0])) {
-            if (is_array($fields_set_arr[0])) {
+            if (\is_array($fields_set_arr[0])) {
                 if (!isset($fields_set_arr[0][0])) {
                     $in_arr_fields_arr = \array_keys($fields_set_arr[0]);
                     $use_json_each_row = true;
@@ -582,7 +582,7 @@ class ClickHouseQuery extends ClickHouseAPI
             $post_data = [\json_encode($fields_set_arr)];
         } else {
             $post_data = [];
-            if (!$use_json_each_row && !is_array($fields_set_arr[0])) {
+            if (!$use_json_each_row && !\is_array($fields_set_arr[0])) {
                 $fields_set_arr = [$fields_set_arr];
             }
             foreach ($fields_set_arr as $row_arr) {

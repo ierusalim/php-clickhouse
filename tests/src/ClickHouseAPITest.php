@@ -24,16 +24,61 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
         $ch->session_autocreate = false;
     }
 
+    /**
+     * @covers Ierusalim\ClickHouse\ClickHouseAPI::query
+     */
+    public function testQuery()
+    {
+        $ch = $this->object;
+        $ans = $ch->query("SELECT 123")->results;
+        $this->assertEquals("123\n", $ans);
+        $table = "querytesttable";
+        $this->assertEquals("111\n", $ch
+        ->query("CREATE TABLE IF NOT EXISTS $table (id UInt8, dt Date) ENGINE = MergeTree(dt, (id), 8192)")
+        ->query("INSERT INTO $table SELECT 111 as id, toDate(now()) as dt")
+        ->query("SELECT id FROM $table WHERE dt = toDate(now())")
+        ->query("DROP TABLE IF EXISTS $table")
+        ->results
+        );
+        try {
+            $ans = $ch->query("BAD QUERY");
+        } catch (\Exception $e) {
+            $ans = $e->getMessage();
+        }
+        $this->assertTrue(\strpos($ans, 'Syntax error') !== false);
+
+        // curl error emulation
+        $ch->hook_before_api_call = function($s, $obj) {
+            return 'http://github.com:22/';
+        };
+        try {
+            $ans = $ch->query("ANY QUERY");
+        } catch (\Exception $e) {
+            $ans = $e->getMessage();
+        }
+        print_r($ans);
+        //$this->assertTrue(\strpos($ans, 'Syntax error') !== false);
+        $ch->hook_before_api_call = false;
+
+        try {
+            $ans =(new ClickHouseAPI("https://github.com:443/"))->query("");
+        } catch (\Exception $e) {
+            $ans = $e->getMessage();
+        }
+    }
+
     public function testConstructEmpty()
     {
         $r = new ClickHouseAPI();
         $this->assertEquals('127.0.0.1', $r->host);
     }
+
     public function testConstructWithURL()
     {
         $r = new ClickHouseAPI('https://8.8.8.8:1234/');
         $this->assertEquals('8.8.8.8', $r->host);
     }
+
     public function testConstructWithHostEtc()
     {
         $r = new ClickHouseAPI('1.2.3.4', 5678, 'default', '');
@@ -52,6 +97,7 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
         }
         $ch->setServerUrl($clickhouse_url);
     }
+
     /**
      * @covers Ierusalim\ClickHouse\ClickHouseAPI::setServerUrl
      */
@@ -62,6 +108,7 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
         $this->assertEquals($ch->host, '8.8.8.8');
         $this->resetServerUrl();
     }
+
     public function testSetServerUrlException()
     {
         $ch = $this->object;
@@ -80,19 +127,23 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
             $this->assertTrue(strpos($version, '.') > 0);
         }
         echo "Version of ClickHouse server: $version\n";
-        $this->assertEquals($version, $ch->server_version);
+        //$this->assertEquals($version, $ch->server_version);
         // test get cached version
-        $fake_version = $ch->server_version = 'fake_version';
-        $this->assertEquals($fake_version, $ch->getVersion());
+        //$fake_version = $ch->server_version = 'fake_version';
+        //$this->assertEquals($fake_version, $ch->getVersion());
 
         $ch->session_autocreate = true;
         // set fake server for emulate session unsupported
         $ch->hook_before_api_call = function($s, $obj) {
             return 'http://google.com/notfound';
         };
-        $version = $ch->getVersion(true);
+        $ver_bad = $ch->getVersion(true);
         $this->assertFalse($ch->session_autocreate);
-        $this->assertEquals("Unknown", $version);
+        $this->assertEquals("Unknown", $ver_bad);
+
+        $ch->hook_before_api_call = false;
+        $ver_good = $ch->getVersion(true);
+        $this->assertEquals($version, $ver_good);
     }
 
     /**
@@ -102,11 +153,18 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
     {
         $ch = $this->object;
         $sess_sup = $ch->isSupported('session_id');
-        echo "Sessions " .($sess_sup ? '':'is not ') . "supported\n";
+        echo "Sessions " . ($sess_sup ? '' : 'is not ') . "supported\n";
 
         if (!$ch->isSupported('query', true)) {
             echo "query is not supported; ClickHouse Server is not ready\n";
             echo "Server: {$ch->host}:{$ch->port}\n";
+        }
+
+        $sess2_sup = (new ClickHouseAPI('https://google.com:443/'))->isSupported('session_id');
+        $this->assertFalse($sess2_sup);
+        if ($sess_sup) {
+            echo ',';
+            $this->assertTrue($ch->isSupported('session_id'));
         }
 
         $this->assertFalse($ch->isSupported('unknown'));
@@ -197,7 +255,7 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
         $ch->session_autocreate = false;
 
         if ($ch->isSupported('query')) {
-             // test default query SELECT 1
+            // test default query SELECT 1
             $ans = $ch->doQuery();
             $this->assertEquals(\trim($ans['response']), 1);
 
@@ -235,10 +293,11 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
         }
         if ($ch->isSupported('query')) {
             // check query if not supported session
-            $ch->support_fe['session_id'] = false;
+            $ch->isSupported('session_id', false, false);
             $ch->setOption('session_id', 'test');
             $ans = $ch->doQuery("SELECT 321");
             $this->assertEquals(\trim($ans['response']), 321);
+            $ch->isSupported('session_id', true);
         }
     }
 
@@ -291,11 +350,11 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
      */
     public function testSetSession()
     {
-         $ch = $this->object;
-         $prev_sess_id = $ch->setSession();
-         $this->assertNull($prev_sess_id);
-         $session_id = $ch->getSession();
-         $this->assertEquals(strlen($session_id), 32);
+        $ch = $this->object;
+        $prev_sess_id = $ch->setSession();
+        $this->assertNull($prev_sess_id);
+        $session_id = $ch->getSession();
+        $this->assertEquals(strlen($session_id), 32);
     }
 
     /**
@@ -304,10 +363,10 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
      */
     public function testGetSession()
     {
-         $ch = $this->object;
-         $ch->setSession();
-         $session_id = $ch->getSession();
-         $this->assertEquals($session_id, $ch->getOption('session_id'));
+        $ch = $this->object;
+        $ch->setSession();
+        $session_id = $ch->getSession();
+        $this->assertEquals($session_id, $ch->getOption('session_id'));
     }
 
     /**
@@ -316,13 +375,13 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
      */
     public function testDelOption()
     {
-         $ch = $this->object;
-         $ch->setSession();
-         $session_id = $ch->getSession();
-         $this->assertEquals(strlen($session_id), 32);
-         $old = $ch->delOption("session_id");
-         $this->assertEquals($session_id, $old);
-         $new = $ch->getSession();
-         $this->assertNull($new);
+        $ch = $this->object;
+        $ch->setSession();
+        $session_id = $ch->getSession();
+        $this->assertEquals(strlen($session_id), 32);
+        $old = $ch->delOption("session_id");
+        $this->assertEquals($session_id, $old);
+        $new = $ch->getSession();
+        $this->assertNull($new);
     }
 }

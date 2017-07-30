@@ -625,7 +625,7 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
                 'id' => 'Int16',
                 'dt' => ['Date', 'now()'],
                 'ver' => 'UInt8'
-            ], 2, ', ver');
+            ], 2, 'ver');
             $this->assertFalse($ans);
         } else {
             echo '-';
