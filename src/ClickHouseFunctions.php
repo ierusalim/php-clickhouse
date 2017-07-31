@@ -253,7 +253,7 @@ class ClickHouseFunctions extends ClickHouseQuery
         // If $ver defined, then change db-engine to ReplacingMergeTree
         if (!\is_null($ver)) {
             $sql_arr[6] = 'ReplacingMergeTree';
-            $sql_arr[14] .= (empty($ver) ? '': ", $ver");
+            $sql_arr[14] .= (empty($ver) ? '' : ", $ver");
         }
 
         return $this->queryFalse(\implode($sql_arr));
@@ -352,7 +352,7 @@ class ClickHouseFunctions extends ClickHouseQuery
                     if ($to_conv) {
                         $lp = $to_conv[0];
                         $rp = $to_conv[1];
-                        if (\substr($default,0, \strlen($lp)) != $lp) {
+                        if (\substr($default, 0, \strlen($lp)) != $lp) {
                             $default = $lp . $this->quotePar($default) . $rp;
                         }
                         $create = 'DEFAULT ' . $default;
@@ -630,7 +630,7 @@ class ClickHouseFunctions extends ClickHouseQuery
             $column_bytes = $col_arr['data_uncompressed_bytes'];
             $sum_uncompressed_bytes += $column_bytes;
             $fixed_bytes = $this->parseType($col_arr['type']);
-            if ($fixed_bytes) {
+            if (!empty($fixed_bytes)) {
                 $col_arr['fixed_bytes'] = $fixed_bytes;
                 $col_rows_cnt = $column_bytes / $fixed_bytes;
                 $rows_cnt = $col_rows_cnt;
