@@ -24,49 +24,6 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
         $ch->session_autocreate = false;
     }
 
-    /**
-     * @covers Ierusalim\ClickHouse\ClickHouseAPI::query
-     */
-    public function testQuery()
-    {
-        $ch = $this->object;
-        $ans = $ch->query("SELECT 123")->results;
-        $this->assertEquals("123\n", $ans);
-        $table = "querytesttable";
-        $this->assertEquals("111\n", $ch
-        ->query("CREATE TABLE IF NOT EXISTS $table (id UInt8, dt Date) ENGINE = MergeTree(dt, (id), 8192)")
-        ->query("INSERT INTO $table SELECT 111 as id, toDate(now()) as dt")
-        ->query("SELECT id FROM $table WHERE dt = toDate(now())")
-        ->query("DROP TABLE IF EXISTS $table")
-        ->results
-        );
-        try {
-            $ans = $ch->query("BAD QUERY");
-        } catch (\Exception $e) {
-            $ans = $e->getMessage();
-        }
-        $this->assertTrue(\strpos($ans, 'Syntax error') !== false);
-
-        // curl error emulation
-        $ch->hook_before_api_call = function($s, $obj) {
-            return 'http://github.com:22/';
-        };
-        try {
-            $ans = $ch->query("ANY QUERY");
-        } catch (\Exception $e) {
-            $ans = $e->getMessage();
-        }
-        print_r($ans);
-        //$this->assertTrue(\strpos($ans, 'Syntax error') !== false);
-        $ch->hook_before_api_call = false;
-
-        try {
-            $ans =(new ClickHouseAPI("https://github.com:443/"))->query("");
-        } catch (\Exception $e) {
-            $ans = $e->getMessage();
-        }
-    }
-
     public function testConstructEmpty()
     {
         $r = new ClickHouseAPI();
@@ -147,6 +104,30 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
     }
 
     /**
+     * @covers Ierusalim\ClickHouse\ClickHouseAPI::setCompression
+     */
+    public function testSetCompression()
+    {
+        $ch = $this->object;
+        $ch->setCompression(false);
+
+        $ans = $ch->query("SELECT number FROM system.numbers LIMIT 100")->results;
+
+        $size_d = $ch->curl_getinfo[\CURLINFO_SIZE_DOWNLOAD];
+        $this->assertEquals(strlen($ans), $size_d);
+
+        $ch->setCompression(true);
+
+        $ans = $ch->query("SELECT number FROM system.numbers LIMIT 100")->results;
+
+        $size_d = $ch->curl_getinfo[\CURLINFO_SIZE_DOWNLOAD];
+        if ($size_d < strlen($ans)) {
+            echo "http-compression supported\n";
+        }
+        $this->assertGreaterThan($size_d, strlen($ans));
+    }
+
+    /**
      * @covers ierusalim\ClickHouse\ClickHouseAPI::isSupported
      */
     public function testIsSupported()
@@ -167,7 +148,60 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
             $this->assertTrue($ch->isSupported('session_id'));
         }
 
+        $this->assertEquals($ch->isSupported('version', true), $ch->getVersion());
+
         $this->assertFalse($ch->isSupported('unknown'));
+    }
+
+
+    /**
+     * @covers Ierusalim\ClickHouse\ClickHouseAPI::query
+     */
+    public function testQuery()
+    {
+        $ch = $this->object;
+
+        if ($ch->isSupported('query')) {
+            $ans = $ch->query("SELECT 123")->results;
+            $this->assertEquals("123\n", $ans);
+            $table = "querytesttable";
+            $this->assertEquals("111\n", $ch
+            ->query("CREATE TABLE IF NOT EXISTS $table (id UInt8, dt Date) ENGINE = MergeTree(dt, (id), 8192)")
+            ->query("INSERT INTO $table SELECT 111 as id, toDate(now()) as dt")
+            ->query("SELECT id FROM $table WHERE dt = toDate(now())")
+            ->query("DROP TABLE IF EXISTS $table")
+            ->results
+            );
+        }
+
+        try {
+            $ans = $ch->query("BAD QUERY");
+        } catch (\Exception $e) {
+            $ans = $e->getMessage();
+        }
+        $this->assertTrue(\strpos($ans, 'Syntax error') !== false);
+
+        $ch->curl_options[\CURLOPT_CONNECTTIMEOUT] = 2;
+
+        // curl error emulation
+        $ch->hook_before_api_call = function($s, $obj) {
+            return 'http://github.com:22/';
+        };
+        try {
+            $ans = $ch->query("ANY QUERY");
+        } catch (\Exception $e) {
+            $ans = $e->getMessage();
+        }
+        //$this->assertTrue(\strpos($ans, 'Syntax error') !== false);
+        $ch->hook_before_api_call = false;
+
+        try {
+            $ch = new ClickHouseAPI("https://github.com:443/");
+            $ch->curl_options[\CURLOPT_CONNECTTIMEOUT] = 2;
+            $ans =$ch->query("");
+        } catch (\Exception $e) {
+            $ans = $e->getMessage();
+        }
     }
 
     /**

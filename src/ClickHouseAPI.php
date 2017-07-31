@@ -86,25 +86,41 @@ class ClickHouseAPI
     private $server_url;
 
     /**
-     * CURL option for do not verify hostname in SSL certificate
+     * Options for http-request. Array [option => value]
      *
-     * @var integer 0 by default. Set 2 if server have valid ssl-sertificate
+     * @var array
      */
-    public $ssl_verify_host = 0;
+    public $options = [];
 
     /**
-     * CURL option CURLOPT_CONNECTTIMEOUT
+     * CURL options for each request
      *
-     * @var integer 7 sec. by default
+     * @var array
      */
-    public $curl_conn_timeout = 7;
+    public $curl_options = [
+        \CURLINFO_HEADER_OUT => true,
+        \CURLOPT_RETURNTRANSFER => true,
+        \CURLOPT_USERAGENT => "PHP-ClickHouse",
+
+        //Set 2 if server have valid ssl-sertificate
+        \CURLOPT_SSL_VERIFYHOST => 0,
+        \CURLOPT_SSL_VERIFYPEER => false,
+
+        // time limits in seconds
+        \CURLOPT_CONNECTTIMEOUT => 7,
+        \CURLOPT_TIMEOUT => 77,
+    ];
 
     /**
-     * CURL option CURLOPT_TIMEOUT
+     * Parameters, interesting for get by function curl_getinfo after request.
      *
-     * @var integer 77 sec. by default
+     * @var array|false
      */
-    public $curl_timeout = 77;
+    public $curl_getinfo = [
+        \CURLINFO_EFFECTIVE_URL => 0,
+        \CURLINFO_SIZE_DOWNLOAD => 0,
+        \CURLINFO_SIZE_UPLOAD => 0,
+    ];
 
     /**
      * Last error reported by CURL or empty string if no errors
@@ -120,12 +136,7 @@ class ClickHouseAPI
      */
     public $last_code;
 
-    /**
-     * Options for http-request. Array [option => value]
-     *
-     * @var array
-     */
-    public $options = [];
+    public $size_dowbload;
 
     /**
      * Set true for show sending requests and server answers
@@ -446,29 +457,42 @@ class ClickHouseAPI
             \curl_setopt($ch, \CURLOPT_POST, true);
             \curl_setopt($ch, \CURLOPT_POSTFIELDS, $post_data);
         }
-
-        \curl_setopt($ch, \CURLOPT_SSL_VERIFYPEER, false);
-        \curl_setopt($ch, \CURLOPT_SSL_VERIFYHOST, $this->ssl_verify_host);
-
-        \curl_setopt($ch, \CURLOPT_CONNECTTIMEOUT, $this->curl_conn_timeout);
-        \curl_setopt($ch, \CURLOPT_TIMEOUT, $this->curl_timeout);
-        \curl_setopt($ch, \CURLOPT_RETURNTRANSFER, true);
-        \curl_setopt($ch, \CURLOPT_USERAGENT, "PHP-ClickHouse");
+        \curl_setopt_array($ch, $this->curl_options);
 
         $response = \curl_exec($ch);
 
         $this->last_curl_error_str = $curl_error = \curl_error($ch);
-
         $this->last_code = $code = \curl_getinfo($ch, \CURLINFO_HTTP_CODE);
 
-        \curl_close($ch);
+        if (\is_array($this->curl_getinfo)) {
+            foreach (\array_keys($this->curl_getinfo) as $key) {
+                $this->curl_getinfo[$key] = \curl_getinfo($ch, $key);
+            }
+        }
 
         if ($this->debug) {
-            echo "HTTP $code $curl_error \n{\n$response\n}\n";
+            echo "HTTP $code $curl_error \n\n$response\n}\n";
         }
+
+        \curl_close($ch);
         return \compact('code', 'curl_error', 'response');
     }
 
+    /**
+     * Set http-compression mode on/off
+     *
+     * @param boolean $true_or_false
+     */
+    public function setCompression($true_or_false)
+    {
+        if ($true_or_false) {
+            $this->setOption('enable_http_compression', 1);
+            $this->curl_options[\CURLOPT_ENCODING] = 'gzip';
+        } else {
+            $this->setOption('enable_http_compression', null);
+            unset($this->curl_options[\CURLOPT_ENCODING]);
+        }
+    }
     /**
      * Set addition http-request parameter.
      *
@@ -480,8 +504,8 @@ class ClickHouseAPI
     public function setOption($key, $value, $overwrite = true)
     {
         $old_value = isset($this->options[$key]) ? $this->options[$key] : null;
-        if (is_null($old_value) || $overwrite) {
-            if (is_null($value)) {
+        if (\is_null($old_value) || $overwrite) {
+            if (\is_null($value)) {
                 unset($this->options[$key]);
             } else {
                 $this->options[$key] = $value;
