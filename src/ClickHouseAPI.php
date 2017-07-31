@@ -5,23 +5,23 @@ namespace ierusalim\ClickHouse;
 /**
  * This class contains simple http/https connector for ClickHouse db-server
  *
- * API functions:
- * - setServerUrl($url) - set ClickHouse server parameters by url (host, port, etc.)
- * - getQuery($h_query [, $sess]) - send GET request
- * - postQuery($h_query, $post_data [, $sess]) - send POST request
+ * API-requests functions:
  * - query($sql [,$post_data]) - object-oriented style SQL-query (return $this)
+ * - getQuery($query [, $sess]) - function. Send GET request and return raw-response
+ * - postQuery($query, $post_data [, $sess]) - send POST request and return response
  *
- * Special functions:
- * - getVersion() - return version of ClickHouse server (and detect server features)
-*  - isSupported(feature-name) - return true or false depending on server features.
+ * Server-state functions:
+ * - setServerUrl($url) - set ClickHouse server parameters from url (host, port, etc.)
+ * - getVersion() - return version of ClickHouse server. Side effect: detect server features.
+ * - isSupported(feature-name) - returns server-dependent variables about supported features.
  *
  * Sessions:
  *  Check isSupported('session_id'). Relevant only for new ClickHouse versions.
  * - getSession() - get current session_id from options
  * - setSession([$sess]) - set specified session_id or generate new session_id
  *
- * Options functions:
- * - setOption($key, $value) - set http-url-option for all next requests
+ * Options:
+ * - setOption($key, $value) - set http-option for all next requests
  * - getOption($key) - get current http-option value for specified $key
  * - delOption($key) - delete http-option (same ->setOption($key, null)
  *
