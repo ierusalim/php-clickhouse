@@ -5,23 +5,25 @@ namespace ierusalim\ClickHouse;
 /**
  * This class contains simple http/https connector for ClickHouse db-server
  *
- * No dependency, nothing extra.
- *
  * API functions:
- * - >setServerUrl($url) - set ClickHouse server parameters by url (host, port, etc.)
- * - >getQuery($h_query [, $sess]) - send GET request
- * - >postQuery($h_query, $post_data [, $sess]) - send POST request
- * - >query($sql [,$post_data]) - object-oriented style SQL-query (return $this)
+ * - setServerUrl($url) - set ClickHouse server parameters by url (host, port, etc.)
+ * - getQuery($h_query [, $sess]) - send GET request
+ * - postQuery($h_query, $post_data [, $sess]) - send POST request
+ * - query($sql [,$post_data]) - object-oriented style SQL-query (return $this)
+ *
  * Special functions:
- * - >getVersion() - return version of ClickHouse server (and detect server features)
-*  - >isSupported(feature-name) - return true or false depending on server features.
- * Sessions. Check isSupported('session_id'). Relevant only for new ClickHouse versions.
- * - >getSession() - get current session_id from options
- * - >setSession([$sess]) - set session_id or generate new session_id
+ * - getVersion() - return version of ClickHouse server (and detect server features)
+*  - isSupported(feature-name) - return true or false depending on server features.
+ *
+ * Sessions:
+ *  Check isSupported('session_id'). Relevant only for new ClickHouse versions.
+ * - getSession() - get current session_id from options
+ * - setSession([$sess]) - set specified session_id or generate new session_id
+ *
  * Options functions:
- * - >setOption($key, $value) - set http-url-option for all next requests
- * - >getOption($key) - get current http-option value for specified $key
- * - >delOption($key) - delete http-option (same ->setOption($key, null)
+ * - setOption($key, $value) - set http-url-option for all next requests
+ * - getOption($key) - get current http-option value for specified $key
+ * - delOption($key) - delete http-option (same ->setOption($key, null)
  *
  * PHP Version >= 5.4
  *
@@ -31,19 +33,6 @@ namespace ierusalim\ClickHouse;
  * @author     Alexander Jer <alex@ierusalim.com>
  * @copyright  2017, Ierusalim
  * @license    https://opensource.org/licenses/Apache-2.0 Apache-2.0
- *
- * Example of independent use:
- *
- *  require "ClickHouseAPI.php";
- *  $ch = new ClickHouseAPI("http://127.0.0.1:8123");
- *  $response = $ch->getQuery("SELECT 1");
- *  print_r($response);
- *  $ch->postQuery("CREATE TABLE t (a UInt8) ENGINE = Memory");
- *  $ch->postQuery('INSERT INTO t VALUES (1),(2),(3)');
- *  $data = $ch->getQuery('SELECT * FROM t FORMAT JSONCompact');
- *  $data = json_decode($data['response']);
- *  $ch->postQuery("DROP TABLE t");
- *  print_r($data);
  */
 class ClickHouseAPI
 {
@@ -106,19 +95,19 @@ class ClickHouseAPI
     /**
      * CURL option CURLOPT_CONNECTTIMEOUT
      *
-     * @var integer 3 sec. by default
+     * @var integer 7 sec. by default
      */
     public $curl_conn_timeout = 7;
 
     /**
      * CURL option CURLOPT_TIMEOUT
      *
-     * @var integer 60 sec. by default
+     * @var integer 77 sec. by default
      */
     public $curl_timeout = 77;
 
     /**
-     * Last error reported by CURL or empty string if none
+     * Last error reported by CURL or empty string if no errors
      *
      * @var string
      */
@@ -132,28 +121,28 @@ class ClickHouseAPI
     public $last_code;
 
     /**
-     * Options for http-request
+     * Options for http-request. Array [option => value]
      *
      * @var array
      */
     public $options = [];
 
     /**
-     * Set true for show sending request and server answers
+     * Set true for show sending requests and server answers
      *
      * @var boolean
      */
     public $debug = false;
 
     /**
-     * Last sent query or default query when not specified
+     * Last sent query or query for sending if when explicitly not specified
      *
      * @var string
      */
     public $query = 'SELECT 1';
 
     /**
-     * Hook on doApiCall executing, before send request.
+     * Hook on doApiCall executing (before send request, can modify url)
      *
      * @var callable|false
      */
@@ -167,7 +156,7 @@ class ClickHouseAPI
     public $session_autocreate = true;
 
     /**
-     * Last used session_id
+     * Last used session_id (set in doQuery function)
      *
      * @var string|null
      */
@@ -175,18 +164,19 @@ class ClickHouseAPI
 
     /**
      * Results of last ->query(sql) request
-     * Contains string with error description or data response if no errors.
+     * Contains string with error description or data non-empty server response.
+     * If no errors and server response is empty, this value not changed.
      *
      * @var string
      */
     public $results;
 
     /**
-     * Two formats supported for set server parameters when creating object:
+     * Two formats are supported for set server parameters:
      *
-     *  $h = new ClickHouseAPI("http://127.0.0.1:8123/" [, $user, $pass]);
+     *  1) new ClickHouseAPI($server_url [, $user, $pass]);
      *
-     *  $h = new ClickHouseAPI("127.0.0.1", 8321 [, $user, $pass]);
+     *  2) new ClickHouseAPI($host, $port [, $user, $pass]);
      *
      * Also, server parameters may be set late via setServerUrl($url)
      *
@@ -206,7 +196,7 @@ class ClickHouseAPI
         $pass = null
     ) {
         if (!empty($host_or_full_url)) {
-            if (strpos($host_or_full_url, '/')) {
+            if (\strpos($host_or_full_url, '/')) {
                 $this->setServerUrl($host_or_full_url);
             } else {
                 $this->host = $host_or_full_url;
@@ -227,9 +217,11 @@ class ClickHouseAPI
     /**
      * Set server connection parameters from url
      *
+     * Object-oriented style, return $this if ok, throw \Exception on errors
+     *
      * Example:
      * - Set scheme=http, host=127.0.0.1, port=8123, user=default, pass=[empty]
-     * - ->setServerUrl("http://default:@127.0.0.1:8123/");
+     * - setServerUrl("http://default:@127.0.0.1:8123/");
      *
      * @param string|null $full_server_url Full server URL
      * @throws \Exception
@@ -253,18 +245,20 @@ class ClickHouseAPI
         }
         $this->server_url = $this->scheme . '://' . $this->host . ':' . $this->port
             . (empty($this->path) ? '/' : $this->path);
+
+        return $this;
     }
 
     /**
-     * Object-style ->query($sql [,$post_data])->query(...)
+     * Object-oriented style ->query($sql [,$post_data])->query(...)
      *
      * Sends SQL-query to server (always in POST-mode)
      * - If server response not empty, places results to $this->results.
      * - Note that there is an empty string at the end of the response line \n
-     * - Note that many queries return an empty result and the value $this->results does not change
+     * - Note that if server return an empty result and the value $this->results does not change
      * - Note that requests are sent only if isSupported('query') is true
      *
-     * Throws an exception if there is an error, or return $this-object, if not error.
+     * Throws an exception if there is an error. Return $this-object if not error.
      *
      * @param string $sql SQL-query
      * @param array|string|null $post_data Parameters send in request body
@@ -293,6 +287,7 @@ class ClickHouseAPI
 
     /**
      * Send Get query if $post_data is empty, otherwise send Post query
+     * This is a multiplexor for functions getQuery|postQuery
      *
      * @param string            $h_query Parameters send in http-request after "?"
      * @param array|string|null $post_data Parameters send in request body
@@ -310,35 +305,41 @@ class ClickHouseAPI
     /**
      * Send Get API-query
      *
-     * @param string|null $h_query
+     * Function is envelope for doQuery
+     *
+     * @param string|null $query
      * @param string|null $sess
      * @return array
      */
-    public function getQuery($h_query = null, $sess = null)
+    public function getQuery($query = null, $sess = null)
     {
-        return $this->doQuery($h_query, false, null, $sess);
+        return $this->doQuery($query, false, null, $sess);
     }
 
     /**
      * Send Post API-query
      *
-     * @param string|null $h_query
+     * Function is envelope for doQuery
+     *
+     * @param string|null $query
      * @param array|string|null $post_data
      * @param string|null $sess
      * @param string|null $file
      * @return array
      */
     public function postQuery(
-        $h_query = null,
+        $query = null,
         $post_data = null,
         $sess = null,
         $file = null
     ) {
-        return $this->doQuery($h_query, true, $post_data, $sess, $file);
+        return $this->doQuery($query, true, $post_data, $sess, $file);
     }
 
     /**
      * Send Get or Post API-query depends of $is_post parameter
+     *
+     * Function is envelope for doApiCall
      *
      * @param string $query SQL-query for send to ClickHouse server
      * @param boolean $is_post true for send POST-request, false for GET
@@ -402,10 +403,10 @@ class ClickHouseAPI
     }
 
     /**
-     * Send API query on server and get answer
+     * Function for send API query to server and get answer
      *
-     * @param string $api_url Full URL of server
-     * @param array $h_params Parameter after "?"
+     * @param string $api_url Full URL of server API
+     * @param array $h_params Parameters for adding after "?"
      * @param boolean $post_mode true for POST request, false for GET request
      * @param array|string|null $post_data Data for send in body of POST-request
      * @param string|null $file file name (full name with path) for send
@@ -501,7 +502,7 @@ class ClickHouseAPI
     }
 
     /**
-     * Set session_id into http-request options
+     * Set session_id to http-request options
      * if session_id not specified (or specified as null) create and set random.
      *
      * @param string|null $session_id session_id or null for generate new id
@@ -517,7 +518,7 @@ class ClickHouseAPI
     }
 
     /**
-     * Return current session_id from http-req options (or null if not exists)
+     * Return current session_id from http-options. Return null if not exists.
      *
      * @return string|null
      */
@@ -527,7 +528,7 @@ class ClickHouseAPI
     }
 
     /**
-     * Delete http-request option by specified key
+     * Delete http-option by specified key
      *
      * @param string $key Option name
      * @return string|null Return old value of deleted option
@@ -540,12 +541,12 @@ class ClickHouseAPI
     }
 
     /**
-     * Check supported feature by string name
+     * Check feature support by name
      *
      * @param string $fe_key feature name
      * @param boolean $re_check set true for check again
      * @param boolean|null $set for set is_feature value
-     * @return boolean true = supported, false = unsupported
+     * @return boolean|string false = unsupported, true or string = supported,
      */
     public function isSupported($fe_key = 'session_id', $re_check = false, $set = null)
     {
@@ -556,6 +557,9 @@ class ClickHouseAPI
             $support_fe[$s_key] = [];
         }
         if (\is_null($set)) {
+            if ($re_check && $fe_key === 'version') {
+                return $this->getVersion($re_check);
+            }
             if (!isset($support_fe[$s_key][$fe_key]) || $re_check) {
                 if ($fe_key == 'query' || $fe_key == 'session_id') {
                     $this->getVersion($re_check);
@@ -577,14 +581,15 @@ class ClickHouseAPI
      * - Depending on result, the isSupported('session_id') is set true or false.
      * - If server version response unrecognized, isSupported('query') set false.
      *
+     * For get cached value of 'version' may use function isSupported('version')
+     *
      * @param boolean $re_check Set true for re-send query to server
      * @return string|boolean String version or false if error
      */
     public function getVersion($re_check = false)
     {
-        static $server_version = [];
-        $s_key = $this->server_url;
-        if (empty($server_version[$s_key]) || $re_check) {
+        $ver = $this->isSupported('version');
+        if (empty($ver) || $re_check) {
             $old_sess = $this->setSession(null, false);
             $query = 'SELECT version()';
             $ans = $this->doGet($query, ['session_id' => $this->getSession()]);
@@ -600,10 +605,10 @@ class ClickHouseAPI
             if (!$this->isSupported('session_id')) {
                 $this->session_autocreate = false;
             }
-            $server_version[$s_key] = $ver;
             $this->setOption('session_id', $old_sess);
+            $this->isSupported('version', false, $ver);
         }
-        return $server_version[$s_key];
+        return $ver;
     }
 
     /**

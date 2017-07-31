@@ -2,5 +2,6 @@
 /localenv.php
 /src/ClickHouseCRUD.php
 /src/ClickHouseTableType.php
-/src/known_functions.txt
 /tests/src/ClickHouseTableTypeTest.php
+/doc/
+/tmp/
