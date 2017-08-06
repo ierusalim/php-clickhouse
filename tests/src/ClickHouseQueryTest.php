@@ -13,27 +13,38 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
     protected $object;
 
     /**
-     * @return Ch[]
+     * Sets up the fixture, for example, opens a network connection.
+     * This method is called before a test is executed.
      */
-    public function chProvider()
+    protected function setUp()
     {
+        $this->object = new ClickHouseQuery;
+        $ch = $this->object;
+        $this->resetServerUrl();
+        $ch->session_autocreate = false;
+    }
+    protected function resetServerUrl()
+    {
+        $ch = $this->object;
+
         $localenv = "../localenv.php";
         if (is_file($localenv)) {
             include $localenv;
         } else {
             $clickhouse_url = null;
         }
-        return [
-            [new ClickHouseQuery($clickhouse_url)]
-        ];
+        $ch->setServerUrl($clickhouse_url);
+        if (!is_null($clickhouse_url)) {
+            $ch->isSupported('session_id', false, true);
+        }
     }
 
     /**
-     * @dataProvider chProvider
      * @covers ierusalim\ClickHouse\ClickHouseQuery::jsonDecode
      */
-    public function testJsonDecodance(ClickHouseQuery $ch)
+    public function testJsonDecodance()
     {
+        $ch = $this->object;
         $arr = ['a'=>1,2,3];
         $json_raw = \json_encode($arr);
         $dearr = $ch->jsonDecode($json_raw, "Err");
@@ -49,11 +60,12 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @dataProvider chProvider
      * @covers ierusalim\ClickHouse\ClickHouseQuery::queryInsertArray
      */
-    public function testQueryInsertArray(ClickHouseQuery $ch)
+    public function testQueryInsertArray()
     {
+        $ch = $this->object;
+
         $tmp = 'tempcreate';
 
         if ($ch->isSupported('query')) {
@@ -107,42 +119,54 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @dataProvider chProvider
      * @covers ierusalim\ClickHouse\ClickHouseQuery::queryTrue
-     * @todo   Implement testQueryGood().
+     * @todo   Implement testQueryTrue().
      */
-    public function testQueryGood(ClickHouseQuery $ch)
+    public function testQueryTrue()
     {
+        $ch = $this->object;
+
         if ($ch->isSupported('query')) {
+            $ch->toSlot("slotx")->queryTrue("SELECT 123");
+            $ch->toSlot("sloty")->queryTrue("DROP TABLE IF EXISTS xxx");
+
             $this->assertEquals($ch->queryTrue("SELECT 1"), "1");
+
+            $this->assertEquals("123", $ch->slotResults("slotx"));
+            $this->assertTrue($ch->slotResults("sloty"));
         } else {
             echo '-';
         }
         if ($ch->isSupported('session_id')) {
+            $ch->setSession();
             $this->assertTrue($ch->queryTrue("USE system"));
         }
     }
 
     /**
-     * @dataProvider chProvider
-     * @covers ierusalim\ClickHouse\ClickHouseQuery::queryInsertFile
-     * @todo   Implement testQueryInsertFile().
+     * @covers ierusalim\ClickHouse\ClickHouseQuery::queryInsertGzip
+     * @todo   Implement testQueryInsertGzip().
      */
-    public function testQueryInsertFile(ClickHouseQuery $ch)
+    public function testQueryInsertGzip()
     {
+        $ch = $this->object;
+
         if ($ch->isSupported('query')) {
             $table = "anytabletmp";
 
             $file = 'anyfile.txt';
 
-            $file_data = "1\t2017-12-12\tAny string data\n";
-            $file_data .= "2\t2017-12-11\tNext row\n";
+            $file_data = '';
+            for ($t=1; $t<100; $t++) {
+                $file_data .= $t . "\t2017-12-12\tAny string data\n";
+            }
 
-            $this->assertTrue(file_put_contents($file, $file_data)>0);
+            $file_size = file_put_contents($file, $file_data);
 
+            $this->assertTrue($file_size > 0);
+
+            $fields = '(id, dt, s)';
             $structure_excactly = 'id UInt32, dt Date, s String';
-
-            $fs = "file_structure";
 
             $this->assertFalse($ch->queryFalse("DROP TABLE IF EXISTS $table"));
 
@@ -151,14 +175,86 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
                 "ENGINE = MergeTree(dt, (id, dt), 8192)");
             $this->assertFalse($ans);
 
+            $ans = $ch->queryInsertGzip($table, $file, "TabSeparated", $fields);
+
+            $this->assertFalse($ans);
+
+            echo "File size: $file_size \n";
+            print_r($ch->curl_info);
+
+            $ans = $ch->queryStrings("SELECT * FROM $table");
+            $this->assertEquals($file_data, implode("\n",$ans)."\n");
+
+            $this->assertFalse($ch->queryFalse("DROP TABLE IF EXISTS $table"));
+
+            $ans = $ch->queryFalse("CREATE TABLE $table" .
+                "( $structure_excactly )" .
+                "ENGINE = MergeTree(dt, (id, dt), 8192)");
+            $this->assertFalse($ans);
+
+            $ch->toSlot('tmp')->queryInsertGzip($table, $file, "TabSeparated", $fields);
+            $this->assertFalse($ch->slotResults("tmp"));
+
+            $ans = $ch->queryStrings("SELECT * FROM $table");
+            $this->assertEquals($file_data, implode("\n",$ans)."\n");
+
+            try {
+                $ch->toSlot('tmp1')->queryInsertGzip($table, '', "TabSeparated", $fields);
+            } catch(\Exception $e) {
+                $this->assertEquals("File not found", $e->getMessage());
+            }
+        } else {
+            echo '-';
+        }
+    }
+    /**
+     * @covers ierusalim\ClickHouse\ClickHouseQuery::queryInsertFile
+     * @todo   Implement testQueryInsertFile().
+     */
+    public function testQueryInsertFile()
+    {
+        $ch = $this->object;
+
+        if ($ch->isSupported('query')) {
+            $table = "anytabletmp";
+
+            $file = 'anyfile.txt';
+
+            $file_data = '';
+            for ($t=1; $t<100; $t++) {
+                $file_data .= $t . "\t2017-12-12\tAny string data\n";
+            }
+
+            $file_size = file_put_contents($file, $file_data);
+
+            $this->assertTrue($file_size > 0);
+
+            $structure_excactly = 'id UInt32, dt Date, s String';
+
+            $fs = "file_structure";
+
+            $ch->setCompression(true);
+
+            $this->assertFalse($ch->queryFalse("DROP TABLE IF EXISTS $table"));
+
+            $ans = $ch->queryFalse("CREATE TABLE $table" .
+                "( $structure_excactly )" .
+                "ENGINE = MergeTree(dt, (id, dt), 8192)");
+            $this->assertFalse($ans);
+
+            $slot = 'qinsfile';
+            $ch->toSlot($slot)->queryInsertFile($table, $file, $structure_excactly);
+
             $ans = $ch->queryInsertFile($table, $file, $structure_excactly);
             $this->assertFalse($ans);
 
             $this->assertFalse(isset($ch->options[$fs]));
 
+            $this->assertFalse($ch->slotResults($slot));
+
             $ans = $ch->queryStrings("SELECT * FROM $table");
 
-            $this->assertEquals($file_data, implode("\n",$ans)."\n");
+            $this->assertEquals($file_data . $file_data, implode("\n",$ans)."\n");
 
             $ch->setOption($fs, 'What');
             $ans = $ch->queryInsertFile($table, $file, $structure_excactly);
@@ -177,38 +273,43 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
         }
     }
 
-    /**
-     * @dataProvider chProvider
-     */
-    public function testQueryInsertFileBadpar(ClickHouseQuery $ch)
+    public function testQueryInsertFileBadpar()
     {
+        $ch = $this->object;
+
         $this->setExpectedException("\Exception");
         // exception illegal parameters
         $ans = $ch->queryInsertFile('table', '');
     }
 
     /**
-     * @dataProvider chProvider
      * @covers ierusalim\ClickHouse\ClickHouseQuery::queryFalse
      * @todo   Implement testQueryFalse().
      */
-    public function testQueryFalse(ClickHouseQuery $ch)
+    public function testQueryFalse()
     {
+        $ch = $this->object;
+
         if ($ch->isSupported('query')) {
+            $ch->toSlot("test555")->queryFalse("SELECT 555");
+
             $this->assertFalse($ch->queryFalse("SELECT 1"), "1");
             $this->assertTrue(is_string($ch->queryFalse("SELECT err")));
+
+            $this->assertFalse($ch->slotResults("test555"));
         } else {
             echo '-';
         }
     }
 
     /**
-     * @dataProvider chProvider
      * @covers ierusalim\ClickHouse\ClickHouseQuery::bindPars
      * @todo   Implement testBindPars().
      */
-    public function testBindPars(ClickHouseQuery $ch)
+    public function testBindPars()
     {
+        $ch = $this->object;
+
         if ($ch->isSupported('query')) {
             $sql = $ch->bindPars("SELECT {x},{y}", ['x'=>123, 'y'=>"4"]);
             $this->assertEquals("SELECT 123,4", $sql);
@@ -220,14 +321,18 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @dataProvider chProvider
      * @covers ierusalim\ClickHouse\ClickHouseQuery::queryValue
      * @todo   Implement testQueryValue().
      */
-    public function testQueryValue(ClickHouseQuery $ch)
+    public function testQueryValue()
     {
+        $ch = $this->object;
+
+        $ch->to_slot = false;
+        $this->assertEquals("444", $ch->queryValue("SELECT 444"));
+
         if ($ch->isSupported('query')) {
-            $this->assertEquals($ch->queryValue("SELECT 1"), "1");
+
             if ($ch->isSupported('session_id')) {
                 $this->assertEquals($ch->queryValue("USE system"), "");
             }
@@ -235,29 +340,37 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
             $this->assertFalse($ch->queryValue("SELECT blablabla()"));
             $this->assertNotEquals(200, $ch->last_code);
 
+            $ch->toSlot("slot1")->queryValue("SELECT 1");
+
             $ch->setServerUrl("http://localhost:22");
             $this->assertFalse($ch->queryValue("SELECT 1"));
             $this->assertTrue(strlen($ch->last_curl_error_str)>10);
+
+            $this->assertEquals($ch->slotResults("slot1"), "1");
         } else {
             echo '-';
         }
     }
 
     /**
-     * @dataProvider chProvider
      * @covers ierusalim\ClickHouse\ClickHouseQuery::queryFullArray
      * @todo   Implement testQueryFullArray().
      */
-    public function testQueryFullArray(ClickHouseQuery $ch)
+    public function testQueryFullArray()
     {
+        $ch = $this->object;
+
         if ($ch->isSupported('query')) {
             $ans = $ch->queryFullArray("SELECT blablabla()");
             $this->assertFalse(is_array($ans));
+
         } else {
             echo '-';
         }
         if ($ch->isSupported('session_id')) {
             $ch->setOption('extremes', 1);
+            $ch->toSlot("fullarr")->queryFullArray("SELECT * FROM system.settings WITH TOTALS");
+
             $t_arr = $ch->queryFullArray("SELECT * FROM system.settings WITH TOTALS");
             $this->assertArrayHasKey('meta', $t_arr);
             $this->assertArrayHasKey('data', $t_arr);
@@ -266,31 +379,46 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
 
             $t_arr = $ch->queryFullArray("SELECT * FROM system.numbers LIMIT 100", true);
             $this->assertEquals(100, count($t_arr));
+
+            $t_arr = $ch->slotResults("fullarr");
+            $this->assertArrayHasKey('meta', $t_arr);
+            $this->assertArrayHasKey('data', $t_arr);
+            $this->assertArrayHasKey('statistics', $t_arr);
+            $this->assertArrayHasKey('rows', $t_arr);
         }
     }
 
     /**
-     * @dataProvider chProvider
      * @covers ierusalim\ClickHouse\ClickHouseQuery::queryArray
      */
-    public function testQueryArray(ClickHouseQuery $ch)
+    public function testQueryArray()
     {
+        $ch = $this->object;
+
         if ($ch->isSupported('query')) {
+            $ch->toSlot('qarray')->queryArray("SHOW DATABASES", false);
+
             $arr = $ch->queryArray("SHOW DATABASES", false);
             $this->assertArrayHasKey('name', $arr[0]);
             $arr = $ch->queryArray("SHOW DATABASES", true);
             $this->assertArrayHasKey('0', $arr[0]);
+
+            $arr = $ch->slotResults("qarray");
+            $this->assertArrayHasKey('name', $arr[0]);
         } else {
             echo '-';
         }
     }
     /**
-     * @dataProvider chProvider
      * @covers ierusalim\ClickHouse\ClickHouseQuery::queryArr
      */
-    public function testQueryArr(ClickHouseQuery $ch)
+    public function testQueryArr()
     {
+        $ch = $this->object;
+
         if ($ch->isSupported('session_id')) {
+            $ch->toSlot("qarr")->queryArr("SELECT * FROM system.settings WITH TOTALS");
+
             $this->assertFalse(is_array($ch->queryArr("SELECT blabla()")));
             $ch->setOption("extremes", 1);
             $arr = $ch->queryArr("SELECT * FROM system.settings WITH TOTALS");
@@ -299,17 +427,26 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
             $this->assertFalse(empty($ch->totals));
             $arr = $ch->queryArr("SELECT * FROM system.settings", true);
             $this->assertArrayHasKey(10, $arr);
+
+            $arr = $ch->slotResults("qarr");
+            $this->assertArrayHasKey(10, $arr);
+            $this->assertEquals(2, count($ch->extremes));
+            $this->assertFalse(empty($ch->totals));
+
         } else {
             echo '-';
         }
     }
     /**
-     * @dataProvider chProvider
      * @covers ierusalim\ClickHouse\ClickHouseQuery::queryKeyValues
      */
-    public function testQueryKeyValues(ClickHouseQuery $ch)
+    public function testQueryKeyValues()
     {
+        $ch = $this->object;
+
         if ($ch->isSupported('session_id')) {
+            $ch->toSlot("qkv")->queryKeyValues("DESCRIBE TABLE system.databases");
+
             $arr = $ch->queryKeyValues("DESCRIBE TABLE system.databases");
             $this->assertArrayHasKey('name', $arr);
             $this->assertArrayHasKey('engine', $arr);
@@ -325,17 +462,25 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
 
             $arr = $ch->queryKeyValues('system.metrics', '*');
             $this->assertTrue(count($arr)>10);
+
+            $arr = $ch->slotResults("qkv");
+            $this->assertArrayHasKey('name', $arr);
+            $this->assertArrayHasKey('engine', $arr);
         } else {
             echo '-';
         }
     }
     /**
-     * @dataProvider chProvider
      * @covers ierusalim\ClickHouse\ClickHouseQuery::queryKeyValArr
      */
-    public function testQueryKeyValArr(ClickHouseQuery $ch)
+    public function testQueryKeyValArr()
     {
+        $ch = $this->object;
+
         if ($ch->isSupported('session_id')) {
+            $slot = "qkeyvalarr";
+            $ch->toSlot($slot)->queryKeyValArr("DESCRIBE TABLE system.databases");
+
             $arr = $ch->queryKeyValArr("DESCRIBE TABLE system.databases");
             $this->assertArrayHasKey('name', $arr);
             $this->assertArrayHasKey('engine', $arr);
@@ -346,6 +491,10 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
                 $arr = $ch->queryKeyValArr("system.settings", "*");
                 $this->assertTrue(count($arr)>10);
             }
+
+            $arr = $ch->slotResults($slot);
+            $this->assertArrayHasKey('name', $arr);
+            $this->assertArrayHasKey('engine', $arr);
         } else {
             echo '-';
         }
@@ -354,14 +503,18 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
         $this->assertFalse(is_array($err));
     }
     /**
-     * @dataProvider chProvider
      * @covers ierusalim\ClickHouse\ClickHouseQuery::queryStrings
      */
-    public function testQueryStrings(ClickHouseQuery $ch)
+    public function testQueryStrings()
     {
+        $ch = $this->object;
+
         if ($ch->isSupported('session_id')) {
+            $arr = $ch->toSlot("tmp50")->queryStrings("SELECT * FROM system.numbers LIMIT 50");
             $arr = $ch->queryStrings("SELECT * FROM system.numbers LIMIT 100");
             $this->assertTrue(\count($arr)==100);
+            $arr = $ch->slotResults("tmp50");
+            $this->assertTrue(\count($arr)==50);
         }
         if ($ch->isSupported('query')) {
             $str = $ch->queryStrings("SELECT * FROM notfoundtable LIMIT 1");
@@ -373,11 +526,12 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
 
 
     /**
-     * @dataProvider chProvider
      * @covers ierusalim\ClickHouse\ClickHouseQuery::quotePar
      */
-    public function testQuotePar(ClickHouseQuery $ch)
+    public function testQuotePar()
     {
+        $ch = $this->object;
+
         $this->assertEquals(123, $ch->quotePar(123));
         $this->assertEquals("'a'", $ch->quotePar('a'));
         $this->assertEquals('"a"', $ch->quotePar('"a"'));
@@ -388,35 +542,53 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @dataProvider chProvider
      * @covers ierusalim\ClickHouse\ClickHouseQuery::queryTableSubstract
      */
-    public function testQueryTableSubstract(ClickHouseQuery $ch)
+    public function testQueryTableSubstract()
     {
+        $ch = $this->object;
+
         if($ch->isSupported('session_id')) {
             $tbl = "system.columns";
+
+            $slot = "qtabsub";
+            $ch->toSlot($slot)->queryTableSubstract($tbl);
+
             $arr = $ch->queryTableSubstract($tbl);
             $this->assertArrayHasKey('columns_arr', $arr);
             $arr = $arr['columns_arr'];
             $arr = $ch->queryTableSubstract("notfound'\nthistable");
             $this->assertFalse(\is_array($arr));
+
+            $arr = $ch->slotResults($slot);
+            $this->assertArrayHasKey('columns_arr', $arr);
+            $arr = $arr['columns_arr'];
         }
     }
 
     /**
-     * @dataProvider chProvider
      * @covers ierusalim\ClickHouse\ClickHouseQuery::queryTableSys
      */
-    public function testQueryTableSys(ClickHouseQuery $ch)
+    public function testQueryTableSys()
     {
+        $ch = $this->object;
+
         if ($ch->isSupported('session_id')) {
+            $slot = "qtsys";
             $tbl = "system.columns";
+
+            $ch->toSlot($slot)->queryTableSys($tbl, 'tables');
+
             $arr = $ch->queryTableSys($tbl, 'columns');
             $this->assertEquals($arr, $ch->queryTableSubstract($tbl));
-            $arr = $ch->queryTableSys($tbl, 'tables');
-            $this->assertEquals($arr, $ch->queryTableSys($tbl));
+
+            $tarr = $ch->queryTableSys($tbl, 'tables');
+
             $arr = $ch->queryTableSys($tbl, 'replicas');
-            $this->assertTrue(is_string($arr));
+            $this->assertTrue(\is_string($arr));
+
+            $arr = $ch->slotResults($slot);
+            $this->assertEquals($tarr, $arr);
         }
     }
 }

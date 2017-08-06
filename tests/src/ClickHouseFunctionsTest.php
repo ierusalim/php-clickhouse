@@ -25,6 +25,9 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
             $clickhouse_url = null;
         }
         $this->object = new ClickHouseFunctions($clickhouse_url);
+        if (!is_null($clickhouse_url)) {
+            $this->object->isSupported('session_id', false, true);
+        }
     }
 
     /**
@@ -184,29 +187,42 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
     {
         $ch = $this->object;
 
+        // test database-option without sessions
+
         $ch->setCurrentDatabase('system', true);
         $this->assertEquals('system', $ch->getOption('database'));
+
         $this->assertEquals('system', $ch->getCurrentDatabase());
+
         if ($ch->isSupported('session_id')) {
             $this->assertEquals('system', $ch->queryValue('SELECT currentDatabase()'));
         }
+
         $ch->setOption('database', null);
 
         if ($ch->isSupported('session_id')) {
-            $ch->setSession();
-            $session_id_1 = $ch->setSession();
-            $session_id_2 = $ch->getSession();
+
+            // test session support
+
+            $ch->setSession(); // generate session_id
+
+            $session_id_1 = $ch->setSession(); //get old session id and generate new
+            $session_id_2 = $ch->getSession(); //get new session id
 
             $db_1 = 'default';
             $db_2 = 'system';
 
+            // default -> session1, system -> session2
             $ans = $ch->setCurrentDatabase($db_1, $session_id_1);
             $this->assertFalse($ans);
             $ans = $ch->setCurrentDatabase($db_2, $session_id_2);
             $this->assertFalse($ans);
 
+            // session1 must return 'default'
             $db_name = $ch->getCurrentDatabase($session_id_1);
             $this->assertEquals($db_name, $db_1);
+
+            // session2 must return 'system'
             $db_name = $ch->getCurrentDatabase($session_id_2);
             $this->assertEquals($db_name, $db_2);
         } else {
@@ -314,9 +330,27 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
     {
         $ch = $this->object;
         if ($ch->isSupported('session_id')) {
-            $desc_tbl_arr = $ch->getTableFields('system.databases');
+            $ch->toSlot('gta')->getTableFields('system.databases', true);
+
+            $desc_tbl_arr = $ch->getTableFields('system.databases', true);
             $this->assertArrayHasKey('name', $desc_tbl_arr);
             $this->assertArrayHasKey('engine', $desc_tbl_arr);
+
+            $desc2_tbl_arr = $ch->slotResults('gta');
+
+            $this->assertArrayHasKey('name', $desc2_tbl_arr);
+            $this->assertArrayHasKey('engine', $desc2_tbl_arr);
+
+            $this->assertEquals($desc2_tbl_arr, $desc_tbl_arr);
+
+            $desc_tbl_arr = $ch->getTableFields('system.databases', false);
+            $this->assertEquals($desc2_tbl_arr, $desc_tbl_arr);
+
+            $ch->eraseSlot('gta');
+            $ch->toSlot('gta')->getTableFields('system.databases', false);
+
+            $desc2_tbl_arr = $ch->slotResults('gta');
+            $this->assertEquals($desc2_tbl_arr, $desc_tbl_arr);
         } else {
             echo '-';
         }
@@ -521,6 +555,26 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
 
             $ans = $ch->clearTable('system.numbers');
             $this->assertTrue(\is_string($ans));
+
+            $ans = $ch->createTableQuick($table, [
+                'id' => 'Int16',
+                'dt' => ['Date', 'now()']
+            ], 2);
+            $this->assertFalse($ans);
+
+            $arr = $ch->queryInsertArray($table, ['id', 'dt'], [111, '2017-10-10']);
+            $this->assertFalse($arr);
+
+            $arr = $ch->queryArray("SELECT * FROM $table");
+            $this->assertEquals(1, \count($arr));
+
+            $ch->toSlot('clr')->clearTable($table)->slotResults('clr');
+            $this->assertFalse($ans);
+
+            $arr = $ch->queryArray("SELECT * FROM $table");
+            $this->assertEquals(0, \count($arr));
+
+            $ans = $ch->dropTable($table);
         } else {
             echo '-';
         }
@@ -640,7 +694,7 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
                 'id' => 'Int16',
                 'dt' => ['Date', 'now()']
             ], 2);
-            $this->assertTrue(is_string($ans));
+            $this->assertTrue(\is_string($ans));
         }
     }
 
@@ -653,6 +707,10 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
 
         if ($ch->isSupported('session_id')) {
             $tbl = "system.columns";
+
+            //send async request
+            $ch->toSlot("tabinfo")->getTableInfo($tbl, 10);
+
             $arr = $ch->getTableInfo($tbl, 0);
             $this->assertArrayHasKey('table_name', $arr);
             $this->assertEquals($tbl, $arr['table_name']);
@@ -699,6 +757,10 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
             $this->assertArrayHasKey('system.merges', $arr);
             $this->assertArrayHasKey('system.replicas', $arr);
             $this->assertArrayHasKey('system.parts', $arr);
+
+            // get async results
+            $xarr = $ch->slotResults("tabinfo");
+            $this->assertEquals($arr, $xarr);
 
             // not found table request
             $arr = $ch->getTableInfo("notfoundthistable");

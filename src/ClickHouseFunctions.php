@@ -413,6 +413,7 @@ class ClickHouseFunctions extends ClickHouseQuery
      */
     public function getCurrentDatabase($sess = null)
     {
+        $this->to_slot = false;
         $database = $this->getOption('database');
         if (!empty($database) || $sess === true) {
             return $database;
@@ -434,6 +435,7 @@ class ClickHouseFunctions extends ClickHouseQuery
      */
     public function setCurrentDatabase($db, $sess = null)
     {
+        $this->to_slot = false;
         if ($sess === true || !$this->isSupported('session_id')) {
             $this->setOption('database', $db);
             return false;
@@ -516,12 +518,32 @@ class ClickHouseFunctions extends ClickHouseQuery
      */
     public function getTableFields($table, $renew_cache = true, $sess = null)
     {
-        //DESCRIBE TABLE [db.]table
+        $slot = $this->to_slot;
+
         if ($renew_cache || !isset($this->table_structure_cached[$table])) {
-            $this->table_structure_cached[$table] =
-                $this->queryKeyValues("DESCRIBE TABLE $table", null, $sess);
+            $results = $this->queryKeyValues("DESCRIBE TABLE $table", null, $sess);
+            if (empty($slot)) {
+                return $this->table_structure_cached[$table] = $results;
+            }
         }
-        return $this->table_structure_cached[$table];
+        $this->to_slot = false;
+
+        if (empty($slot)) {
+            return $this->table_structure_cached[$table];
+        }
+
+        if (isset($this->table_structure_cached[$table]) && !$renew_cache) {
+            $this->slotEmulateResults($slot, $this->table_structure_cached[$table]);
+        } else {
+            $yi = function($table) {
+                $this->table_structure_cached[$table] = $results = yield;
+                yield $results;
+            };
+            $yi = $yi($table);
+            $this->slotHookPush($slot,
+                ['mode' => 1, 'fn' => $yi, 'par' => 'getTableFields']);
+        }
+        return $this;
     }
 
     /**
@@ -617,55 +639,118 @@ class ClickHouseFunctions extends ClickHouseQuery
      */
     public function getTableInfo($table, $extended = 2)
     {
-        $columns_arr = $this->queryTableSubstract($table);
-        if (!is_array($columns_arr)) {
-            return $columns_arr;
-        }
-        \extract($columns_arr); //Keys is database, table, columns_arr
+        $slot = $this->to_slot;
 
-        $fields_arr = [];
-        $sum_compressed_bytes = $sum_uncompressed_bytes = 0;
-        foreach ($columns_arr as $col_name => $col_arr) {
-            $sum_compressed_bytes += $col_arr['data_compressed_bytes'];
-            $column_bytes = $col_arr['data_uncompressed_bytes'];
-            $sum_uncompressed_bytes += $column_bytes;
-            $fixed_bytes = $this->parseType($col_arr['type']);
-            if (!empty($fixed_bytes)) {
-                $col_arr['fixed_bytes'] = $fixed_bytes;
-                $col_rows_cnt = $column_bytes / $fixed_bytes;
-                $rows_cnt = $col_rows_cnt;
-                $col_arr['rows_cnt'] = $col_rows_cnt;
-            }
-            $columns_arr[$col_name] = $col_arr;
-            $fields_arr[$col_name] = $col_arr['type'];
+        $slot_prefix = substr(md5(microtime()), 0, 8) . $table . '_';
+
+        if (empty($slot)) {
+            $root_slot = $slot_prefix . 'col';
+            $this->toSlot($root_slot);
+        } else {
+            $root_slot = $slot;
         }
-        $ret_arr = $this->getTableRowSize($fields_arr);
-        $ret_arr['table_name'] = $dbtb = $database . '.' . $table;
-        if ($extended) {
-            $engine = $this->queryTableSys($dbtb, 'tables', ['d', 't', 'n']);
-            foreach ($engine as $col_name => $sys) {
-                $ret_arr[$col_name] = $sys;
-            }
-            if (--$extended) {
-                $ret_arr['create'] = $this->queryValue("SHOW CREATE TABLE $dbtb");
-            }
+        $slots = ['root' => $root_slot];
+
+        $this->queryTableSubstract($table);
+
+        $i = \strpos($table, '.');
+        if ($i) {
+            $db = \substr($table, 0, $i);
+            $table = \substr($table, $i + 1);
+        } else {
+            $db = $this->getCurrentDatabase();
         }
 
-        $ret_arr['uncompressed_bytes'] = $sum_uncompressed_bytes;
-        $ret_arr['compressed_bytes'] = $sum_compressed_bytes;
-        $ret_arr['rows_cnt'] = is_null($rows_cnt) ? "Unknown" : $rows_cnt;
-        $ret_arr['columns_cnt'] = \count($columns_arr);
-        $ret_arr['columns'] = $columns_arr;
-        if ($extended) {
+        $dbtb = $db . '.' . $table;
+
+        if ($ex = $extended) {
+            $slots['tables'] = $slot_prefix . '_tab_'. $table;
+            $this->toSlot($slots['tables']);
+            $this->queryTableSys($dbtb, 'tables', ['d', 't', 'n']);
+            if (--$ex) {
+                $slots['create'] = $slot_prefix . 'cre';
+                $this->toSlot($slots['create']);
+                $this->queryValue("SHOW CREATE TABLE $dbtb");
+            }
+        }
+        if ($ex) {
             foreach (['merges', 'replicas', 'parts'] as $sys) {
-                if (!--$extended) {
+                if (!--$ex) {
                     break;
                 }
-                $ret_arr['system.' . $sys] = $this->queryTableSys($dbtb, $sys, ['d', 't', 'n']);
+                $slots[$sys] = $slot_prefix . $sys;
+                $this->toSlot($slots[$sys]);
+                $this->queryTableSys($dbtb, $sys, ['d', 't', 'n']);
             }
         }
 
-        return $ret_arr;
+        $yi = function ($slots, $table, $extended) {
+            $columns_arr = yield; //results of queryTableSubstract($table);
+            if (!is_array($columns_arr)) {
+                yield $columns_arr;
+            }
+            \extract($columns_arr); //Keys is database, table, columns_arr
+
+            $fields_arr = [];
+            $sum_compressed_bytes = $sum_uncompressed_bytes = 0;
+            foreach ($columns_arr as $col_name => $col_arr) {
+                $sum_compressed_bytes += $col_arr['data_compressed_bytes'];
+                $column_bytes = $col_arr['data_uncompressed_bytes'];
+                $sum_uncompressed_bytes += $column_bytes;
+                $fixed_bytes = $this->parseType($col_arr['type']);
+                if (!empty($fixed_bytes)) {
+                    $col_arr['fixed_bytes'] = $fixed_bytes;
+                    $col_rows_cnt = $column_bytes / $fixed_bytes;
+                    $rows_cnt = $col_rows_cnt;
+                    $col_arr['rows_cnt'] = $col_rows_cnt;
+                }
+                $columns_arr[$col_name] = $col_arr;
+                $fields_arr[$col_name] = $col_arr['type'];
+            }
+            $ret_arr = $this->getTableRowSize($fields_arr);
+            $ret_arr['table_name'] = $dbtb = $database . '.' . $table;
+            if ($extended) {
+                //results of queryTableSys($dbtb, 'tables', ['d', 't', 'n']);
+                $engine = $this->slotResults($slots['tables']);
+                foreach ($engine as $col_name => $sys) {
+                    $ret_arr[$col_name] = $sys;
+                }
+                if (--$extended) {
+                     //results of queryValue("SHOW CREATE TABLE $dbtb");
+                    $ret_arr['create'] = $this->slotResults($slots['create']);
+                }
+            }
+
+            $ret_arr['uncompressed_bytes'] = $sum_uncompressed_bytes;
+            $ret_arr['compressed_bytes'] = $sum_compressed_bytes;
+            $ret_arr['rows_cnt'] = is_null($rows_cnt) ? "Unknown" : $rows_cnt;
+            $ret_arr['columns_cnt'] = \count($columns_arr);
+            $ret_arr['columns'] = $columns_arr;
+            if ($extended) {
+                foreach (['merges', 'replicas', 'parts'] as $sys) {
+                    if (!--$extended) {
+                        break;
+                    }
+                    // results of queryTableSys($dbtb, $sys, ['d', 't', 'n']);
+                    $ret_arr['system.' . $sys] = $this->slotResults($slots[$sys]);
+                }
+            }
+
+            foreach ($slots as $slot) {
+                $this->eraseSlot($slot);
+            }
+            yield $ret_arr;
+        };
+        $yi = $yi($slots, $table, $extended);
+
+        $this->slotHookPush($slots['root'],
+            ['mode' => 1, 'fn' => $yi, 'par' => 'getTableInfo']);
+
+        if (empty($slot)) {
+            return $this->slotResults($slots['root']);
+        }
+
+        return $this;
     }
 
     /**
@@ -689,12 +774,25 @@ class ClickHouseFunctions extends ClickHouseQuery
      */
     public function clearTable($table, $sess = null)
     {
-        $create_request = $this->queryValue("SHOW CREATE TABLE $table", null, $sess);
-        if ($create_request === false) {
-            return "Can't clear '$table' because no information about its creation.";
+        $slot = $this->to_slot;
+        $yi = function ($table, $sess, $slot) {
+            $create_request = (yield $this->queryValue("SHOW CREATE TABLE $table", null, $sess));
+            if ($create_request === false) {
+                yield "Can't clear '$table' because no information about its creation.";
+            }
+            // Not asynchronous for drop/create, because requests depend on each other
+            $this->queryFalse("DROP TABLE IF EXISTS $table", [], $sess);
+            yield $this->queryFalse($create_request, [], $sess);
+        };
+        $yi = $yi($table, $sess, $slot);
+        $create_request = $yi->current();
+        if (empty($slot)) {
+            return $yi->send($create_request);
         }
-        $this->queryFalse("DROP TABLE IF EXISTS $table", [], $sess);
-        return $this->queryFalse($create_request, [], $sess);
+        $this->slotHookPush($slot,
+            ['mode' => 1, 'fn' => $yi, 'par' => 'clearTable']);
+
+        return $this;
     }
 
     /**

@@ -26,6 +26,7 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
 
     public function testConstructEmpty()
     {
+        echo "PHP " . phpversion() ."\n";
         $r = new ClickHouseAPI();
         $this->assertEquals('127.0.0.1', $r->host);
     }
@@ -53,10 +54,13 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
             $clickhouse_url = null;
         }
         $ch->setServerUrl($clickhouse_url);
+        if (!is_null($clickhouse_url)) {
+            $ch->isSupported('session_id', false, true);
+        }
     }
 
     /**
-     * @covers Ierusalim\ClickHouse\ClickHouseAPI::setServerUrl
+     * @covers ierusalim\ClickHouse\ClickHouseAPI::setServerUrl
      */
     public function testSetServerUrl()
     {
@@ -79,52 +83,126 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
     public function testGetVersion()
     {
         $ch = $this->object;
+
+        // erase all existing slots
+        foreach($ch->multi_status as $slot => $status) {
+            $ch->eraseSlot($slot);
+        }
+
         $version = $ch->getVersion();
         if ($ch->isSupported('query')) {
             $this->assertTrue(strpos($version, '.') > 0);
         }
         echo "Version of ClickHouse server: $version\n";
-        //$this->assertEquals($version, $ch->server_version);
-        // test get cached version
-        //$fake_version = $ch->server_version = 'fake_version';
-        //$this->assertEquals($fake_version, $ch->getVersion());
 
-        $ch->session_autocreate = true;
-        // set fake server for emulate session unsupported
-        $ch->hook_before_api_call = function($s, $obj) {
-            return 'http://google.com/notfound';
-        };
-        $ver_bad = $ch->getVersion(true);
-        $this->assertFalse($ch->session_autocreate);
+        $ch1 = new ClickHouseAPI('http://github.com:22');
+        $ch1->session_autocreate = true;
+
+        $ver_bad = $ch1->getVersion(true);
+        $this->assertFalse($ch1->session_autocreate);
         $this->assertEquals("Unknown", $ver_bad);
 
-        $ch->hook_before_api_call = false;
         $ver_good = $ch->getVersion(true);
         $this->assertEquals($version, $ver_good);
     }
 
     /**
-     * @covers Ierusalim\ClickHouse\ClickHouseAPI::setCompression
+     * @covers ierusalim\ClickHouse\ClickHouseAPI::versionSendQuery
+     */
+    public function testVersionSendQuery()
+    {
+        $ch = $this->object;
+        if ($ch->isSupported('query')) {
+            $version = $ch->getVersion(true);
+        }
+        echo "Version again: $version\n";
+
+        $ch1 = new ClickHouseAPI('http://github.com:22');
+        $ch1->session_autocreate = true;
+
+        $ver_bad = $ch1->getVersion(true);
+        $this->assertFalse($ch1->session_autocreate);
+        $this->assertEquals("Unknown", $ver_bad);
+    }
+
+    /**
+     * @covers ierusalim\ClickHouse\ClickHouseAPI::query
+     */
+    public function testQuery()
+    {
+        $ch = $this->object;
+
+        if ($ch->isSupported('query')) {
+            $ans = $ch->query("SELECT 123")->results;
+            $this->assertEquals("123\n", $ans);
+            $table = "querytesttable";
+            $this->assertEquals("111\n", $ch
+            ->query("CREATE TABLE IF NOT EXISTS $table (id UInt8, dt Date) ENGINE = MergeTree(dt, (id), 8192)")
+            ->query("INSERT INTO $table SELECT 111 as id, toDate(now()) as dt")
+            ->query("SELECT id FROM $table WHERE dt = toDate(now())")
+            ->query("DROP TABLE IF EXISTS $table")
+            ->results
+            );
+        }
+
+        try {
+            $ans = $ch->query("BAD QUERY");
+        } catch (\Exception $e) {
+            $ans = $e->getMessage();
+        }
+
+        $this->assertTrue(\strpos($ans, 'Syntax error') !== false);
+
+        $ch->curl_options[\CURLOPT_TIMEOUT] = 2;
+
+        // curl error emulation
+        $ch->hook_before_api_call = function($s, $obj) {
+            return 'http://github.com:22/';
+        };
+        try {
+            $ans = $ch->query("ANY QUERY");
+        } catch (\Exception $e) {
+            $ans = $e->getMessage();
+        }
+        //$this->assertTrue(\strpos($ans, 'Syntax error') !== false);
+        $ch->hook_before_api_call = false;
+
+        try {
+            $ch = new ClickHouseAPI("https://github.com:22/");
+            $ch->curl_options[\CURLOPT_CONNECTTIMEOUT] = 2;
+            $version = $ch->getVersion();
+            $ans =$ch->query("");
+        } catch (\Exception $e) {
+            $ans = $e->getMessage();
+        }
+        $ch->curl_options[\CURLOPT_CONNECTTIMEOUT] = 7;
+    }
+
+    /**
+     * @covers ierusalim\ClickHouse\ClickHouseAPI::setCompression
      */
     public function testSetCompression()
     {
         $ch = $this->object;
-        $ch->setCompression(false);
 
-        $ans = $ch->query("SELECT number FROM system.numbers LIMIT 100")->results;
+        if ($ch->isSupported('session_id')) {
+            $ch->setCompression(false);
 
-        $size_d = $ch->curl_getinfo[\CURLINFO_SIZE_DOWNLOAD];
-        $this->assertEquals(strlen($ans), $size_d);
+            $ans = $ch->query("SELECT number FROM system.numbers LIMIT 100")->results;
 
-        $ch->setCompression(true);
+            $size_d = $ch->curl_info[\CURLINFO_SIZE_DOWNLOAD];
+            $this->assertEquals(strlen($ans), $size_d);
 
-        $ans = $ch->query("SELECT number FROM system.numbers LIMIT 100")->results;
+            $ch->setCompression(true);
 
-        $size_d = $ch->curl_getinfo[\CURLINFO_SIZE_DOWNLOAD];
-        if ($size_d < strlen($ans)) {
-            echo "http-compression supported\n";
+            $ans = $ch->query("SELECT number FROM system.numbers LIMIT 100")->results;
+
+            $size_d = $ch->curl_info[\CURLINFO_SIZE_DOWNLOAD];
+            if ($size_d < strlen($ans)) {
+                echo "http-compression supported\n";
+            }
+            $this->assertGreaterThan($size_d, strlen($ans));
         }
-        $this->assertGreaterThan($size_d, strlen($ans));
     }
 
     /**
@@ -153,59 +231,8 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
         $this->assertFalse($ch->isSupported('unknown'));
     }
 
-
     /**
-     * @covers Ierusalim\ClickHouse\ClickHouseAPI::query
-     */
-    public function testQuery()
-    {
-        $ch = $this->object;
-
-        if ($ch->isSupported('query')) {
-            $ans = $ch->query("SELECT 123")->results;
-            $this->assertEquals("123\n", $ans);
-            $table = "querytesttable";
-            $this->assertEquals("111\n", $ch
-            ->query("CREATE TABLE IF NOT EXISTS $table (id UInt8, dt Date) ENGINE = MergeTree(dt, (id), 8192)")
-            ->query("INSERT INTO $table SELECT 111 as id, toDate(now()) as dt")
-            ->query("SELECT id FROM $table WHERE dt = toDate(now())")
-            ->query("DROP TABLE IF EXISTS $table")
-            ->results
-            );
-        }
-
-        try {
-            $ans = $ch->query("BAD QUERY");
-        } catch (\Exception $e) {
-            $ans = $e->getMessage();
-        }
-        $this->assertTrue(\strpos($ans, 'Syntax error') !== false);
-
-        $ch->curl_options[\CURLOPT_CONNECTTIMEOUT] = 2;
-
-        // curl error emulation
-        $ch->hook_before_api_call = function($s, $obj) {
-            return 'http://github.com:22/';
-        };
-        try {
-            $ans = $ch->query("ANY QUERY");
-        } catch (\Exception $e) {
-            $ans = $e->getMessage();
-        }
-        //$this->assertTrue(\strpos($ans, 'Syntax error') !== false);
-        $ch->hook_before_api_call = false;
-
-        try {
-            $ch = new ClickHouseAPI("https://github.com:443/");
-            $ch->curl_options[\CURLOPT_CONNECTTIMEOUT] = 2;
-            $ans =$ch->query("");
-        } catch (\Exception $e) {
-            $ans = $e->getMessage();
-        }
-    }
-
-    /**
-     * @covers Ierusalim\ClickHouse\ClickHouseAPI::anyQuery
+     * @covers ierusalim\ClickHouse\ClickHouseAPI::anyQuery
      * @todo   Implement testAnyQuery().
      */
     public function testAnyQuery()
@@ -228,7 +255,7 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @covers Ierusalim\ClickHouse\ClickHouseAPI::getQuery
+     * @covers ierusalim\ClickHouse\ClickHouseAPI::getQuery
      * @todo   Implement testGetQuery().
      */
     public function testGetQuery()
@@ -244,7 +271,7 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @covers Ierusalim\ClickHouse\ClickHouseAPI::doGet
+     * @covers ierusalim\ClickHouse\ClickHouseAPI::doGet
      * @todo   Implement testDoGet().
      */
     public function testDoGet()
@@ -261,7 +288,7 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @covers Ierusalim\ClickHouse\ClickHouseAPI::postQuery
+     * @covers ierusalim\ClickHouse\ClickHouseAPI::postQuery
      * @todo   Implement testPostQuery().
      */
     public function testPostQuery()
@@ -279,7 +306,7 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @covers Ierusalim\ClickHouse\ClickHouseAPI::doQuery
+     * @covers ierusalim\ClickHouse\ClickHouseAPI::doQuery
      * @todo   Implement testDoQuery().
      */
     public function testDoQuery()
@@ -319,9 +346,6 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
 
             // session_id must not changed
             $this->assertEquals($session_id, $ch->getSession());
-
-            // but last last_used_session_id must be sess_tmp
-            $this->assertEquals($sess_tmp, $ch->last_used_session_id);
         } else {
             echo '-';
         }
@@ -336,12 +360,17 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @covers Ierusalim\ClickHouse\ClickHouseAPI::doApiCall
+     * @covers ierusalim\ClickHouse\ClickHouseAPI::doApiCall
      * @todo   Implement testDoApiCall().
      */
     public function testDoApiCall()
     {
         $ch = $this->object;
+
+        $slot = "tmp1";
+        $ans = $ch->toSlot($slot)->doApiCall(false, ['query'=>'SELECT 123']);
+        $this->assertEquals(102, $ans['code']);
+
         $ch->debug = true;
         $ch->hook_before_api_call = function ($url, $obj) {
             return "https://ierusalim.github.io";
@@ -351,10 +380,85 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
 
         $ans = $ch->doApiCall("empty", [], true, [], $file);
         $this->assertEquals($ans['code'], 405);
+
+        $this->assertEquals("123\n", $ch->fromSlot($slot)->results);
     }
 
     /**
-     * @covers Ierusalim\ClickHouse\ClickHouseAPI::setOption
+     * @covers ierusalim\ClickHouse\ClickHouseAPI::yiDoApiCall
+     * @todo   Implement testYiDoApiCall().
+     */
+    public function testYiDoApiCall()
+    {
+        $ch = $this->object;
+
+        if ($ch->isSupported('query')) {
+            $table = "anytabletmp";
+
+            $file = 'anyfile.txt';
+
+            $file_data = '';
+            for ($t=1; $t<100; $t++) {
+                $file_data .= $t . "\t2017-12-12\tAny string data\n";
+            }
+
+            $file_size = file_put_contents($file, $file_data);
+
+            $this->assertTrue($file_size > 0);
+
+            $fields = '(id, dt, s)';
+            $structure_excactly = 'id UInt32, dt Date, s String';
+
+            $ch->query("DROP TABLE IF EXISTS $table")
+
+               ->query("CREATE TABLE $table" .
+                "( $structure_excactly )" .
+                "ENGINE = MergeTree(dt, (id, dt), 8192)");
+
+            $ch->is_windows = true;
+
+            $ans = $ch->doApiCall(false,
+                ['query' => "INSERT INTO $table $fields FORMAT TabSeparated"],
+                true, [], $file, true);
+
+            $ch->query("SELECT * FROM $table");
+            $this->assertEquals($file_data, $ch->results);
+
+            $ch->is_windows = false;
+
+            try {
+                $ans = $ch->doApiCall(false,
+                    ['query' => "INSERT INTO $table $fields FORMAT TabSeparated"],
+                    true, [], $file, true);
+            } catch (\Exception $e) {
+                echo $e->getMessage();
+                \fclose($ch->fh);
+            }
+
+
+            $ch->query("DROP TABLE IF EXISTS $table");
+            unlink($file);
+            $slot = "tmp1";
+            $ans = $ch->toSlot($slot)->doApiCall(false, ['query'=>'SELECT 123']);
+            $this->assertEquals(102, $ans['code']);
+
+            $ch->debug = true;
+
+            $ch->hook_before_api_call = function ($url, $obj) {
+                return "https://ierusalim.github.io";
+            };
+
+            $file = dirname(dirname(__DIR__)) . \DIRECTORY_SEPARATOR . '.gitignore';
+
+            $ans = $ch->doApiCall("empty", [], true, [], $file);
+            $this->assertEquals($ans['code'], 405);
+
+            $this->assertEquals("123\n", $ch->fromSlot($slot)->results);
+        }
+    }
+
+    /**
+     * @covers ierusalim\ClickHouse\ClickHouseAPI::setOption
      * @todo   Implement testSetOption().
      */
     public function testSetOption()
@@ -368,7 +472,7 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @covers Ierusalim\ClickHouse\ClickHouseAPI::getOption
+     * @covers ierusalim\ClickHouse\ClickHouseAPI::getOption
      * @todo   Implement testGetOption().
      */
     public function testGetOption()
@@ -379,7 +483,7 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @covers Ierusalim\ClickHouse\ClickHouseAPI::setSession
+     * @covers ierusalim\ClickHouse\ClickHouseAPI::setSession
      * @todo   Implement testSetSession().
      */
     public function testSetSession()
@@ -392,7 +496,7 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @covers Ierusalim\ClickHouse\ClickHouseAPI::getSession
+     * @covers ierusalim\ClickHouse\ClickHouseAPI::getSession
      * @todo   Implement testGetSession().
      */
     public function testGetSession()
@@ -404,7 +508,7 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @covers Ierusalim\ClickHouse\ClickHouseAPI::delOption
+     * @covers ierusalim\ClickHouse\ClickHouseAPI::delOption
      * @todo   Implement testDelOption().
      */
     public function testDelOption()
@@ -417,5 +521,40 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
         $this->assertEquals($session_id, $old);
         $new = $ch->getSession();
         $this->assertNull($new);
+    }
+
+    /**
+     * @covers ierusalim\ClickHouse\ClickHouseAPI::slotFinished
+     * @todo   Implement testSlotFinished().
+     */
+    public function testSlotFinihed()
+    {
+        $ch = $this->object;
+
+        $ch ->toSlot("T1") -> query("SELECT 'OK 123 '")
+            ->toSlot("T2") -> query("SELECT 'OK 456 '")
+            ->toSlot("T3") -> query("SELECT 'OK 789 '");
+
+        foreach ($ch->slotFinished(0) as $slot => $arr) {
+            $ans = trim($arr['response']) ;
+            $this->assertEquals("OK", substr($ans,0,2));
+        }
+
+        $slots = [];
+        $max = 10;
+        for($s = 1; $s<$max; $s++) {
+            $slots[] = $slot = "test$s";
+            $ch->toSlot($slot)->query("SELECT hex(MD5(toString($s)))");
+        }
+        echo "Started slots: " . implode(",", $slots) . "\nResults:\n";
+        $n = 1;
+        foreach ($ch->slotFinished() as $slot => $arr) {
+            echo "$n. $slot  = " . $arr['response'];
+            if (empty($arr['response'])) {
+                print_r($ch->slot_data[$slot]);
+                break;
+            }
+            $n++;
+        }
     }
 }

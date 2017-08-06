@@ -6,15 +6,20 @@
 ### Class **ClickHouseAPI**
 Class **ClickHouseAPI** contains simple http/https connector for ClickHouse server
 and have not dependencies (may be used independently, file src/ClichHouseAPI.php).
-#### http/https connector functions:
-* **setServerUrl**($url) - set ClickHouse server parameters by url (host, port, etc.)
+#### API simple requests functions:
+* **query**($sql [,$post_data]) - object-oriented style SQL-query (return $this, throw exceptions)
 * **getQuery**($h_query [, $sess]) - send GET request
 * **postQuery**($h_query, $post_data [, $sess]) - send POST request
-* **query**($sql [,$post_data]) - object-oriented style SQL-query (return $this, throw exceptions)
-#### Special functions
+#### Async (parallel) requests:
+* Set **toSlot**(name) before any request, and the request will be launched asynchronously.
+* **toSlot**("name")->**query**($sql) - start async-$sql-query, results will be written to slot "name"
+* Get results from this slot may at any time later:
+* **slotResults**("name") - get results from slot "name".
+#### Server-state functions:
+* **setServerUrl**($url) - set ClickHouse server parameters by url (host, port, etc.)
 * **getVersion**() - return version of ClickHouse server (side effect - detect server features)
 * **isSupported**(feature-name) - true or false depending on the server support features.
-##### If isSupported('session_id'):
+##### Sessions:
 * **getSession**() - get current session_id from options
 * **setSession**([$sess]) - set session_id or generate new session_id and set it
 ##### Options:
@@ -34,6 +39,7 @@ send queries to ClickHouse server and parsing answering data.
 * **queryKeyValues**(see descr.) - for queries returning 2 columns, first means as key, second as value
 * **queryInsertArray**($table, $fields_names, $fields_set) - insert data into table from array
 * **queryInsertFile**($table, $file, $structure) - insert data from file into table
+* **queryInsertGzip**($table, $file, $format [, $fields]) - insert data from file, using gzip when sending
 
 ### Class **ClickHouseFunctions**
 Class **ClickHouseFunctions** based on ClickHouseQuery and ClickHouseAPI and

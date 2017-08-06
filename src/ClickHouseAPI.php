@@ -5,27 +5,35 @@ namespace ierusalim\ClickHouse;
 /**
  * This class contains simple http/https connector for ClickHouse db-server
  *
- * API-requests functions:
+ * API simple requests functions:
  * - query($sql [,$post_data]) - object-oriented style SQL-query (return $this)
- * - getQuery($query [, $sess]) - function. Send GET request and return raw-response
- * - postQuery($query, $post_data [, $sess]) - send POST request and return response
+ * - getQuery($query [, $sess]) - function. Send GET request and get raw-response
+ * - postQuery($query, $post_data [, $sess]) - send POST request and get raw-response
+ *
+ * Async (parallel) requests:
+ * - Set toSlot(name) before any request, and the request will be launched asynchronously.
+ * For example:
+ * - toSlot("name")->query($sql) - start async-query, results will be written to slot "name"
+ * Get results from this slot may at any time later:
+ * - slotResults("name") - get results from slot "name".
  *
  * Server-state functions:
  * - setServerUrl($url) - set ClickHouse server parameters from url (host, port, etc.)
  * - getVersion() - return version of ClickHouse server. Side effect: detect server features.
  * - isSupported(feature-name) - returns server-dependent variables about supported features.
  *
- * Sessions:
- *  Check isSupported('session_id'). Relevant only for new ClickHouse versions.
- * - getSession() - get current session_id from options
- * - setSession([$sess]) - set specified session_id or generate new session_id
- *
  * Options:
  * - setOption($key, $value) - set http-option for all next requests
  * - getOption($key) - get current http-option value for specified $key
  * - delOption($key) - delete http-option (same ->setOption($key, null)
  *
- * PHP Version >= 5.4
+ * Sessions:
+ *  Check isSupported('session_id'). Relevant only for new ClickHouse versions.
+ * - getSession() - get current session_id from options
+ * - setSession([$sess]) - set specified session_id or generate new session_id
+ *
+ *
+ * PHP Version >= 5.5
  *
  * This file is a part of packet php-clickhouse, but it may be used independently.
  *
@@ -36,6 +44,7 @@ namespace ierusalim\ClickHouse;
  */
 class ClickHouseAPI
 {
+    use ClickHouseSlots;
     /**
      * Protocol for access to ClickHouse server
      *
@@ -98,7 +107,6 @@ class ClickHouseAPI
      * @var array
      */
     public $curl_options = [
-        \CURLINFO_HEADER_OUT => true,
         \CURLOPT_RETURNTRANSFER => true,
         \CURLOPT_USERAGENT => "PHP-ClickHouse",
 
@@ -107,8 +115,17 @@ class ClickHouseAPI
         \CURLOPT_SSL_VERIFYPEER => false,
 
         // time limits in seconds
-        \CURLOPT_CONNECTTIMEOUT => 7,
-        \CURLOPT_TIMEOUT => 77,
+        \CURLOPT_CONNECTTIMEOUT => 0,
+//        \CURLOPT_TIMEOUT => 99,
+        \CURLOPT_TIMEOUT_MS => 99999,
+
+        // its recommended for resolve "Timeout was reached"-problem, but dont resolve.
+ //       \CURLOPT_NOSIGNAL => 1,
+
+        \CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+
+        // optional, if the request-headers sent is interesting
+        \CURLINFO_HEADER_OUT => true,
     ];
 
     /**
@@ -116,10 +133,21 @@ class ClickHouseAPI
      *
      * @var array|false
      */
-    public $curl_getinfo = [
-        \CURLINFO_EFFECTIVE_URL => 0,
+    public $curl_info = [
+        // must be present
+        \CURLINFO_HTTP_CODE => 0,
+        \CURLINFO_HEADER_SIZE =>0,
+
+        \CURLINFO_CONTENT_TYPE => 0,
+
+        // optional: size of compressed response (or full size if compression is off)
         \CURLINFO_SIZE_DOWNLOAD => 0,
+
+        // optional: size of body-data sent
         \CURLINFO_SIZE_UPLOAD => 0,
+
+        // optional, if the request-headers sent is interesting
+        \CURLINFO_HEADER_OUT => 0,
     ];
 
     /**
@@ -135,8 +163,6 @@ class ClickHouseAPI
      * @var mixed
      */
     public $last_code;
-
-    public $size_dowbload;
 
     /**
      * Set true for show sending requests and server answers
@@ -164,14 +190,21 @@ class ClickHouseAPI
      *
      * @var boolean
      */
-    public $session_autocreate = true;
+    public $session_autocreate = false;
 
     /**
-     * Last used session_id (set in doQuery function)
+     * True if running under windows, false otherwise
      *
-     * @var string|null
+     * @var boolean
      */
-    public $last_used_session_id;
+    public $is_windows;
+
+    /**
+     * File handler
+     *
+     * @var resource|null
+     */
+    public $fh;
 
     /**
      * Results of last ->query(sql) request
@@ -206,6 +239,8 @@ class ClickHouseAPI
         $user = null,
         $pass = null
     ) {
+        $this->is_windows = \DIRECTORY_SEPARATOR !== '/';
+
         if (!empty($host_or_full_url)) {
             if (\strpos($host_or_full_url, '/')) {
                 $this->setServerUrl($host_or_full_url);
@@ -222,6 +257,9 @@ class ClickHouseAPI
         if (!is_null($pass)) {
             $this->pass = $pass;
         }
+
+        $this->setCompression(true);
+
         $this->setServerUrl();
     }
 
@@ -257,6 +295,13 @@ class ClickHouseAPI
         $this->server_url = $this->scheme . '://' . $this->host . ':' . $this->port
             . (empty($this->path) ? '/' : $this->path);
 
+        if ($this->host) {
+            // If host is set, we assume that the server accepts requests
+            $this->isSupported('query', false, true);
+            // But, send async-requests to find out this reliably
+            //$this->versionSendQuery();
+        }
+
         return $this;
     }
 
@@ -282,16 +327,19 @@ class ClickHouseAPI
         if (!$this->isSupported('query')) {
             throw new \Exception("Server does not accept ClickHouse-requests");
         }
+        $to_slot = $this->to_slot;
         $ans = $this->postQuery($sql, $post_data, $sess);
-        if (!empty($ans['curl_error'])) {
-            $this->results = $ans['curl_error'];
-            throw new \Exception($this->results);
-        }
-        if (!empty($ans['response'])) {
-            $this->results = $ans['response'];
-        }
-        if ($ans['code'] != 200) {
-            throw new \Exception(\substr($ans['response'], 0, 2048));
+        if (empty($to_slot)) {
+            if (!empty($ans['curl_error'])) {
+                $this->results = $ans['curl_error'];
+                throw new \Exception($this->results);
+            }
+            if (!empty($ans['response'])) {
+                $this->results = $ans['response'];
+            }
+            if ($ans['code'] != 200) {
+                throw new \Exception(\substr($ans['response'], 0, 2048));
+            }
         }
         return $this;
     }
@@ -364,7 +412,8 @@ class ClickHouseAPI
         $is_post = false,
         $post_data = null,
         $session_id = null,
-        $file = null
+        $file = null,
+        $put = false
     ) {
         if (\is_null($query)) {
             $query = $this->query;
@@ -393,16 +442,8 @@ class ClickHouseAPI
             unset($h_parameters['session_id']);
         }
 
-
-        $this->last_used_session_id = isset($h_parameters['session_id']) ?
-            $h_parameters['session_id'] : null;
-
         $response_data = $this->doApiCall(
-            $this->server_url,
-            $h_parameters,
-            $is_post,
-            $post_data,
-            $file
+            $this->server_url, $h_parameters, $is_post, $post_data, $file, $put
         );
 
         // Restore old session if need
@@ -410,26 +451,59 @@ class ClickHouseAPI
             $this->setSession($old_session);
         }
 
-        return $response_data;
+        return ($response_data['code'] === 102) ? $this : $response_data;
+        //return $response_data;
     }
 
     /**
      * Function for send API query to server and get answer
      *
-     * @param string $api_url Full URL of server API
+     * @param string|false $api_url Full URL of server API (false => $this->server_url)
      * @param array $h_params Parameters for adding after "?"
      * @param boolean $post_mode true for POST request, false for GET request
      * @param array|string|null $post_data Data for send in body of POST-request
      * @param string|null $file file name (full name with path) for send
-     * @return array
+     * @return array|resource
      */
-    public function doApiCall(
-        $api_url,
+    public function doApiCall($api_url,
         $h_params,
         $post_mode = false,
         $post_data = null,
-        $file = null
+        $file = null,
+        $put = false
     ) {
+        $yi = $this->yiDoApiCall($api_url, $h_params, $post_mode, $post_data, $file, $put);
+        $curl_h = $yi->current();
+        if (empty($this->to_slot)) {
+            $response = \curl_exec($curl_h);
+            $curl_error = \curl_error($curl_h);
+            $curl_info = [];
+            foreach (\array_keys($this->curl_info) as $key) {
+                $curl_info[$key] = \curl_getinfo($curl_h, $key);
+            }
+            $this->curl_info = $curl_info;
+            \curl_close($curl_h);
+            $response_arr = $yi->send(\compact('response', 'curl_error', 'curl_info'));
+            if ($this->debug) {
+                $yi->next();
+            }
+        } else {
+            $response_arr = $this->slotStart($this->to_slot, $curl_h,
+                ['mode' => 1, 'fn' => $yi, 'par' => 'doApiCall']);
+        }
+        return $response_arr;
+    }
+
+    public function yiDoApiCall($api_url,
+        $h_params,
+        $post_mode = false,
+        $post_data = null,
+        $file = null,
+        $put_mode = false
+    ) {
+        if (empty($api_url)) {
+            $api_url = $this->server_url;
+        }
         $api_url .= "?" . \http_build_query($h_params);
 
         if ($this->hook_before_api_call) {
@@ -440,7 +514,7 @@ class ClickHouseAPI
             echo ($post_mode ? 'POST' : 'GET') . "->$api_url\n" . $file;
         }
 
-        $ch = curl_init($api_url);
+        $curl_h = curl_init($api_url);
 
         if ($post_mode) {
             if (empty($post_data)) {
@@ -448,36 +522,56 @@ class ClickHouseAPI
             }
 
             if (!empty($file) && \file_exists($file)) {
-                if (\function_exists('\curl_file_create')) {
-                    $post_data['file'] = \curl_file_create($file);
+                if ($put_mode) {
+                    $this->fh = \fopen($file, 'rb');
+                    if (substr($file, -3) !== '.gz') {
+                        if ($this->is_windows) {
+                            // if Windows, compress file before sending
+                            $dest = $file . '.gz';
+                            if ($fp_out = \gzopen($dest, 'wb')) {
+                                while (!\feof($this->fh)) {
+                                    \gzwrite($fp_out, fread($this->fh, 524288));
+                                }
+                                \fclose($this->fh);
+                                \gzclose($fp_out);
+                                $this->fh = \fopen($dest, 'rb');
+                            } else {
+                                throw new \Exception("Can't read source file $file");
+                            }
+                        } else {
+                            // if not Windows - can gzip on the fly
+                            \stream_filter_append($this->fh, 'zlib.deflate',
+                                \STREAM_FILTER_READ, ["window" => 30]);
+                        }
+                    }
+
+                    \curl_setopt($curl_h, \CURLOPT_HTTPHEADER, [
+                        'Content-Type: application/x-www-form-urlencoded',
+                        'Content-Encoding: gzip',
+                        'Expect:',
+                        ]);
+
+                    \curl_setopt($curl_h, \CURLOPT_SAFE_UPLOAD, 1);
+                    \curl_setopt($curl_h, \CURLOPT_PUT, true);
+                    \curl_setopt($curl_h, \CURLOPT_INFILE, $this->fh);
                 } else {
-                    $post_data['file'] = "@$file;filename=" . \basename($file);
+                    $post_data['file'] = \curl_file_create($file);
                 }
             }
-            \curl_setopt($ch, \CURLOPT_POST, true);
-            \curl_setopt($ch, \CURLOPT_POSTFIELDS, $post_data);
+            \curl_setopt($curl_h, \CURLOPT_POST, true);
+            \curl_setopt($curl_h, \CURLOPT_POSTFIELDS, $post_data);
         }
-        \curl_setopt_array($ch, $this->curl_options);
+        \curl_setopt_array($curl_h, $this->curl_options);
 
-        $response = \curl_exec($ch);
+        $response_arr = (yield $curl_h);
+        \extract($response_arr); // $response, $curl_error, $curl_info
 
-        $this->last_curl_error_str = $curl_error = \curl_error($ch);
-        $this->last_code = $code = \curl_getinfo($ch, \CURLINFO_HTTP_CODE);
+        $this->last_curl_error_str = $curl_error;
+        $this->last_code = $code = $curl_info[\CURLINFO_HTTP_CODE];
 
-        if (\is_array($this->curl_getinfo)) {
-            foreach (\array_keys($this->curl_getinfo) as $key) {
-                $this->curl_getinfo[$key] = \curl_getinfo($ch, $key);
-            }
-        }
-
-        if ($this->debug) {
-            echo "HTTP $code $curl_error \n\n$response\n}\n";
-        }
-
-        \curl_close($ch);
-        return \compact('code', 'curl_error', 'response');
+        yield \compact('code', 'curl_error', 'response');
+        echo "HTTP $code $curl_error \n\n$response\n}\n";
     }
-
     /**
      * Set http-compression mode on/off
      *
@@ -530,7 +624,7 @@ class ClickHouseAPI
      * if session_id not specified (or specified as null) create and set random.
      *
      * @param string|null $session_id session_id or null for generate new id
-     * @param boolean $overwrite true = set only if session not defined, false = always
+     * @param boolean $overwrite false = set only if session not defined, true = always
      * @return string|null Return old value of session_id option
      */
     public function setSession($session_id = null, $overwrite = true)
@@ -585,8 +679,8 @@ class ClickHouseAPI
                 return $this->getVersion($re_check);
             }
             if (!isset($support_fe[$s_key][$fe_key]) || $re_check) {
-                if ($fe_key == 'query' || $fe_key == 'session_id') {
-                    $this->getVersion($re_check);
+                if ($fe_key == 'session_id' || ($fe_key === 'query' && $re_check)) {
+                    $ver = $this->getVersion($re_check);
                 } else {
                     return false;
                 }
@@ -600,12 +694,10 @@ class ClickHouseAPI
     /**
      * Return version of ClickHouse server by function SELECT version()
      *
-     * Do SELECT version() + session_id to see if a session is supported or not
-     * if session_id not supported, request is send again, but without session_id.
-     * - Depending on result, the isSupported('session_id') is set true or false.
+     * send 2 requests 'SELECT version()' with and without session_id.
+     * - Depending on results, the isSupported('session_id') is set true or false.
      * - If server version response unrecognized, isSupported('query') set false.
-     *
-     * For get cached value of 'version' may use function isSupported('version')
+     * - for get cached value of 'version' may use function isSupported('version')
      *
      * @param boolean $re_check Set true for re-send query to server
      * @return string|boolean String version or false if error
@@ -614,25 +706,69 @@ class ClickHouseAPI
     {
         $ver = $this->isSupported('version');
         if (empty($ver) || $re_check) {
-            $old_sess = $this->setSession(null, false);
-            $query = 'SELECT version()';
-            $ans = $this->doGet($query, ['session_id' => $this->getSession()]);
-            if (!($this->isSupported('session_id', false, $ans['code'] != 404))) {
-                $ans = $this->doGet($query);
+            $slot1 = '_vs_' . $this->server_url;
+            $slot2 = '_vq_' . $this->server_url;
+            $status = $this->slotCheck($slot1);
+            if ($status === false) {
+                $this->versionSendQuery();
+            } elseif ($status && $re_check) {
+                $this->eraseSlot($slot1);
+                $this->eraseSlot($slot2);
+                $this->versionSendQuery();
             }
-            $ver = explode("\n", $ans['response']);
-            $ver = (count($ver) == 2 && strlen($ver[0]) < 32) ? $ver[0] : "Unknown";
-            $this->isSupported('query', false, \is_string($ver) && (\count(\explode(".", $ver)) > 2));
-            if (!$this->isSupported('query')) {
-                $this->isSupported('session_id', false, false);
+            $ans = $this->slotWaitReady($slot1);
+            $ans = $this->slotWaitReady($slot2);
+            $ver = $this->isSupported('version');
+            if (empty($ver)) {
+                $ver = 'Unknown';
+                $this->isSupported('version', false, $ver);
             }
-            if (!$this->isSupported('session_id')) {
-                $this->session_autocreate = false;
-            }
-            $this->setOption('session_id', $old_sess);
-            $this->isSupported('version', false, $ver);
         }
         return $ver;
+    }
+
+    /**
+     * Send background async-requests about server version and supported features
+     *
+     * @return null
+     */
+    public function versionSendQuery()
+    {
+        // save to_slot and old session_id for restore it after complete
+        $old_to_slot = $this->to_slot;
+        $old_sess = $this->setSession(null, false);
+
+        $query = 'SELECT version()';
+
+        // hook-function for each requests execute when request is finished
+        $fn = function($obj, $slot_low, $par) {
+            $ver = \explode("\n", $this->slot_results[$slot_low]['response']);
+            $ver = (\count($ver) == 2 && \strlen($ver[0]) < 32) ? $ver[0] : "Unknown";
+            $is_supported = \is_numeric(\substr($ver,0,1)) && (\count(\explode(".", $ver)) > 2);
+            if (!$is_supported) {
+                $this->session_autocreate = false;
+            } elseif ($par == 'query') {
+                $this->isSupported('version', false, $ver);
+            }
+            $this->isSupported($par, false, $is_supported);
+        };
+
+        // set hook and send async-request without session_id
+        $this->to_slot = '_vq_' . $this->server_url;
+        $this->slotHookPush($this->to_slot,
+            ['mode' => 0, 'fn' => $fn, 'par' => 'query']);
+        $ans1 = $this->doGet($query);
+
+        // set hook and send async-request with session_id
+        $this->to_slot = '_vs_' . $this->server_url;
+        $this->slotHookPush($this->to_slot,
+            ['mode' => 0, 'fn' => $fn, 'par' => 'session_id']);
+        $ans2 = $this->doGet($query, ['session_id' => $this->getSession()]);
+
+        // restore old session_id and old to_slot
+        $this->setOption('session_id', $old_sess);
+        $this->to_slot = $old_to_slot;
+        return \compact('ans1', 'ans2');
     }
 
     /**
@@ -649,7 +785,14 @@ class ClickHouseAPI
         $user = $this->user;
         $password = $this->pass;
         $database = $this->getOption('database');
-        $h_opt_arr = \array_merge(\compact('query', 'user', 'password', 'database'), $h_opt);
+        $enable_http_compression = $this->getOption('enable_http_compression');
+        $h_opt_arr = \array_merge(\compact(
+            'query',
+            'user',
+            'password',
+            'database',
+            'enable_http_compression'
+            ), $h_opt);
         return $this->doApiCall($this->server_url, $h_opt_arr);
     }
 }

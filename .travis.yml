@@ -5,7 +5,7 @@ sudo: required
 # list any PHP version you want to test against
 php:
   # using major version aliases
-  - 5.4
+  # - 5.4 removed
   - 5.5
   - 5.6
   - 7.0

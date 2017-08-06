@@ -139,8 +139,18 @@ class ClickHouseQuery extends ClickHouseAPI
      */
     public function queryTrue($sql, $post_data = [], $sess = null)
     {
+        $slot = $this->to_slot;
         $ans = $this->queryValue($sql, $post_data, $sess);
-        return ($ans !== false && empty($ans)) ?: $ans;
+        $fi = function($ans) {
+            return ($ans !== false && empty($ans)) ?: $ans;
+        };
+        if (empty($slot)) {
+            return $fi($ans);
+        } else {
+            $this->slotHookPush($slot,
+                ['mode' => 2, 'fn' => $fi, 'par' => 'queryTrue']);
+            return $this;
+        }
     }
 
     /**
@@ -157,8 +167,18 @@ class ClickHouseQuery extends ClickHouseAPI
      */
     public function queryFalse($sql, $post_data = [], $sess = null)
     {
+        $slot = $this->to_slot;
         $ans = $this->queryValue($sql, $post_data, $sess);
-        return ($ans === false) ? $this->last_error_str : false;
+        $fi = function ($ans) {
+            return ($ans === false) ? $this->last_error_str : false;
+        };
+        if (empty($slot)) {
+            return $fi($ans);
+        } else {
+            $this->slotHookPush($slot,
+                ['mode' => 2, 'fn' => $fi, 'par' => 'queryFalse']);
+            return $this;
+        }
     }
 
     /**
@@ -176,20 +196,33 @@ class ClickHouseQuery extends ClickHouseAPI
      */
     public function queryValue($sql, $post_data = null, $sess = null)
     {
+        $slot = $this->to_slot;
+
         $ans = $this->anyQuery($sql, $post_data, $sess);
 
-        if (!empty($ans['curl_error'])) {
-            $this->last_error_str = $ans['curl_error'];
-            return false;
+        $fi = function($ans) {
+            if (!empty($ans['curl_error'])) {
+                $this->last_error_str = $ans['curl_error'];
+                return false;
+            }
+
+            if ($ans['code'] == 200) {
+                $this->last_error_str = '';
+                return isset($ans['response']) ? trim($ans['response']) : false;
+            } else {
+                $this->last_error_str = $ans['response'];
+                return false;
+            }
+        };
+
+        if (empty($slot)) {
+            return $fi($ans);
         }
 
-        if ($ans['code'] == 200) {
-            $this->last_error_str = '';
-            return isset($ans['response']) ? trim($ans['response']) : false;
-        } else {
-            $this->last_error_str = $ans['response'];
-            return false;
-        }
+        $this->slotHookPush($slot,
+            ['mode' => 2, 'fn' => $fi, 'par' => 'queryValue']);
+
+        return $this;
     }
 
     /**
@@ -209,13 +242,25 @@ class ClickHouseQuery extends ClickHouseAPI
      */
     public function queryStrings($sql, $with_names_types = false, $sess = null)
     {
+        $slot = $this->to_slot;
+
         $arr = $this->queryValue($sql .
             ' FORMAT TabSeparated' . ($with_names_types ? 'WithNamesAndTypes' : ''),
             null, $sess);
 
-        $arr = (!$arr) ?: \explode("\n", $arr);
+        $fi = function($arr) {
+            $arr = (!$arr) ?: \explode("\n", $arr);
+            return \is_array($arr) ? $arr : $this->last_error_str;
+        };
 
-        return \is_array($arr) ? $arr : $this->last_error_str;
+        if (empty($slot)) {
+            return $fi($arr);
+        }
+
+        $this->slotHookPush($slot,
+            ['mode' => 2, 'fn' => $fi, 'par' => 'queryStrings']);
+
+        return $this;
     }
 
     /**
@@ -242,19 +287,36 @@ class ClickHouseQuery extends ClickHouseAPI
         $key_and_value_fields = null,
         $sess = null
     ) {
-        if (is_null($key_and_value_fields)) {
-            $sql = $tbl_or_sql;
-        } else {
-            $sql = "SELECT $key_and_value_fields FROM $tbl_or_sql";
+        $slot = $this->to_slot;
+
+        $yi = function ($tbl_or_sql, $key_and_value_fields, $sess) {
+            if (is_null($key_and_value_fields)) {
+                $sql = $tbl_or_sql;
+            } else {
+                $sql = "SELECT $key_and_value_fields FROM $tbl_or_sql";
+            }
+            $data = (yield $this->queryArray($sql, true, $sess));
+            if (!\is_array($data) || !\count($data)) {
+                yield $data;
+            }
+            if (\count($data[0]) == 1) {
+                yield \array_column($data, 0);
+            }
+            yield \array_combine(\array_column($data, 0), \array_column($data, 1));
+        };
+
+        $yi = $yi($tbl_or_sql, $key_and_value_fields, $sess);
+
+        $arr = $yi->current();
+
+        if (empty($slot)) {
+            return $yi->send($arr);
         }
-        $data = $this->queryArray($sql, true, $sess);
-        if (!\is_array($data) || !\count($data)) {
-            return $data;
-        }
-        if (\count($data[0]) == 1) {
-            return \array_column($data, 0);
-        }
-        return \array_combine(\array_column($data, 0), \array_column($data, 1));
+
+        $this->slotHookPush($slot,
+            ['mode' => 1, 'fn' => $yi, 'par' => 'queryKeyValues']);
+
+        return $this;
     }
 
     /**
@@ -282,25 +344,42 @@ class ClickHouseQuery extends ClickHouseAPI
         $key_name_and_value_name = null,
         $sess = null
     ) {
-        if (is_null($key_name_and_value_name)) {
-            $sql = $tbl_or_sql;
-        } else {
-            $sql = "SELECT $key_name_and_value_name FROM $tbl_or_sql";
-        }
-        $data = $this->queryStrings($sql, false, $sess);
+        $slot = $this->to_slot;
 
-        if (!\is_array($data) || !\count($data) || !\strpos($data[0], "\t")) {
-            return $data;
-        }
-        $ret = [];
-        foreach ($data as $s) {
-            if (empty($s)) {
-                break;
+        $yi = function($tbl_or_sql, $key_name_and_value_name, $sess) {
+            if (is_null($key_name_and_value_name)) {
+                $sql = $tbl_or_sql;
+            } else {
+                $sql = "SELECT $key_name_and_value_name FROM $tbl_or_sql";
             }
-            $i = strpos($s, "\t");
-            $ret[substr($s, 0, $i)] = substr($s, $i + 1);
+            $data = (yield $this->queryStrings($sql, false, $sess));
+
+            if (!\is_array($data) || !\count($data) || !\strpos($data[0], "\t")) {
+                yield $data;
+            }
+            $ret = [];
+            foreach ($data as $s) {
+                if (empty($s)) {
+                    break;
+                }
+                $i = strpos($s, "\t");
+                $ret[substr($s, 0, $i)] = substr($s, $i + 1);
+            }
+            yield $ret;
+        };
+        $yi = $yi($tbl_or_sql, $key_name_and_value_name, $sess);
+
+        $arr = $yi->current();
+
+        if (empty($slot)) {
+            return $yi->send($arr);
         }
-        return $ret;
+
+        $this->slotHookPush($slot,
+            ['mode' => 1, 'fn' => $yi, 'par' => 'queryKeyValArr']);
+
+        return $this;
+
     }
 
     /**
@@ -322,24 +401,42 @@ class ClickHouseQuery extends ClickHouseAPI
      */
     public function queryArray($sql, $numeric_keys = false, $sess = null)
     {
-        $arr = $this->queryFullArray($sql, $numeric_keys, $sess);
-        if (!is_array($arr) || $numeric_keys) {
-            return $arr;
+        $slot = $this->to_slot;
+
+        $yi = function($sql, $numeric_keys, $sess) {
+            $arr = (yield $this->queryFullArray($sql, $numeric_keys, $sess));
+
+            if (!is_array($arr) || $numeric_keys) {
+                yield $arr;
+            }
+            $data = $arr['data'];
+            foreach ([
+                'data',
+                'meta',
+                'statistics',
+                'extremes',
+                'rows',
+                'rows_before_limit_at_least',
+                'totals'
+                ] as $key) {
+                unset($arr[$key]);
+            }
+            $this->extra = $arr;
+            yield $data;
+        };
+
+        $yi = $yi($sql, $numeric_keys, $sess);
+
+        $arr = $yi->current();
+
+        if (empty($slot)) {
+            return $yi->send($arr);
         }
-        $data = $arr['data'];
-        foreach ([
-            'data',
-            'meta',
-            'statistics',
-            'extremes',
-            'rows',
-            'rows_before_limit_at_least',
-            'totals'
-            ] as $key) {
-            unset($arr[$key]);
-        }
-        $this->extra = $arr;
-        return $data;
+
+        $this->slotHookPush($slot,
+            ['mode' => 1, 'fn' => $yi, 'par' => 'queryArray']);
+
+        return $this;
     }
 
     /**
@@ -355,63 +452,80 @@ class ClickHouseQuery extends ClickHouseAPI
      */
     public function queryArr($sql, $numeric_keys = false, $sess = null)
     {
-        $this->extra = [];
-        $this->totals = $this->meta = $this->types = null;
+        $slot = $this->to_slot;
 
-        $data = $this->queryStrings($sql, !$numeric_keys, $sess);
-        if (!\is_array($data)) {
-            return $data;
-        }
-        $found_extra = false;
-        $ret = [];
-        foreach ($data as $k => $s) {
-            if (empty($s)) {
-                $found_extra = true;
-                break;
-            }
-            $x = explode("\t", $s);
-            if ($numeric_keys) {
-                $ret[] = $x;
-            } else {
-                if ($k < 2) {
-                    if ($k) {
-                        $this->types = $x;
-                    } else {
-                        $keys = $x;
-                        $this->names = $x;
-                    }
-                } else {
-                    $ret[] = \array_combine($keys, $x);
-                }
-            }
-        }
+        $yi = function($sql, $numeric_keys, $sess) {
+            $this->extra = [];
+            $this->totals = $this->meta = $this->types = null;
 
-        // Parsing extra data if found. Its may be if 'extremes' or 'with totals'.
-        if ($found_extra) {
-            $c = \count($data);
-            for ($l = $c + 1; $k < $l; $k++) {
-                $s = ($k < $c) ? $data[$k] : '';
+            $data = (yield $this->queryStrings($sql, !$numeric_keys, $sess));
+            if (!\is_array($data)) {
+                yield $data;
+            }
+            $found_extra = false;
+            $ret = [];
+            foreach ($data as $k => $s) {
                 if (empty($s)) {
-                    if (\count($this->extra) == 1) {
-                        $this->totals = $this->extra[0];
-                    }
-                    if (\count($this->extra) == 2) {
-                        $this->extremes = \array_combine(
-                            ['min', 'max'],
-                            $this->extra);
-                    }
-                    $this->extra = [];
+                    $found_extra = true;
+                    break;
+                }
+                $x = explode("\t", $s);
+                if ($numeric_keys) {
+                    $ret[] = $x;
                 } else {
-                    $s = \explode("\t", $s);
-                    if (!$numeric_keys) {
-                        $s = \array_combine($keys, $s);
+                    if ($k < 2) {
+                        if ($k) {
+                            $this->types = $x;
+                        } else {
+                            $keys = $x;
+                            $this->names = $x;
+                        }
+                    } else {
+                        $ret[] = \array_combine($keys, $x);
                     }
-                    $this->extra[] = $s;
                 }
             }
+
+            // Parsing extra data if found. Its may be if 'extremes' or 'with totals'.
+            if ($found_extra) {
+                $c = \count($data);
+                for ($l = $c + 1; $k < $l; $k++) {
+                    $s = ($k < $c) ? $data[$k] : '';
+                    if (empty($s)) {
+                        if (\count($this->extra) == 1) {
+                            $this->totals = $this->extra[0];
+                        }
+                        if (\count($this->extra) == 2) {
+                            $this->extremes = \array_combine(
+                                ['min', 'max'],
+                                $this->extra);
+                        }
+                        $this->extra = [];
+                    } else {
+                        $s = \explode("\t", $s);
+                        if (!$numeric_keys) {
+                            $s = \array_combine($keys, $s);
+                        }
+                        $this->extra[] = $s;
+                    }
+                }
+            }
+            $this->rows = \count($ret);
+            yield $ret;
+        };
+
+        $yi = $yi($sql, $numeric_keys, $sess);
+
+        $data = $yi->current();
+
+        if (empty($slot)) {
+            return $yi->send($data);
         }
-        $this->rows = \count($ret);
-        return $ret;
+
+        $this->slotHookPush($slot,
+            ['mode' => 1, 'fn' => $yi, 'par' => 'queryArr']);
+
+        return $this;
     }
 
     /**
@@ -447,45 +561,62 @@ class ClickHouseQuery extends ClickHouseAPI
      */
     public function queryFullArray($sql, $data_only = false, $sess = null)
     {
-        $arr = $this->queryValue($sql . ' FORMAT JSON' .
-            (($this->json_compact || $data_only) ? 'Compact' : ''),
-            null, $sess);
+        $slot = $this->to_slot;
 
-        $arr = $this->jsonDecode($arr, 'No json');
+        $yi = function($sql, $data_only, $sess) {
+            $arr = (yield $this->queryValue($sql . ' FORMAT JSON' .
+                (($this->json_compact || $data_only) ? 'Compact' : ''),
+                null, $sess));
 
-        if (!\is_array($arr)) {
-            return $this->last_error_str;
-        }
+            $arr = $this->jsonDecode($arr, 'No json');
 
-        foreach (['meta', 'statistics', 'extremes', 'totals'] as $key) {
-            $this->$key = (isset($arr[$key]) && \is_array($arr[$key])) ? $arr[$key] : null;
-        }
-        foreach (['rows_before_limit_at_least', 'rows'] as $key) {
-            $this->$key = (isset($arr[$key]) && \is_numeric($arr[$key])) ? $arr[$key] : null;
-        }
-        $this->names = $names = isset($this->meta) ? \array_column($this->meta, 'name') : null;
-        $this->types = \is_array($this->meta) ? \array_column($this->meta, 'type') : null;
+            if (!\is_array($arr)) {
+                yield $this->last_error_str;
+            }
 
-        if ($this->json_compact && !empty($names)) {
-            foreach (['data', 'extremes'] as $key) {
-                if ($key == 'data' && $data_only) {
-                    continue;
+            foreach (['meta', 'statistics', 'extremes', 'totals'] as $key) {
+                $this->$key = (isset($arr[$key]) && \is_array($arr[$key])) ? $arr[$key] : null;
+            }
+            foreach (['rows_before_limit_at_least', 'rows'] as $key) {
+                $this->$key = (isset($arr[$key]) && \is_numeric($arr[$key])) ? $arr[$key] : null;
+            }
+            $this->names = $names = isset($this->meta) ? \array_column($this->meta, 'name') : null;
+            $this->types = \is_array($this->meta) ? \array_column($this->meta, 'type') : null;
+
+            if ($this->json_compact && !empty($names)) {
+                foreach (['data', 'extremes'] as $key) {
+                    if ($key == 'data' && $data_only) {
+                        continue;
+                    }
+                    if (!empty($arr[$key]) && \is_array($arr[$key])) {
+                        foreach ($arr[$key] as $k => $ret) {
+                            $arr[$key][$k] = \array_combine($names, $ret);
+                        }
+                        if ($key != 'data') {
+                            $this->$key = $arr[$key];
+                        }
+                    }
                 }
-                if (!empty($arr[$key]) && \is_array($arr[$key])) {
-                    foreach ($arr[$key] as $k => $ret) {
-                        $arr[$key][$k] = \array_combine($names, $ret);
-                    }
-                    if ($key != 'data') {
-                        $this->$key = $arr[$key];
-                    }
+                if (!empty($this->totals) && \is_array($this->totals)) {
+                    $this->totals = \array_combine($names, $this->totals);
+                    $arr['totals'] = $this->totals;
                 }
             }
-            if (!empty($this->totals) && \is_array($this->totals)) {
-                $this->totals = \array_combine($names, $this->totals);
-                $arr['totals'] = $this->totals;
-            }
+            yield $data_only ? $arr['data'] : $arr;
+        };
+
+        $yi = $yi($sql, $data_only, $sess);
+
+        $arr = $yi->current();
+
+        if (empty($slot)) {
+            return $yi->send($arr);
         }
-        return $data_only ? $arr['data'] : $arr;
+
+        $this->slotHookPush($slot,
+            ['mode' => 1, 'fn' => $yi, 'par' => 'queryFullArray']);
+
+        return $this;
     }
 
     /**
@@ -516,14 +647,78 @@ class ClickHouseQuery extends ClickHouseAPI
         if (!is_file($file)) {
             throw new \Exception("File not found");
         }
+
+        $slot = $this->to_slot;
+
         $fs = 'file_structure';
         $old_fs = $this->setOption($fs, $file_structure, true);
         $sql = "INSERT INTO $table SELECT $selector FROM file";
         $ans = $this->doQuery($sql, true, [], $sess, $file);
         $this->setOption($fs, $old_fs, true);
 
-        // Return string if curl_error or server answer is not 200
-        return $ans['curl_error'] ?: (($ans['code'] == 200) ? false : $ans['response']);
+        $fi = function($ans) {
+            // same queryFalse (Return string if curl_error or server answer is not 200)
+            return $ans['curl_error'] ?: (($ans['code'] == 200) ? false : $ans['response']);
+        };
+        if (empty($slot)) {
+            return $fi($ans);
+        }
+
+        $this->slotHookPush($slot,
+            ['mode' => 2, 'fn' => $fi, 'par' => 'queryInsertFile']);
+
+        return $this;
+    }
+
+    /**
+     * Inserting data into table from specified gzip-compressed file
+     *
+     * If the file has .gz extension, it is sent as is.
+     * Otherwise apply gzip-compression.
+     *
+     * $format may be JSONEachRow, TabSeparated, CSV, TabSeparatedWithNames, CSVWithNames
+     * If used JSONEachRow format, each row must have field names in keys
+     *
+     * $file_colums may contains inserted fields like '(id, dt, x)' or be empty for JSONEachRow
+     * if used *WithNames-formats, field names must contain the first row
+     *
+     * @param string $table Table for inserting data
+     * @param string $file File from inserting data
+     * @param string $format JSONEachRow (by default), TabSeparated, CSV [WithNames]
+     * @param string $file_columns field names like '(id, dt, x)' or empty string
+     * @param string|null $sess Session id
+     * @return boolean|string|$this
+     * @throws \Exception
+     */
+    public function queryInsertGzip(
+        $table,
+        $file,
+        $format = 'JSONEachRow',
+        $fields_str = '',
+        $sess = null
+    ) {
+        if (!is_file($file)) {
+            throw new \Exception("File not found");
+        }
+
+        $slot = $this->to_slot;
+
+        $sql = "INSERT INTO $table $fields_str FORMAT $format";
+
+        $ans = $this->doQuery($sql, true, [], $sess, $file, true);
+
+        $fi = function($ans) {
+            // same queryFalse (Return string if curl_error or server answer is not 200)
+            return $ans['curl_error'] ?: (($ans['code'] == 200) ? false : $ans['response']);
+        };
+        if (empty($slot)) {
+            return $fi($ans);
+        }
+
+        $this->slotHookPush($slot,
+            ['mode' => 2, 'fn' => $fi, 'par' => 'queryInsertGzip']);
+
+        return $this;
     }
     /**
      * Inserting data into table from array
@@ -680,43 +875,63 @@ class ClickHouseQuery extends ClickHouseAPI
         $keys_from_field = 'name',
         $sess = null
     ) {
-        $i = \strpos($table, '.');
-        if ($i) {
-            $db = \substr($table, 0, $i);
-            $table = \substr($table, $i + 1);
-        } else {
-            $db = "currentDatabase()";
+        $slot = $this->to_slot;
+
+        $yi = function ($table, $sql_pattern, $bindings, $not_found_pattern,
+            $columns_up, $colums_del, $keys_from_field, $sess) {
+
+            $i = \strpos($table, '.');
+            if ($i) {
+                $db = \substr($table, 0, $i);
+                $table = \substr($table, $i + 1);
+            } else {
+                $db = "currentDatabase()";
+            }
+
+            $bindings['db'] = $this->quotePar($db);
+            $bindings['table'] = $this->quotePar($table);
+            $bindings['dbtb'] = ($i ? $db . '.' : '') . $table;
+
+            $sql = $this->bindPars($sql_pattern, $bindings);
+
+            $columns_arr = (yield $this->queryArr($sql, false, $sess));
+
+            if (is_array($columns_arr)) {
+                if (!\count($columns_arr)) {
+                    yield $this->bindPars($not_found_pattern, $bindings);
+                }
+                $ret_arr = [];
+                foreach ($columns_up as $b) {
+                    $b = $bindings[$b];
+                    $ret_arr[$b] = $columns_arr[0][$b];
+                }
+                $ret_arr['columns_arr'] = [];
+                foreach ($columns_arr as $k => $col_arr) {
+                    if (!empty($keys_from_field)) {
+                        $k = $col_arr[$keys_from_field];
+                    }
+                    foreach ($colums_del as $b) {
+                        unset($col_arr[$bindings[$b]]);
+                    }
+                    $ret_arr['columns_arr'][$k] = $col_arr;
+                }
+                $columns_arr = $ret_arr;
+            }
+            yield $columns_arr;
+        };
+        $yi = $yi($table, $sql_pattern, $bindings, $not_found_pattern,
+                  $columns_up, $colums_del, $keys_from_field, $sess);
+
+        $data = $yi->current();
+
+        if (empty($slot)) {
+            return $yi->send($data);
         }
 
-        $bindings['db'] = $this->quotePar($db);
-        $bindings['table'] = $this->quotePar($table);
-        $bindings['dbtb'] = ($i ? $db . '.' : '') . $table;
+        $this->slotHookPush($slot,
+            ['mode' => 1, 'fn' => $yi, 'par' => 'queryTableSubstract']);
 
-        $sql = $this->bindPars($sql_pattern, $bindings);
-
-        $columns_arr = $this->queryArr($sql, false, $sess);
-        if (is_array($columns_arr)) {
-            if (!\count($columns_arr)) {
-                return $this->bindPars($not_found_pattern, $bindings);
-            }
-            $ret_arr = [];
-            foreach ($columns_up as $b) {
-                $b = $bindings[$b];
-                $ret_arr[$b] = $columns_arr[0][$b];
-            }
-            $ret_arr['columns_arr'] = [];
-            foreach ($columns_arr as $k => $col_arr) {
-                if (!empty($keys_from_field)) {
-                    $k = $col_arr[$keys_from_field];
-                }
-                foreach ($colums_del as $b) {
-                    unset($col_arr[$bindings[$b]]);
-                }
-                $ret_arr['columns_arr'][$k] = $col_arr;
-            }
-            $columns_arr = $ret_arr;
-        }
-        return $columns_arr;
+        return $this;
     }
 
     /**
@@ -738,6 +953,8 @@ class ClickHouseQuery extends ClickHouseAPI
      */
     public function queryTableSys($table, $sys = 'tables', $columns_del = ['n'])
     {
+        $slot = $this->to_slot;
+
         switch ($sys) {
             case 'columns':
                 return $this->queryTableSubstract($table);
@@ -747,18 +964,33 @@ class ClickHouseQuery extends ClickHouseAPI
             default:
                 $sql = "SELECT * FROM {s} WHERE {t}={table} AND {d}={db}";
         }
-        $arr = $this->queryTableSubstract($table, $sql, [
-            's' => 'system.' . $sys,
-            'd' => 'database',
-            'n' => 'name',
-            't' => 'table'
-            ], "No information about {dbtb} in {s}", [], $columns_del, null
-        );
-        if (\is_array($arr)) {
-            if (\count($arr['columns_arr']) == 1) {
-                $arr = $arr['columns_arr'][0];
+
+        $yi = function ($sql, $table, $sys, $columns_del) {
+            $arr = (yield $this->queryTableSubstract($table, $sql, [
+                's' => 'system.' . $sys,
+                'd' => 'database',
+                'n' => 'name',
+                't' => 'table'
+                ], "No information about {dbtb} in {s}", [], $columns_del, null
+            ));
+            if (\is_array($arr)) {
+                if (\count($arr['columns_arr']) == 1) {
+                    $arr = $arr['columns_arr'][0];
+                }
             }
+            yield $arr;
+        };
+        $yi = $yi($sql, $table, $sys, $columns_del);
+
+        $data = $yi->current();
+
+        if (empty($slot)) {
+            return $yi->send($data);
         }
-        return $arr;
+
+        $this->slotHookPush($slot,
+            ['mode' => 1, 'fn' => $yi, 'par' => 'queryTableSys']);
+
+        return $this;
     }
 }
