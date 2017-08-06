@@ -187,7 +187,6 @@ trait ClickHouseSlots
         if (!$this->multi_h) {
             $this->multi_h = \curl_multi_init();
             curl_multi_setopt($this->multi_h, \CURLMOPT_MAXCONNECTS, 1023);
-            curl_multi_setopt($this->multi_h, \CURLMOPT_MAX_TOTAL_CONNECTIONS, 1023);
             curl_multi_setopt($this->multi_h, \CURLMOPT_MAX_HOST_CONNECTIONS, 1023);
         }
         $ans = \curl_multi_add_handle($this->multi_h, $curl_h);
