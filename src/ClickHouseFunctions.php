@@ -539,7 +539,7 @@ class ClickHouseFunctions extends ClickHouseQuery
                 $this->table_structure_cached[$table] = $results = yield;
                 yield $results;
             };
-            $yi = $yi($table);
+            $this->last_yi = $yi = $yi($table);
             $this->slotHookPush($slot,
                 ['mode' => 1, 'fn' => $yi, 'par' => 'getTableFields']);
         }
@@ -708,7 +708,7 @@ class ClickHouseFunctions extends ClickHouseQuery
                 $fields_arr[$col_name] = $col_arr['type'];
             }
             $ret_arr = $this->getTableRowSize($fields_arr);
-            $ret_arr['table_name'] = $dbtb = $database . '.' . $table;
+            $ret_arr['table_name'] = $database . '.' . $table;
             if ($extended) {
                 //results of queryTableSys($dbtb, 'tables', ['d', 't', 'n']);
                 $engine = $this->slotResults($slots['tables']);
@@ -741,7 +741,7 @@ class ClickHouseFunctions extends ClickHouseQuery
             }
             yield $ret_arr;
         };
-        $yi = $yi($slots, $table, $extended);
+        $this->last_yi = $yi = $yi($slots, $table, $extended);
 
         $this->slotHookPush($slots['root'],
             ['mode' => 1, 'fn' => $yi, 'par' => 'getTableInfo']);
@@ -784,7 +784,7 @@ class ClickHouseFunctions extends ClickHouseQuery
             $this->queryFalse("DROP TABLE IF EXISTS $table", [], $sess);
             yield $this->queryFalse($create_request, [], $sess);
         };
-        $yi = $yi($table, $sess, $slot);
+        $this->last_yi = $yi = $yi($table, $sess, $slot);
         $create_request = $yi->current();
         if (empty($slot)) {
             return $yi->send($create_request);

@@ -187,7 +187,6 @@ trait ClickHouseSlots
         if (!$this->multi_h) {
             $this->multi_h = \curl_multi_init();
             curl_multi_setopt($this->multi_h, \CURLMOPT_MAXCONNECTS, 1023);
-            //curl_multi_setopt($this->multi_h, \CURLMOPT_MAX_HOST_CONNECTIONS, 1023);
         }
         $ans = \curl_multi_add_handle($this->multi_h, $curl_h);
         if (!$this->multi_h || ($ans !== 0)) {
@@ -386,7 +385,7 @@ trait ClickHouseSlots
             if (!$this->multi_still_run) {
                 break;
             }
-            $ans = \curl_multi_exec($this->multi_h, $this->multi_still_run);
+            \curl_multi_exec($this->multi_h, $this->multi_still_run);
         }
         foreach ($changed_slots as $slot) {
             $curl_h = $this->multi_ch[$slot];
@@ -444,7 +443,7 @@ trait ClickHouseSlots
         if (isset($this->slot_hooks[$slot_low][0])) {
             foreach ($this->slot_hooks[$slot_low] as $k => $hook) {
                 if ($hook['mode'] == 0) {
-                    $ret = \call_user_func(
+                    $this->slot_data[$slot_low]['m0'][] = \call_user_func(
                         $hook['fn'], $this, $slot_low,
                         isset($hook['par']) ? $hook['par'] : null
                     );

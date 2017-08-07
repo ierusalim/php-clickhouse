@@ -54,9 +54,6 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
             $clickhouse_url = null;
         }
         $ch->setServerUrl($clickhouse_url);
-        if (!is_null($clickhouse_url)) {
-            $ch->isSupported('session_id', false, true);
-        }
     }
 
     /**
@@ -438,6 +435,7 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
 
             $ch->query("DROP TABLE IF EXISTS $table");
             unlink($file);
+            unlink($file . '.gz');
             $slot = "tmp1";
             $ans = $ch->toSlot($slot)->doApiCall(false, ['query'=>'SELECT 123']);
             $this->assertEquals(102, $ans['code']);

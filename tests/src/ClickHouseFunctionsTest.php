@@ -25,9 +25,6 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
             $clickhouse_url = null;
         }
         $this->object = new ClickHouseFunctions($clickhouse_url);
-        if (!is_null($clickhouse_url)) {
-            $this->object->isSupported('session_id', false, true);
-        }
     }
 
     /**
@@ -555,6 +552,7 @@ class ClickHouseFunctionsTest extends \PHPUnit_Framework_TestCase
 
             $ans = $ch->clearTable('system.numbers');
             $this->assertTrue(\is_string($ans));
+            $ch->last_yi->next();
 
             $ans = $ch->createTableQuick($table, [
                 'id' => 'Int16',

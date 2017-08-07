@@ -34,9 +34,6 @@ class ClickHouseQueryTest extends \PHPUnit_Framework_TestCase
             $clickhouse_url = null;
         }
         $ch->setServerUrl($clickhouse_url);
-        if (!is_null($clickhouse_url)) {
-            $ch->isSupported('session_id', false, true);
-        }
     }
 
     /**

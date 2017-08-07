@@ -298,8 +298,6 @@ class ClickHouseAPI
         if ($this->host) {
             // If host is set, we assume that the server accepts requests
             $this->isSupported('query', false, true);
-            // But, send async-requests to find out this reliably
-            //$this->versionSendQuery();
         }
 
         return $this;
@@ -452,7 +450,6 @@ class ClickHouseAPI
         }
 
         return ($response_data['code'] === 102) ? $this : $response_data;
-        //return $response_data;
     }
 
     /**
@@ -680,7 +677,7 @@ class ClickHouseAPI
             }
             if (!isset($support_fe[$s_key][$fe_key]) || $re_check) {
                 if ($fe_key == 'session_id' || ($fe_key === 'query' && $re_check)) {
-                    $ver = $this->getVersion($re_check);
+                    $this->getVersion($re_check);
                 } else {
                     return false;
                 }
@@ -716,8 +713,8 @@ class ClickHouseAPI
                 $this->eraseSlot($slot2);
                 $this->versionSendQuery();
             }
-            $ans = $this->slotWaitReady($slot1);
-            $ans = $this->slotWaitReady($slot2);
+            $this->slotWaitReady($slot1);
+            $this->slotWaitReady($slot2);
             $ver = $this->isSupported('version');
             if (empty($ver)) {
                 $ver = 'Unknown';
