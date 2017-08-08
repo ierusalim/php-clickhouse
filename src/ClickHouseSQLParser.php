@@ -11,7 +11,7 @@ namespace ierusalim\ClickHouse;
  * @copyright  2017, Ierusalim
  * @license    https://opensource.org/licenses/Apache-2.0 Apache-2.0
  */
-trait ClickHouseSQLParser
+class ClickHouseSQLParser
 {
     /**
      * Check string may interpreted as name of ClickHouse data-type

@@ -18,8 +18,8 @@ class ClickHouseSQLParserTest extends \PHPUnit_Framework_TestCase
      */
     protected function setUp()
     {
-        //$this->object = new ClickHouseSQLParser;
-        $this->object = new ClickHouseTableType; // use inside as trait
+        $this->object = new ClickHouseSQLParser;
+        //$this->object = new ClickHouseTableType; // use inside as trait
     }
 
     /**
