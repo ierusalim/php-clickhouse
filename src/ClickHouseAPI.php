@@ -44,7 +44,15 @@ namespace ierusalim\ClickHouse;
  */
 class ClickHouseAPI
 {
+    /*
+     * Trait for async requests
+     */
     use ClickHouseSlots;
+    /*
+     * Trait for currentDatabase() and setCurrentDatabase();
+     */
+    use ClickHouseSessions;
+
     /**
      * Protocol for access to ClickHouse server
      *
@@ -184,13 +192,6 @@ class ClickHouseAPI
      * @var callable|false
      */
     public $hook_before_api_call = false;
-
-    /**
-     * Auto-create session_id and send it with each request
-     *
-     * @var boolean
-     */
-    public $session_autocreate = false;
 
     /**
      * True if running under windows, false otherwise
@@ -423,7 +424,7 @@ class ClickHouseAPI
         $password = $this->pass;
 
         // Set session if need
-        if (!empty($session_id) && $this->getSession() != $session_id) {
+        if (!empty($session_id) && ($this->getSession() !== $session_id)) {
             $old_session = $this->setSession($session_id);
         } else {
             if ($this->session_autocreate && $this->getSession() === null) {
@@ -617,32 +618,6 @@ class ClickHouseAPI
     }
 
     /**
-     * Set session_id to http-request options
-     * if session_id not specified (or specified as null) create and set random.
-     *
-     * @param string|null $session_id session_id or null for generate new id
-     * @param boolean $overwrite false = set only if session not defined, true = always
-     * @return string|null Return old value of session_id option
-     */
-    public function setSession($session_id = null, $overwrite = true)
-    {
-        if (\is_null($session_id)) {
-            $session_id = \md5(\uniqid(\mt_rand(0, \PHP_INT_MAX), true));
-        }
-        return $this->setOption('session_id', $session_id, $overwrite);
-    }
-
-    /**
-     * Return current session_id from http-options. Return null if not exists.
-     *
-     * @return string|null
-     */
-    public function getSession()
-    {
-        return $this->getOption('session_id');
-    }
-
-    /**
      * Delete http-option by specified key
      *
      * @param string $key Option name
@@ -733,7 +708,7 @@ class ClickHouseAPI
     {
         // save to_slot and old session_id for restore it after complete
         $old_to_slot = $this->to_slot;
-        $old_sess = $this->setSession(null, false);
+        $old_sess = $this->setSession(false, false);
 
         $query = 'SELECT version()';
 

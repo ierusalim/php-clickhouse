@@ -481,31 +481,6 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @covers ierusalim\ClickHouse\ClickHouseAPI::setSession
-     * @todo   Implement testSetSession().
-     */
-    public function testSetSession()
-    {
-        $ch = $this->object;
-        $prev_sess_id = $ch->setSession();
-        $this->assertNull($prev_sess_id);
-        $session_id = $ch->getSession();
-        $this->assertEquals(strlen($session_id), 32);
-    }
-
-    /**
-     * @covers ierusalim\ClickHouse\ClickHouseAPI::getSession
-     * @todo   Implement testGetSession().
-     */
-    public function testGetSession()
-    {
-        $ch = $this->object;
-        $ch->setSession();
-        $session_id = $ch->getSession();
-        $this->assertEquals($session_id, $ch->getOption('session_id'));
-    }
-
-    /**
      * @covers ierusalim\ClickHouse\ClickHouseAPI::delOption
      * @todo   Implement testDelOption().
      */
@@ -529,6 +504,7 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
     {
         $ch = $this->object;
 
+        if (1) {
         $ch ->toSlot("T1") -> query("SELECT 'OK 123 '")
             ->toSlot("T2") -> query("SELECT 'OK 456 '")
             ->toSlot("T3") -> query("SELECT 'OK 789 '");
@@ -537,11 +513,13 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
             $ans = trim($arr['response']) ;
             $this->assertEquals("OK", substr($ans,0,2));
         }
-
+        }
+        if (1) {
         $slots = [];
         $max = 10;
         for($s = 1; $s<$max; $s++) {
             $slots[] = $slot = "test$s";
+            //$ch->toSlot($slot)->query("SELECT hex(toString($s))");
             $ch->toSlot($slot)->query("SELECT hex(MD5(toString($s)))");
         }
         echo "Started slots: " . implode(",", $slots) . "\nResults:\n";
@@ -553,6 +531,7 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
                 break;
             }
             $n++;
+        }
         }
     }
 }

@@ -399,52 +399,6 @@ class ClickHouseFunctions extends ClickHouseQuery
     }
 
     /**
-     * Get current database name.
-     *
-     * if option 'database' is not empty, return database from options.
-     * Otherwise using SQL-query 'SELECT currentDatabase()' for current or specified session
-     *
-     * Keep in mind that current database can be set in two ways:
-     *  - by option 'database', in this case '&database=...' is sent with each request
-     *  - by SQL-request 'USE $db' - it only makes sense when the sessions supported
-     *
-     * @param string|null|true $sess session_id (or true for read only 'database' option)
-     * @return string|false String with current db-name or false if error
-     */
-    public function getCurrentDatabase($sess = null)
-    {
-        $this->to_slot = false;
-        $database = $this->getOption('database');
-        if (!empty($database) || $sess === true) {
-            return $database;
-        }
-        return $this->queryValue('SELECT currentDatabase()', null, $sess);
-    }
-
-    /**
-     * Set current database by name for current or specified session.
-     *
-     * Function send SQL-query 'USE $db' if sessions supported
-     *
-     * If sessions not supported or parameter $sess is boolean true,
-     *  then set current database by option ->setOption('database', $db)
-     *
-     * @param string $db Database name
-     * @param string|null|true $sess session_id or true for use database-option
-     * @return string|false false if ok, or string with error description
-     */
-    public function setCurrentDatabase($db, $sess = null)
-    {
-        $this->to_slot = false;
-        if ($sess === true || !$this->isSupported('session_id')) {
-            $this->setOption('database', $db);
-            return false;
-        } else {
-            return $this->queryFalse("USE " . $db, [], $sess);
-        }
-    }
-
-    /**
      * Drop database and remove all tables inside it.
      *
      * @param string $db_name database name for drop (delete, remove)
