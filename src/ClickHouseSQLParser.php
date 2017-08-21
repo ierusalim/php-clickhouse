@@ -719,7 +719,7 @@ class ClickHouseSQLParser
             . "{$pdbtb}{$aspat}{$oncpat})(?<{$crepar}>.*)#is";
 
         $matches = $ret = [];
-        $ans = \preg_match_all($sumpat, $sql, $matches);
+        \preg_match_all($sumpat, $sql, $matches);
         if (!empty($matches[$crefn]) && !empty($matches[$crepar])) {
             foreach ($interesting_vars as $key) {
                 $ret[$key] = \trim($matches[$key][0]);
@@ -755,7 +755,6 @@ class ClickHouseSQLParser
             return "Expected '$exp'" . (empty($engine[0]) ? '' : ", unexpected '{$engine[0]}'");
         }
         $engine = \trim($engine[1]);
-        $tail = $eng_parr['tail'];
 
         // parse *MergeTree engine parameters
         $date_field = $sampl = $primary_key = $granul = $ver = '';
