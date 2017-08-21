@@ -22,6 +22,79 @@ class ClickHouseSQLParserTest extends \PHPUnit_Framework_TestCase
         //$this->object = new ClickHouseTableType; // use inside as trait
     }
 
+    /*
+     * Provider for testParseCreateTableFull
+     *
+     * @return array
+    public function createTableRequestsProvider()
+    {
+        return [
+            ["CREATE TABLE db.x (UInt32 id, Date dt, String s)"
+                . " ENGINE = MergeTree(dt, (id, dt), 8192, ver)",
+                0, [
+                'table' => 'x',
+                'database' => 'db',
+                'create_fields' => [
+                    'UInt32 id',
+                    'Date dt',
+                    'String s',
+                ],
+                'create_table' => 'CREATE TABLE db.x',
+                'create_engine' => 'ENGINE = MergeTree(dt, (id, dt), 8192, ver)',
+                'engine' => 'MergeTree',
+                'engine_param' => ['dt', '(id, dt)', 8192, 'ver'],
+                'merge_tree_fam' => 1,
+                'date_field' => 'dt',
+                'sampl' => false,
+                'primary_key' => ['id', 'dt'],
+                'granul' => 8192,
+                'ver' => 'ver'
+                ]],
+            ["CREATE TABLE db.x (UInt32 id, Date dt, String s)"
+                . " ENGINE = MergeTree(dt, (id, dt), 8192, ver)",
+                1, [
+                'table' => 'x',
+                'database' => 'db',
+                'merge_tree_fam' => 1,
+                'date_field' => 'dt',
+                'sampl' => false,
+                'primary_key' => ['id', 'dt'],
+                'granul' => 8192,
+                'ver' => 'ver'
+                ]],
+            ["CREATE TABLE db.x (UInt32 id, Date dt, String s)"
+                . " ENGINE = MergeTree(dt, (id, dt), 8192, ver)",
+                1, [
+                'table' => 'x',
+                'database' => 'db',
+                'merge_tree_fam' => 1,
+                'date_field' => 'dt',
+                'sampl' => false,
+                'primary_key' => ['id', 'dt'],
+                'granul' => 8192,
+                'ver' => 'ver'
+                ]],
+
+            ["CREATE TABLE db.wikistat
+    (
+        li Nullable(UInt64) 1,
+        par nullable 1,
+        usr default 'x',
+        date2 DateTime DEFAULT now(),
+        date1 now(),
+        date3 toDate(now()),
+        date4 default toDate(now()),
+        date DEFAULT now(),
+        time DateTime,
+        project String,
+        subproject String,
+        path String,
+        hits UInt64,
+        size UInt64
+    ) ENGINE = MergeTree(date, (path, time), 8192, ver) HUENIX = (123,456);", 0],
+        ];
+    }
+*/
     /**
      * @covers ierusalim\ClickHouse\ClickHouseSQLParser::typeCanonicName
      * @todo   Implement testTypeCanonicName().
@@ -49,8 +122,8 @@ class ClickHouseSQLParserTest extends \PHPUnit_Framework_TestCase
             ['UInt8', [
                 'UInt8',    //type
                 '',         //default
-                'UInt8',    //explicit_type
-                '']],       //explicit_default
+                'UInt8',    //type_explicit
+                '']],       //default_explicit
 
             ['uint8', [
                 'UInt8',
@@ -163,7 +236,7 @@ class ClickHouseSQLParserTest extends \PHPUnit_Framework_TestCase
         $ans = $ch->parseTypeDefault($typedef_str);
         if (\is_array($ans)) {
             \extract($ans);
-            $repack = [$type, $default, $explicit_type, $explicit_default];
+            $repack = [$type, $default, $type_explicit, $default_explicit];
             if ($typedef_arr != $repack) {
                 print_r($ans);
             }
@@ -310,6 +383,7 @@ class ClickHouseSQLParserTest extends \PHPUnit_Framework_TestCase
         ["reinterpretAsString(55)", 'String']
         ];
     }
+
     /**
      * @dataProvider expressProvider
      * @covers ierusalim\ClickHouse\ClickHouseSQLParser::typeDetectFromExpression
@@ -321,7 +395,6 @@ class ClickHouseSQLParserTest extends \PHPUnit_Framework_TestCase
         $ans = $ch->typeDetectFromExpression($expr);
         $this->assertEquals($type, $ans);
     }
-
 
     /**
      * @return array
@@ -397,6 +470,7 @@ class ClickHouseSQLParserTest extends \PHPUnit_Framework_TestCase
           ["Cast ([1], [2], 'Array(Int8)')", false],
         ];
     }
+
     /**
      * @dataProvider typeDetectFromFunctionProvider
      * @covers ierusalim\ClickHouse\ClickHouseSQLParser::typeDetectFromFunction
@@ -602,6 +676,7 @@ class ClickHouseSQLParserTest extends \PHPUnit_Framework_TestCase
      * @covers ierusalim\ClickHouse\ClickHouseSQLParser::parseCreateTableSql
      * @todo   Implement testParseCreateTableSql().
      */
+    /*
     public function testParseCreateTableSql()
     {
         $ch = $this->object;
@@ -630,4 +705,5 @@ class ClickHouseSQLParserTest extends \PHPUnit_Framework_TestCase
         $arr = $ch->parseCreateTableSql("CRE(X) ENGINE=Log(X");
         $this->assertEquals($arr, "Illegal 'engine' part");
     }
+    */
 }

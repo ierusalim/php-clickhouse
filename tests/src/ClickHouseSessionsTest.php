@@ -257,7 +257,7 @@ class ClickHouseSessionsTest extends \PHPUnit_Framework_TestCase
                 return 'http://github.com:22/';
             };
             $ans = $ch->setCurrentDatabase($db_1, $session_id_2);
-            echo "Results:"; print_r($ans);
+            $this->assertTrue(strlen($ans)>0);
         } else {
             echo '-';
         }
