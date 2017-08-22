@@ -699,7 +699,8 @@ class ClickHouseSQLParser
             'table' => 'table',
             'dbtb' => 'dbtb',
             'as' => 'as',
-            'asid' => 'asid',
+            'asdb' => 'asdb',
+            'astbl' => 'astbl',
             'oncl' =>'on_cluster',
             'clus' => 'cluster',
         ]);
@@ -712,14 +713,16 @@ class ClickHouseSQLParser
         $dbpat = "({$idpax(12, $db)}\.)?";
         $tbpat = "({$idpax(15, $table)})";
         $pdbtb = "(?<$dbtb>{$dbpat}{$tbpat})\s";
-        $aspat = "(?<$as>AS\s{$idpax(18, $asid)}\s)?";
-        $oncpat = "(?<$oncl>ON\sCLUSTER\s{$idpax(21, $clus)}\s)?";
+        $dbaspat = "({$idpax(19, $asdb)}\.)?";
+        $aspat = "(?<$as>AS\s{$dbaspat}{$idpax(21, $astbl)}\s)?";
+        $oncpat = "(?<$oncl>ON\sCLUSTER\s{$idpax(24, $clus)}\s)?";
 
         $sumpat = "#(?<$crefn>^CREATE(\s+){$tmpat}TABLE(\s+){$ifnxpat}"
             . "{$pdbtb}{$aspat}{$oncpat})(?<{$crepar}>.*)#is";
 
         $matches = $ret = [];
         \preg_match_all($sumpat, $sql, $matches);
+
         if (!empty($matches[$crefn]) && !empty($matches[$crepar])) {
             foreach ($interesting_vars as $key) {
                 $ret[$key] = \trim($matches[$key][0]);
@@ -841,7 +844,7 @@ class ClickHouseSQLParser
         // $create_fn, $create_par
         // $temporary (bool), $if_not_exists (bool)
         // $database (str|false), $table (str), $dbtb (str),
-        // $as (bool), $asid (str)
+        // $as (bool), $astbl (str)
         // $on_cluster (bool), $cluster (str)
 
         if (\strtolower(\substr($create_par, 0, 6)) == 'engine') {
@@ -875,7 +878,8 @@ class ClickHouseSQLParser
             'database',      //false|str
             'temporary',     //false|true
             'if_not_exists', //false|true
-            'asid',          //false|str
+            'asdb',          //false|str
+            'astbl',         //false|str
             'cluster',       //false|str
 
             'create_fields', //str Second part of sql request, optional
