@@ -27,6 +27,19 @@ class ClickHouseTableParserTest extends \PHPUnit_Framework_TestCase
     public function createEngineProvider()
     {
         return [
+            #0
+            ["Engine = MergeTree(a, b, 8192)",
+            ['engine' => 'MergeTree',
+             'engine_param' => ['a', 'b', 8192],
+             'merge_tree_fam' => true,
+             'date_field' => 'a',
+             'sampl' => false,
+             'primary_key' => 'b',
+             'granul' => 8192,
+             'ver' => false
+            ]],
+
+            #1
             ["ENGINE = MergeTree(dt, (id, dt), 8192, ver)",
             ['engine' => 'MergeTree',
              'engine_param' => ['dt', '(id, dt)', 8192, 'ver'],
@@ -38,6 +51,7 @@ class ClickHouseTableParserTest extends \PHPUnit_Framework_TestCase
              'ver' => 'ver'
             ]],
 
+            #2
             ["ENGINE = MergeTree(dt, (id, dt), 8192)",
             ['engine' => 'MergeTree',
              'engine_param' => ['dt', '(id, dt)', 8192],
@@ -49,6 +63,7 @@ class ClickHouseTableParserTest extends \PHPUnit_Framework_TestCase
              'ver' => ''
             ]],
 
+            #3
             ["ENGINE = MergeTree(dt, sampl, (id, dt), 8192)",
             ['engine' => 'MergeTree',
              'engine_param' => ['dt', 'sampl', '(id, dt)', 8192],
@@ -60,6 +75,7 @@ class ClickHouseTableParserTest extends \PHPUnit_Framework_TestCase
              'ver' => ''
             ]],
 
+            #4
             ["ENGINE = Log",
             ['engine' => 'Log',
              'engine_param' => [''],
@@ -71,11 +87,14 @@ class ClickHouseTableParserTest extends \PHPUnit_Framework_TestCase
              'ver' => ''
             ]],
 
+            #5
             ["ENGINE = Log(", false],
-            ["IMAGINE = Log", false],
-            ["Engine = MergeTree(a, b, 8192)", false],
-            ["Engine = MergeTree(a, (), 8192)", false],
 
+            #6
+            ["IMAGINE = Log", false],
+
+            #7
+            ["Engine = MergeTree(a, (), 8192)", false],
         ];
     }
 
@@ -101,6 +120,9 @@ class ClickHouseTableParserTest extends \PHPUnit_Framework_TestCase
                 }
             }
         } else {
+            if (\is_array($ans)) {
+                print_r($ans);
+            }
             $this->assertFalse(\is_array($ans));
         }
     }
@@ -705,6 +727,32 @@ class ClickHouseTableParserTest extends \PHPUnit_Framework_TestCase
         $ch = $this->object;
         $ans = $ch->makeFieldCreater($name, $type, $default);
         $this->assertEquals($creater, $ans);
+    }
+
+    /**
+     * Data provider for testIsValidName
+     *
+     * @return array of name, isValid, ret_name
+     */
+    public function isValidNameProvider()
+    {
+        return [
+          ['id', true, false],
+          ['id', 'id', true],
+          ['', false, false],
+        ];
+    }
+
+    /**
+     * @dataProvider isValidNameProvider
+     * @covers ierusalim\ClickHouse\ClickHouseSQLParser::isValidName
+     * @todo   Implement testMakeFieldCreater().
+     */
+    public function testIsValidName($name, $isValid, $ret_name)
+    {
+        $ch = $this->object;
+        $ans = $ch->isValidName($name, $ret_name);
+        $this->assertEquals($isValid, $ans);
     }
 
     /**

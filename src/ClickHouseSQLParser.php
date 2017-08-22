@@ -733,6 +733,22 @@ class ClickHouseSQLParser
     }
 
     /**
+     * Check if the name is valid id
+     *
+     * @param string $sql
+     * @param boolean $return_name
+     * @return boolean|string
+     */
+    public function isValidName($sql, $return_name = false)
+    {
+        $idpat = "[a-z_][0-9a-z_]*";
+        $pattern = "#^(`)?(?<name>(?(1)[^`]+|$idpat))(?(1)`)$#is";
+        $matches = [];
+        $result = \preg_match($pattern, $sql, $matches);
+        return ($return_name) ? $matches['name'] : ($result == 1);
+    }
+
+    /**
      * Parse last part of create-table-sql request like "ENGINE = MergeTree(...)"
      *
      * @param string $create_engine
@@ -780,12 +796,11 @@ class ClickHouseSQLParser
                     break;
                 }
             }
-            if (empty($primary_key) ||
-                (\substr($primary_key, 0, 1) !=='(')  ||
-                (\substr($primary_key, -1) !==')')) {
-                    return "Primary key undefined or illegal";
+            if ((\substr($primary_key, 0, 1) ==='(')  && (\substr($primary_key, -1) ===')')) {
+                $primary_key = $this->divParts(\substr($primary_key, 1, -1));
+            } elseif ($this->isValidName($primary_key)) {
+                $primary_key = [$primary_key];
             }
-            $primary_key = $this->divParts(\substr($primary_key, 1, -1));
             if (!\is_array($primary_key) || empty($primary_key[0])) {
                 return "Can't parse primary key";
             }
