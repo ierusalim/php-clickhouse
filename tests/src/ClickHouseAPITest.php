@@ -75,6 +75,117 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
     }
 
     /**
+     * @covers ierusalim\ClickHouse\ClickHouseAPI::doApiCall
+     * @todo   Implement testDoApiCall().
+     */
+    public function testDoApiCall()
+    {
+        $ch = $this->object;
+
+        // $ch->toSlot()->doApiCall - clear async-mode, than do..
+
+        $ans = $ch->toSlot()->doApiCall(0, ['query' => 'SELECT version()']);
+
+        $curl_error = $ans['curl_error'];
+        if ($curl_error) {
+            echo "\nCURL_ERROR: $curl_error";
+            $this->assertTrue(empty($curl_error));
+        } else {
+            echo "Version response: {$ans['response']}Starting tests...\n";
+        }
+
+        $slot = "tmp1";
+        $ans = $ch->toSlot($slot)->doApiCall(false, ['query'=>'SELECT 123']);
+        $this->assertEquals(102, $ans['code']);
+
+        $ch->debug = true;
+        $ch->hook_before_api_call = function ($url, $obj) {
+            return "https://ierusalim.github.io";
+        };
+
+        $file = dirname(dirname(__DIR__)) . DIRECTORY_SEPARATOR . '.gitignore';
+
+        $ans = $ch->doApiCall("empty", [], true, [], $file);
+        $this->assertEquals($ans['code'], 405);
+
+        $this->assertEquals("123\n", $ch->fromSlot($slot)->results);
+    }
+
+    /**
+     * @covers ierusalim\ClickHouse\ClickHouseAPI::yiDoApiCall
+     * @todo   Implement testYiDoApiCall().
+     */
+    public function testYiDoApiCall()
+    {
+        $ch = $this->object;
+
+        if ($ch->isSupported('query')) {
+            $table = "anytabletmp";
+
+            $file = 'anyfile.txt';
+
+            $file_data = '';
+            for ($t=1; $t<100; $t++) {
+                $file_data .= $t . "\t2017-12-12\tAny string data\n";
+            }
+
+            $file_size = file_put_contents($file, $file_data);
+
+            $this->assertTrue($file_size > 0);
+
+            $fields = '(id, dt, s)';
+            $structure_excactly = 'id UInt32, dt Date, s String';
+
+            $ch->query("DROP TABLE IF EXISTS $table")
+
+               ->query("CREATE TABLE $table" .
+                "( $structure_excactly )" .
+                "ENGINE = MergeTree(dt, (id, dt), 8192)");
+
+            $ch->is_windows = true;
+
+            $ans = $ch->doApiCall(false,
+                ['query' => "INSERT INTO $table $fields FORMAT TabSeparated"],
+                true, [], $file, true);
+
+            $ch->query("SELECT * FROM $table");
+            $this->assertEquals($file_data, $ch->results);
+
+            $ch->is_windows = false;
+
+            try {
+                $ans = $ch->doApiCall(false,
+                    ['query' => "INSERT INTO $table $fields FORMAT TabSeparated"],
+                    true, [], $file, true);
+            } catch (\Exception $e) {
+                echo $e->getMessage();
+                \fclose($ch->fh);
+            }
+
+
+            $ch->query("DROP TABLE IF EXISTS $table");
+            unlink($file);
+            unlink($file . '.gz');
+            $slot = "tmp1";
+            $ans = $ch->toSlot($slot)->doApiCall(false, ['query'=>'SELECT 123']);
+            $this->assertEquals(102, $ans['code']);
+
+            $ch->debug = true;
+
+            $ch->hook_before_api_call = function ($url, $obj) {
+                return "https://ierusalim.github.io";
+            };
+
+            $file = dirname(dirname(__DIR__)) . \DIRECTORY_SEPARATOR . '.gitignore';
+
+            $ans = $ch->doApiCall("empty", [], true, [], $file);
+            $this->assertEquals($ans['code'], 405);
+
+            $this->assertEquals("123\n", $ch->fromSlot($slot)->results);
+        }
+    }
+
+    /**
      * @covers ierusalim\ClickHouse\ClickHouseAPI::getVersion
      */
     public function testGetVersion()
@@ -353,105 +464,6 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
             $ans = $ch->doQuery("SELECT 321");
             $this->assertEquals(\trim($ans['response']), 321);
             $ch->isSupported('session_id', true);
-        }
-    }
-
-    /**
-     * @covers ierusalim\ClickHouse\ClickHouseAPI::doApiCall
-     * @todo   Implement testDoApiCall().
-     */
-    public function testDoApiCall()
-    {
-        $ch = $this->object;
-
-        $slot = "tmp1";
-        $ans = $ch->toSlot($slot)->doApiCall(false, ['query'=>'SELECT 123']);
-        $this->assertEquals(102, $ans['code']);
-
-        $ch->debug = true;
-        $ch->hook_before_api_call = function ($url, $obj) {
-            return "https://ierusalim.github.io";
-        };
-
-        $file = dirname(dirname(__DIR__)) . DIRECTORY_SEPARATOR . '.gitignore';
-
-        $ans = $ch->doApiCall("empty", [], true, [], $file);
-        $this->assertEquals($ans['code'], 405);
-
-        $this->assertEquals("123\n", $ch->fromSlot($slot)->results);
-    }
-
-    /**
-     * @covers ierusalim\ClickHouse\ClickHouseAPI::yiDoApiCall
-     * @todo   Implement testYiDoApiCall().
-     */
-    public function testYiDoApiCall()
-    {
-        $ch = $this->object;
-
-        if ($ch->isSupported('query')) {
-            $table = "anytabletmp";
-
-            $file = 'anyfile.txt';
-
-            $file_data = '';
-            for ($t=1; $t<100; $t++) {
-                $file_data .= $t . "\t2017-12-12\tAny string data\n";
-            }
-
-            $file_size = file_put_contents($file, $file_data);
-
-            $this->assertTrue($file_size > 0);
-
-            $fields = '(id, dt, s)';
-            $structure_excactly = 'id UInt32, dt Date, s String';
-
-            $ch->query("DROP TABLE IF EXISTS $table")
-
-               ->query("CREATE TABLE $table" .
-                "( $structure_excactly )" .
-                "ENGINE = MergeTree(dt, (id, dt), 8192)");
-
-            $ch->is_windows = true;
-
-            $ans = $ch->doApiCall(false,
-                ['query' => "INSERT INTO $table $fields FORMAT TabSeparated"],
-                true, [], $file, true);
-
-            $ch->query("SELECT * FROM $table");
-            $this->assertEquals($file_data, $ch->results);
-
-            $ch->is_windows = false;
-
-            try {
-                $ans = $ch->doApiCall(false,
-                    ['query' => "INSERT INTO $table $fields FORMAT TabSeparated"],
-                    true, [], $file, true);
-            } catch (\Exception $e) {
-                echo $e->getMessage();
-                \fclose($ch->fh);
-            }
-
-
-            $ch->query("DROP TABLE IF EXISTS $table");
-            unlink($file);
-            unlink($file . '.gz');
-            $slot = "tmp1";
-            $ans = $ch->toSlot($slot)->doApiCall(false, ['query'=>'SELECT 123']);
-            $this->assertEquals(102, $ans['code']);
-
-            $ch->debug = true;
-
-            $ch->hook_before_api_call = function ($url, $obj) {
-                return "https://ierusalim.github.io";
-            };
-
-            $file = dirname(dirname(__DIR__)) . \DIRECTORY_SEPARATOR . '.gitignore';
-
-            $ans = $ch->doApiCall("empty", [], true, [], $file);
-            $this->assertEquals($ans['code'], 405);
-
-            $this->assertEquals("123\n", $ch->fromSlot($slot)->results);
         }
     }
 

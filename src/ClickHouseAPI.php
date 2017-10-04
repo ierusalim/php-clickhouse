@@ -714,8 +714,13 @@ class ClickHouseAPI
 
         // hook-function for each requests execute when request is finished
         $fn = function($obj, $slot_low, $par) {
-            $ver = \explode("\n", $this->slot_results[$slot_low]['response']);
-            $ver = (\count($ver) == 2 && \strlen($ver[0]) < 32) ? $ver[0] : "Unknown";
+            // at first, checking curl-error
+            $ver = $this->slot_results[$slot_low]['curl_error'];
+            if (empty($ver)) {
+                // if no curl error, checking response
+                $ver = \explode("\n", $this->slot_results[$slot_low]['response']);
+                $ver = (\count($ver) == 2 && \strlen($ver[0]) < 32) ? $ver[0] : "Unknown";
+            }
             $is_supported = \is_numeric(\substr($ver,0,1)) && (\count(\explode(".", $ver)) > 2);
             if (!$is_supported) {
                 $this->session_autocreate = false;

@@ -522,19 +522,23 @@ trait ClickHouseSlots
     }
 
     /**
-     * Set slot for prepare async request
+     * Set slot name for prepare async request, or clear slot (set sync-mode)
      *
-     * @param string $slot Slot name
+     * @param string|false $slot Slot name or false for set sync-mode
      * @return $this
      * @throws \Exception
      */
-    public function toSlot($slot)
+    public function toSlot($slot = false)
     {
-        $slot_low = strtolower($slot);
-        if (isset($this->multi_ch[$slot_low])) {
-            throw new \Exception("Slot '$slot' is busy");
+        if ($slot) {
+            $slot_low = strtolower($slot);
+            if (isset($this->multi_ch[$slot_low])) {
+                throw new \Exception("Slot '$slot' is busy");
+            }
+            $this->to_slot = $slot_low;
+        } else {
+            $this->to_slot = false;
         }
-        $this->to_slot = $slot_low;
         return $this;
     }
 
