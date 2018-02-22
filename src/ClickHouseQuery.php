@@ -504,7 +504,12 @@ class ClickHouseQuery extends ClickHouseAPI
                     } else {
                         $s = \explode("\t", $s);
                         if (!$numeric_keys) {
-                            $s = \array_combine($keys, $s);
+                            while(\count($s) < \count($keys)) {
+                                $s[]='';
+                            }
+                            if (\count($s) == \count($keys)) {
+                                $s = \array_combine($keys, $s);
+                            }
                         }
                         $this->extra[] = $s;
                     }
