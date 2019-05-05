@@ -559,7 +559,9 @@ class ClickHouseAPI
             \curl_setopt($curl_h, \CURLOPT_POST, true);
             \curl_setopt($curl_h, \CURLOPT_POSTFIELDS, $post_data);
         }
+
         // No Auth in $h_params ? Try alternative
+        if(empty($h_params['user']) && !empty($this->user)) {
             \curl_setopt($curl_h, \CURLOPT_HTTPHEADER, [
                 'X-ClickHouse-User: ' . $this->user,
                 'X-ClickHouse-Key: ' . $this->pass,
