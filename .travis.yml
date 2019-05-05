@@ -21,9 +21,9 @@ before_script:
   - travis_retry composer update --no-interaction --prefer-source
   - if [[ ${TRAVIS_PHP_VERSION:0:3} == "5.4" ]] ; then composer require ramsey/array_column ; fi
   - sudo apt-key adv --keyserver keyserver.ubuntu.com --recv E0C56BD4
-  - echo "deb http://repo.yandex.ru/clickhouse/precise stable main" | sudo tee -a /etc/apt/sources.list
+  - echo "deb http://repo.yandex.ru/clickhouse/deb/stable/ main/" | sudo tee -a /etc/apt/sources.list
   - sudo apt-get update -qq
-  - sudo apt-get install clickhouse-server-common clickhouse-client -y
+  - sudo apt-get install clickhouse-server clickhouse-client -y
   - sudo sed -i -- 's/listen_host>::/listen_host>0.0.0.0/g' /etc/clickhouse-server/config.xml
   - sudo service clickhouse-server start
   - sudo netstat -ltn
