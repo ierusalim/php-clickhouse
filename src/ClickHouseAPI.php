@@ -432,17 +432,17 @@ class ClickHouseAPI
             }
         }
 
-        $h_parameters = \array_merge(
+        $h_params = \array_merge(
             \compact('user', 'password', 'query'),
             $this->options
         );
 
-        if (isset($h_parameters['session_id']) && !$this->isSupported('session_id')) {
-            unset($h_parameters['session_id']);
+        if (isset($h_params['session_id']) && !$this->isSupported('session_id')) {
+            unset($h_params['session_id']);
         }
 
         $response_data = $this->doApiCall(
-            $this->server_url, $h_parameters, $is_post, $post_data, $file, $put
+            $this->server_url, $h_params, $is_post, $post_data, $file, $put
         );
 
         // Restore old session if need
@@ -558,6 +558,12 @@ class ClickHouseAPI
             }
             \curl_setopt($curl_h, \CURLOPT_POST, true);
             \curl_setopt($curl_h, \CURLOPT_POSTFIELDS, $post_data);
+        }
+        // No Auth in $h_params ? Try alternative
+            \curl_setopt($curl_h, \CURLOPT_HTTPHEADER, [
+                'X-ClickHouse-User: ' . $this->user,
+                'X-ClickHouse-Key: ' . $this->pass,
+            ]);
         }
         \curl_setopt_array($curl_h, $this->curl_options);
 

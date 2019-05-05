@@ -81,6 +81,7 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
     public function testDoApiCall()
     {
         $ch = $this->object;
+        $ch->debug = true;
 
         // $ch->toSlot()->doApiCall - clear async-mode, than do..
 
@@ -126,7 +127,7 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
 
             $file_data = '';
             for ($t=1; $t<100; $t++) {
-                $file_data .= $t . "\t2017-12-12\tAny string data\n";
+                $file_data .= $t . "\t2019-12-12\tAny string data\n";
             }
 
             $file_size = file_put_contents($file, $file_data);
@@ -143,14 +144,20 @@ class ClickHouseAPITest extends \PHPUnit_Framework_TestCase
                 "ENGINE = MergeTree(dt, (id, dt), 8192)");
 
             $ch->is_windows = true;
-
             $ans = $ch->doApiCall(false,
                 ['query' => "INSERT INTO $table $fields FORMAT TabSeparated"],
                 true, [], $file, true);
 
-            $ch->query("SELECT * FROM $table");
-            $this->assertEquals($file_data, $ch->results);
+            if ($ans['code'] == 200) {
 
+                $ch->query("SELECT * FROM $table");
+
+                $this->assertEquals($file_data, $ch->results);
+
+            } else {
+                echo "Error on try upload file:";
+                echo $ans['code'] . ' ' . $ans['curl_error'] . "\n";
+            }
             $ch->is_windows = false;
 
             try {

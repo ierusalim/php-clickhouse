@@ -481,6 +481,7 @@ class ClickHouseQuery extends ClickHouseAPI
                             $this->names = $x;
                         }
                     } else {
+                        while(\count($x) < \count($keys)) $x[]='';
                         $ret[] = \array_combine($keys, $x);
                     }
                 }
