@@ -7,19 +7,18 @@ sudo: required
 # list any PHP version you want to test against
 php:
   # using major version aliases
-  # - 5.4 removed
   - 5.5
   - 5.6
   - 7.0
   - 7.1
   - 7.2
+  - 7.3
 
 # execute any number of scripts before the test run, custom env's are available as variables
 before_script:
   - travis_retry composer self-update
   - composer config notify-on-install false
   - travis_retry composer update --no-interaction --prefer-source
-  - if [[ ${TRAVIS_PHP_VERSION:0:3} == "5.4" ]] ; then composer require ramsey/array_column ; fi
   - sudo apt-key adv --keyserver keyserver.ubuntu.com --recv E0C56BD4
   - echo "deb http://repo.yandex.ru/clickhouse/deb/stable/ main/" | sudo tee -a /etc/apt/sources.list
   - sudo apt-get update -qq
