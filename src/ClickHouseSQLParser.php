@@ -517,6 +517,7 @@ class ClickHouseSQLParser
         $cb = ')]}';
         $z = [];
         $q = '';
+        $str = (string)$str;
         $l = \strlen($str);
         for ($i=0; $i < $l; $i++) {
             $c = $str[$i];
