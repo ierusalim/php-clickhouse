@@ -867,6 +867,7 @@ class ClickHouseSQLParser
             return $eng_arr;
         }
 
+        $names = $parse_fields = [];
         if (!empty($create_fields)) {
             $fields_arr = $this->parseCreateFields($create_fields);
             if (\is_array($fields_arr)) {
