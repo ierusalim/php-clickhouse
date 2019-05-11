@@ -237,7 +237,7 @@ trait ClickHouseSlots
             $status = true;
         }
         $this->slot_data[$slot] = \array_merge($slot_data,
-            \compact('code', 'response', 'curl_error', 'curl_info', 'headers', 'status')
+            \compact('code', 'response', 'curl_error', 'curl_info', 'status')
         );
         $this->multi_status[$slot] = $status;
         $this->slot_results[$slot] = $response;
