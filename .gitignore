@@ -1,8 +1,5 @@
 /start.php
 /localenv.php
-/src/ClickHouseCRUD.php
-/src/ClickHouseTableType.php
-/tests/src/ClickHouseTableTypeTest.php
 /doc/
 /tmp/
 anyfile.txt.gz
